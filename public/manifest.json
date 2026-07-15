@@ -1,0 +1,13 @@
+{
+  "name": "Mi Calendario de Entrenamiento",
+  "short_name": "Mi Calendario",
+  "description": "Running, natación y funcional organizados por FC, no por esfuerzo máximo.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fff4ed",
+  "theme_color": "#fb5a17",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}
