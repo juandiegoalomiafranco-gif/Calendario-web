@@ -6,6 +6,8 @@ export type SessionType =
   | 'running-goal'
   | 'swim-technique'
   | 'swim-endurance'
+  | 'futbol'
+  | 'voley'
   | 'flex'
   | 'rest'
 
@@ -18,6 +20,7 @@ export interface Session {
   title: string
   summary: string
   fixed?: boolean
+  focus?: string
   distanceKm?: string
   pace?: string
   hrTarget?: string
@@ -27,10 +30,26 @@ export interface Session {
   flexOptions?: string[]
 }
 
+export interface Recovery {
+  title: string
+  detail: string
+}
+
 export interface DayPlan {
   date: string // YYYY-MM-DD
   weekday: string
   sessions: Session[]
+  recovery?: Recovery
+  note?: string
+}
+
+export type CustomKind = 'futbol' | 'voley'
+
+export interface CustomActivity {
+  id: string // custom-${timestamp}
+  date: string // YYYY-MM-DD
+  kind: CustomKind
+  slot: Slot
   note?: string
 }
 

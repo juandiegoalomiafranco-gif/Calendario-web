@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PLAN, todayISO } from '../data/plan'
 import { WeekGrid } from '../components/WeekGrid'
+import { mergeDay, useCustomActivities } from '../hooks/useCustomActivities'
 
 function chunkIntoWeeks<T extends { date: string }>(days: T[]): T[][] {
   const weeks: T[][] = []
@@ -25,8 +26,12 @@ export function Week() {
     return idx >= 0 ? idx : 0
   }, [weeks, iso])
   const [weekIdx, setWeekIdx] = useState(currentWeekIdx)
+  const { forDate } = useCustomActivities()
 
-  const week = weeks[weekIdx] ?? []
+  const week = useMemo(
+    () => (weeks[weekIdx] ?? []).map((d) => mergeDay(d, forDate(d.date))),
+    [weeks, weekIdx, forDate],
+  )
 
   return (
     <div className="flex flex-col gap-5">
@@ -34,7 +39,7 @@ export function Week() {
         <h1 className="text-3xl font-bold text-ink-900">Semana</h1>
       </header>
 
-      <div className="flex items-center justify-between bg-white rounded-full shadow-card p-1.5">
+      <div className="flex items-center justify-between bg-card rounded-full shadow-card p-1.5">
         <button
           className="w-9 h-9 rounded-full flex items-center justify-center text-ink-600 disabled:opacity-30"
           onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}

@@ -1,0 +1,63 @@
+import { useCallback, useEffect, useState } from 'react'
+import type { CustomActivity, DayPlan, Session, Slot } from '../data/types'
+
+const STORAGE_KEY = 'calendario-web:custom:v1'
+
+function readStorage(): CustomActivity[] {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    const parsed = raw ? (JSON.parse(raw) as CustomActivity[]) : []
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
+
+export function useCustomActivities() {
+  const [activities, setActivities] = useState<CustomActivity[]>(() => readStorage())
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(activities))
+  }, [activities])
+
+  const forDate = useCallback(
+    (date: string): CustomActivity[] => activities.filter((a) => a.date === date),
+    [activities],
+  )
+
+  const add = useCallback((a: Omit<CustomActivity, 'id'>): string => {
+    const id = `custom-${Date.now()}`
+    setActivities((prev) => [...prev, { ...a, id }])
+    return id
+  }, [])
+
+  const remove = useCallback((id: string) => {
+    setActivities((prev) => prev.filter((a) => a.id !== id))
+  }, [])
+
+  return { activities, forDate, add, remove }
+}
+
+export function customToSession(a: CustomActivity): Session {
+  const isFutbol = a.kind === 'futbol'
+  return {
+    id: a.id,
+    slot: a.slot,
+    type: a.kind,
+    title: isFutbol ? 'Fútbol (agregado por ti)' : 'Vóley (agregado por ti)',
+    summary: isFutbol ? 'Fútbol' : 'Vóley',
+    why: 'Actividad que agregaste tú. Cuenta como sesión de alta intensidad/impacto: si la juegas, reemplaza la natación de resistencia o el flex del día — no la sumes a todo lo demás.',
+    selfRegulation: a.note || undefined,
+  }
+}
+
+const SLOT_ORDER: Record<Slot, number> = { AM: 0, ALL: 1, PM: 2 }
+
+export function mergeDay(day: DayPlan, customs: CustomActivity[]): DayPlan {
+  if (!customs.length) return day
+  const extra = customs.map(customToSession)
+  return {
+    ...day,
+    sessions: [...day.sessions, ...extra].sort((a, b) => SLOT_ORDER[a.slot] - SLOT_ORDER[b.slot]),
+  }
+}

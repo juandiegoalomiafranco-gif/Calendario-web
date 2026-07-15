@@ -14,7 +14,7 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
   return (
     <Link
       to={`/dia/${date}/${session.id}`}
-      className="block rounded-3xl bg-white shadow-card p-4 active:scale-[0.98] transition-transform"
+      className="block rounded-3xl bg-card shadow-card p-4 active:scale-[0.98] transition-transform"
     >
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center text-xl`}>
@@ -32,6 +32,7 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
             )}
           </div>
           <h3 className="text-base font-semibold text-ink-900 mt-0.5 truncate">{session.title}</h3>
+          {session.focus && <p className="text-sm text-brand-600 font-medium mt-0.5">{session.focus}</p>}
           {(session.distanceKm || session.pace) && (
             <p className="text-sm text-ink-500 mt-0.5">
               {session.distanceKm ? `${session.distanceKm} km` : ''}

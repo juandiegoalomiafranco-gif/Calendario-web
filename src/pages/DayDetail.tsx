@@ -1,11 +1,14 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { SESSION_META } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { mergeDay, useCustomActivities } from '../hooks/useCustomActivities'
+import { RecoveryCard } from '../components/RecoveryCard'
+import { AddActivityForm } from '../components/AddActivityForm'
 import type { LogEntry, Session } from '../data/types'
 
-function SessionDetailCard({ session }: { session: Session }) {
+function SessionDetailCard({ session, onDelete }: { session: Session; onDelete?: () => void }) {
   const meta = SESSION_META[session.type]
   const { getEntry, setEntry, toggleCompleted } = useTrainingLog()
   const entry = getEntry(session.id) ?? { completed: false }
@@ -21,7 +24,7 @@ function SessionDetailCard({ session }: { session: Session }) {
   const patch = (p: Partial<LogEntry>) => setEntry(session.id, { ...entry, ...p })
 
   return (
-    <div ref={ref} className="rounded-3xl bg-white shadow-card p-4 flex flex-col gap-3 scroll-mt-4">
+    <div ref={ref} className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3 scroll-mt-4">
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center text-xl`}>
           {meta.emoji}
@@ -31,11 +34,16 @@ function SessionDetailCard({ session }: { session: Session }) {
             {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
           </span>
           <h3 className="text-lg font-semibold text-ink-900">{session.title}</h3>
+          {session.focus && (
+            <span className="inline-block mt-1.5 text-xs font-semibold bg-brand-50 text-brand-700 rounded-full px-2.5 py-1">
+              {session.focus}
+            </span>
+          )}
         </div>
       </div>
 
       {(session.distanceKm || session.pace || session.hrTarget) && (
-        <div className="grid grid-cols-1 gap-1.5 text-sm bg-ink-50 rounded-2xl p-3">
+        <div className="grid grid-cols-1 gap-1.5 text-sm bg-ink-100 rounded-2xl p-3">
           {session.distanceKm && (
             <p>
               <span className="font-semibold text-ink-900">Distancia:</span> {session.distanceKm} km
@@ -112,7 +120,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 inputMode="numeric"
                 value={entry.avgHr ?? ''}
                 onChange={(e) => patch({ avgHr: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-ink-500">
@@ -123,7 +131,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 inputMode="decimal"
                 value={entry.distanceKm ?? ''}
                 onChange={(e) => patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
             <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
@@ -131,7 +139,7 @@ function SessionDetailCard({ session }: { session: Session }) {
               <select
                 value={entry.feeling ?? ''}
                 onChange={(e) => patch({ feeling: (e.target.value || undefined) as LogEntry['feeling'] })}
-                className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               >
                 <option value="">Sin especificar</option>
                 <option value="genial">Genial</option>
@@ -146,10 +154,16 @@ function SessionDetailCard({ session }: { session: Session }) {
                 value={entry.notes ?? ''}
                 onChange={(e) => patch({ notes: e.target.value })}
                 rows={2}
-                className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
           </div>
+        )}
+
+        {onDelete && (
+          <button onClick={onDelete} className="self-start text-sm text-red-500 font-medium">
+            Eliminar actividad
+          </button>
         )}
       </div>
     </div>
@@ -158,13 +172,17 @@ function SessionDetailCard({ session }: { session: Session }) {
 
 export function DayDetail() {
   const { date } = useParams()
-  const day = date ? getDayPlan(date) : undefined
+  const planDay = date ? getDayPlan(date) : undefined
+  const { forDate, remove } = useCustomActivities()
+
+  const customs = date ? forDate(date) : []
+  const day = useMemo(() => (planDay ? mergeDay(planDay, customs) : undefined), [planDay, customs])
 
   if (!day) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-ink-500">No encontramos ese día en el plan.</p>
-        <Link to="/semana" className="text-brand-600 font-semibold">
+        <Link to="/semana" className="text-brand-500 font-semibold">
           Volver a la semana
         </Link>
       </div>
@@ -185,8 +203,14 @@ export function DayDetail() {
 
       <div className="flex flex-col gap-4">
         {day.sessions.map((s) => (
-          <SessionDetailCard key={s.id} session={s} />
+          <SessionDetailCard
+            key={s.id}
+            session={s}
+            onDelete={s.id.startsWith('custom-') ? () => remove(s.id) : undefined}
+          />
         ))}
+        {day.recovery && <RecoveryCard date={day.date} recovery={day.recovery} />}
+        <AddActivityForm date={day.date} />
       </div>
     </div>
   )

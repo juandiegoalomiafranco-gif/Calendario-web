@@ -7,7 +7,7 @@ interface StatCardProps {
 
 export function StatCard({ label, value, unit, icon }: StatCardProps) {
   return (
-    <div className="rounded-3xl bg-white shadow-card p-4 flex-1 min-w-[8rem]">
+    <div className="rounded-3xl bg-card shadow-card p-4 flex-1 min-w-[8rem]">
       <div className="flex items-center gap-1.5 text-ink-500 text-sm">
         {icon && <span>{icon}</span>}
         <span>{label}</span>
