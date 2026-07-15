@@ -1,8 +1,12 @@
 import { useMemo } from 'react'
-import { PLAN, PRINCIPLES, GOAL_DATE, GOAL_DISTANCE_KM, todayISO, getDayPlan } from '../data/plan'
+import { GOAL_DATE, GOAL_DISTANCE_KM, todayISO, getDayPlan } from '../data/plan'
+import { quoteForDate } from '../data/quotes'
 import { SessionCard } from '../components/SessionCard'
-import { PrincipleCard } from '../components/PrincipleCard'
+import { QuoteCard } from '../components/QuoteCard'
+import { RecoveryCard } from '../components/RecoveryCard'
+import { AddActivityForm } from '../components/AddActivityForm'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { mergeDay, useCustomActivities } from '../hooks/useCustomActivities'
 
 function daysUntil(dateIso: string): number {
   const today = new Date(`${todayISO()}T00:00:00Z`)
@@ -12,13 +16,14 @@ function daysUntil(dateIso: string): number {
 
 export function Today() {
   const iso = todayISO()
-  const day = getDayPlan(iso)
+  const planDay = getDayPlan(iso)
   const { getEntry } = useTrainingLog()
+  const { forDate } = useCustomActivities()
 
-  const principle = useMemo(() => {
-    const idx = PLAN.findIndex((d) => d.date === iso)
-    return PRINCIPLES[(idx >= 0 ? idx : 0) % PRINCIPLES.length]
-  }, [iso])
+  const customs = forDate(iso)
+  const day = useMemo(() => (planDay ? mergeDay(planDay, customs) : undefined), [planDay, customs])
+
+  const quote = useMemo(() => quoteForDate(iso), [iso])
 
   const remaining = daysUntil(GOAL_DATE)
 
@@ -30,19 +35,19 @@ export function Today() {
       </header>
 
       {remaining >= 0 && (
-        <div className="rounded-3xl bg-white shadow-card p-4 flex items-center justify-between">
+        <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
           <div>
             <p className="text-sm text-ink-500">Meta: {GOAL_DISTANCE_KM} km</p>
             <p className="text-base font-semibold text-ink-900">5 de agosto</p>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-brand-600">{remaining}</p>
+            <p className="text-3xl font-bold text-brand-500">{remaining}</p>
             <p className="text-xs text-ink-400">días restantes</p>
           </div>
         </div>
       )}
 
-      <PrincipleCard text={principle} />
+      <QuoteCard text={quote.text} author={quote.author} />
 
       <section className="flex flex-col gap-3">
         <h2 className="text-lg font-semibold text-ink-900">Entrenamiento de hoy</h2>
@@ -53,6 +58,8 @@ export function Today() {
         ) : (
           <p className="text-ink-500 text-sm">No hay un plan cargado para hoy todavía.</p>
         )}
+        {day?.recovery && <RecoveryCard date={day.date} recovery={day.recovery} />}
+        {day && <AddActivityForm date={iso} />}
         {day?.note && (
           <p className="text-sm text-ink-500 bg-ink-100 rounded-2xl p-3">{day.note}</p>
         )}

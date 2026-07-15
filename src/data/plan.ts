@@ -1,4 +1,4 @@
-import type { DayPlan, Session } from './types'
+import type { DayPlan, Recovery, Session } from './types'
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -8,21 +8,77 @@ function weekdayOf(date: string): string {
   return WEEKDAYS[d.getUTCDay()]
 }
 
-const CROSSFIT_WHY =
-  'Es tu sesión fija con el entrenador (funcional tipo CrossFit + pesas). Ya te da de sobra el estímulo de alta intensidad de la semana — por eso el running de estos días no necesita ser también duro.'
-
 const CROSSFIT_SELF_REG =
   'Si traes piernas cargadas (de correr, fútbol o vóley), avísale a tu entrenador antes de empezar para que module el volumen de tren inferior de hoy.'
 
-function crossfit(id: string, note?: string): Session {
+const SHOW_COACH =
+  'Muéstrale este foco a tu profesor para estructurar la sesión — así ningún grupo muscular se carga dos días seguidos.'
+
+type FocusKey = 'inferior' | 'pliometria' | 'superior' | 'taper'
+
+const FUNCIONAL_FOCUS: Record<FocusKey, { focus: string; summary: string; structure: string[]; why: string }> = {
+  inferior: {
+    focus: 'Fortalecimiento — tren inferior',
+    summary: 'Funcional · pierna',
+    structure: [
+      'Movilidad de cadera y tobillo, 8-10 min',
+      'Fuerza: sentadilla / peso muerto / zancadas — 4-5 series',
+      'Accesorio: hip thrust o step-ups — 3 series',
+      'Core anti-rotación (press Pallof, plancha con arrastre) — 3 rondas',
+      'Sin saltos hoy: la pliometría va el miércoles',
+    ],
+    why: `Hoy el funcional va de fuerza de pierna: es el día más lejano al fondo del sábado y vienes del descanso del domingo, así que es el momento seguro para pierna pesada. ${SHOW_COACH}`,
+  },
+  pliometria: {
+    focus: 'Pliometría y potencia',
+    summary: 'Funcional · pliometría',
+    structure: [
+      'Calentamiento con skipping y saltos progresivos, 8-10 min',
+      'Saltos al cajón / salto vertical / bounds — 4-6 series de pocas reps (calidad, no fatiga)',
+      'Potencia: kettlebell swings o lanzamientos de balón medicinal — 3-4 series',
+      'Metcon corto opcional 8-10 min, sin sobrecargar pierna',
+      'Core dinámico (mountain climbers, hollow rocks) — 3 rondas',
+    ],
+    why: `Hoy toca explosividad: saltos y potencia de calidad, que mejoran tu economía de carrera y tu rendimiento en vóley y fútbol. Faltan 3 días para el fondo, hay tiempo de sobra para recuperar. ${SHOW_COACH}`,
+  },
+  superior: {
+    focus: 'Fortalecimiento — tren superior + core',
+    summary: 'Funcional · superior',
+    structure: [
+      'Movilidad de hombro y escápula, 8 min',
+      'Empuje: press banca / press hombro / fondos — 4 series',
+      'Tracción: dominadas / remo — 4 series',
+      'Accesorios de brazo y hombro — 2-3 series',
+      'Core: hollow hold, press Pallof — 3 rondas',
+      'Cero pierna pesada: mañana rodaje y el sábado fondo largo',
+    ],
+    why: `Hoy el funcional es de tren superior y core: cero pierna pesada, porque mañana hay rodaje y el sábado viene el fondo largo — así llegas con piernas frescas. ${SHOW_COACH}`,
+  },
+  taper: {
+    focus: 'Full body suave — taper',
+    summary: 'Funcional · taper',
+    structure: [
+      'Movilidad general, 10 min',
+      'Circuito full body liviano con foco en técnica — 2-3 rondas suaves',
+      'Sin pierna pesada ni saltos',
+      'Core suave — 2 rondas',
+    ],
+    why: `Semana de taper: el funcional de hoy es liviano para llegar fresco al intento de los 21 km. ${SHOW_COACH}`,
+  },
+}
+
+function crossfit(id: string, focusKey: FocusKey, note?: string): Session {
+  const f = FUNCIONAL_FOCUS[focusKey]
   return {
     id,
     slot: 'AM',
     type: 'crossfit',
     title: 'Funcional / CrossFit con entrenador',
-    summary: 'Funcional fijo',
+    summary: f.summary,
+    focus: f.focus,
+    structure: f.structure,
     fixed: true,
-    why: note ?? CROSSFIT_WHY,
+    why: note ?? f.why,
     selfRegulation: CROSSFIT_SELF_REG,
   }
 }
@@ -34,7 +90,7 @@ function restPM(id: string, title = 'Descanso / movilidad suave'): Session {
     type: 'rest',
     title,
     summary: 'Descanso',
-    why: 'Después de una sesión fuerte por la mañana, la tarde es para recuperar: foam roller 10-15 min, estiramiento suave o simplemente descansar. No agregues carga nueva.',
+    why: 'Después de una sesión fuerte por la mañana, la tarde es para recuperar: estiramiento suave o simplemente descansar. No agregues carga nueva — el foam roller del día ya está abajo en tu checklist.',
   }
 }
 
@@ -130,6 +186,19 @@ function flexSlot(id: string, sport: 'fútbol' | 'vóley', swimAlt: Session): Se
   }
 }
 
+function roller(title: string, detail: string): Recovery {
+  return { title, detail }
+}
+
+// Foam roller del día, con foco acorde a la carga de cada día de la semana
+const ROLLER_LUN = roller('Foam roller — cuádriceps y glúteos', '10 min por la tarde, después del funcional de pierna.')
+const ROLLER_MAR = roller('Foam roller — pantorrillas y cuádriceps', '10 min después de la actividad de la tarde.')
+const ROLLER_MIE = roller('Foam roller — pantorrillas y tibiales', '10 min, suave después de la pliometría.')
+const ROLLER_JUE = roller('Foam roller — espalda alta y dorsales', '10 min, con una pasada suave de piernas.')
+const ROLLER_VIE = roller('Foam roller — piernas completas', '10 min después del rodaje o del partido.')
+const ROLLER_SAB = roller('Foam roller — piernas completas', '15 min, muy suave después del fondo largo.')
+const ROLLER_DOM = roller('Foam roller suave — cuerpo completo (opcional)', '10 min si sientes el cuerpo cargado; si no, descansa.')
+
 export const PRINCIPLES: string[] = [
   'La FC manda, no el ritmo: en los rodajes fáciles, ve más lento de lo que creas necesario.',
   'Nunca apiles dos sesiones fuertes de pierna seguidas si lo puedes evitar — por eso el running de calidad no existe todavía, el funcional y el deporte ya cubren esa dosis.',
@@ -143,8 +212,18 @@ export const GOAL_DATE = '2026-08-05'
 export const GOAL_DISTANCE_KM = 21
 
 export const PLAN: DayPlan[] = [
-  { date: '2026-07-15', weekday: weekdayOf('2026-07-15'), sessions: [crossfit('2026-07-15-am'), restPM('2026-07-15-pm')] },
-  { date: '2026-07-16', weekday: weekdayOf('2026-07-16'), sessions: [crossfit('2026-07-16-am'), swimTechnique('2026-07-16-pm')] },
+  {
+    date: '2026-07-15',
+    weekday: weekdayOf('2026-07-15'),
+    sessions: [crossfit('2026-07-15-am', 'pliometria'), restPM('2026-07-15-pm')],
+    recovery: ROLLER_MIE,
+  },
+  {
+    date: '2026-07-16',
+    weekday: weekdayOf('2026-07-16'),
+    sessions: [crossfit('2026-07-16-am', 'superior'), swimTechnique('2026-07-16-pm')],
+    recovery: ROLLER_JUE,
+  },
   {
     date: '2026-07-17',
     weekday: weekdayOf('2026-07-17'),
@@ -152,14 +231,21 @@ export const PLAN: DayPlan[] = [
       easyRun('2026-07-17-am', '5', 'Primer rodaje del plan: arranca conservador, la idea es sentir cómo baja la FC al ir más lento.'),
       flexSlot('2026-07-17-pm', 'fútbol', swimEndurance('2026-07-17-pm-swim', ['100 m calentamiento', '4×75 m @ 2:10–2:20/100m, descanso 20 s', '100 m suelta'], '~0.5 km')),
     ],
+    recovery: ROLLER_VIE,
   },
   {
     date: '2026-07-18',
     weekday: weekdayOf('2026-07-18'),
     sessions: [longRun('2026-07-18-am', '10–11'), restPM('2026-07-18-pm', 'Descanso / recuperación')],
+    recovery: ROLLER_SAB,
   },
-  { date: '2026-07-19', weekday: weekdayOf('2026-07-19'), sessions: [restFullDay('2026-07-19')] },
-  { date: '2026-07-20', weekday: weekdayOf('2026-07-20'), sessions: [crossfit('2026-07-20-am'), restPM('2026-07-20-pm')] },
+  { date: '2026-07-19', weekday: weekdayOf('2026-07-19'), sessions: [restFullDay('2026-07-19')], recovery: ROLLER_DOM },
+  {
+    date: '2026-07-20',
+    weekday: weekdayOf('2026-07-20'),
+    sessions: [crossfit('2026-07-20-am', 'inferior'), restPM('2026-07-20-pm')],
+    recovery: ROLLER_LUN,
+  },
   {
     date: '2026-07-21',
     weekday: weekdayOf('2026-07-21'),
@@ -167,9 +253,20 @@ export const PLAN: DayPlan[] = [
       easyRun('2026-07-21-am', '5'),
       flexSlot('2026-07-21-pm', 'vóley', swimTechnique('2026-07-21-pm-swim')),
     ],
+    recovery: ROLLER_MAR,
   },
-  { date: '2026-07-22', weekday: weekdayOf('2026-07-22'), sessions: [crossfit('2026-07-22-am'), restPM('2026-07-22-pm', 'Descanso total')] },
-  { date: '2026-07-23', weekday: weekdayOf('2026-07-23'), sessions: [crossfit('2026-07-23-am'), swimTechnique('2026-07-23-pm')] },
+  {
+    date: '2026-07-22',
+    weekday: weekdayOf('2026-07-22'),
+    sessions: [crossfit('2026-07-22-am', 'pliometria'), restPM('2026-07-22-pm', 'Descanso total')],
+    recovery: ROLLER_MIE,
+  },
+  {
+    date: '2026-07-23',
+    weekday: weekdayOf('2026-07-23'),
+    sessions: [crossfit('2026-07-23-am', 'superior'), swimTechnique('2026-07-23-pm')],
+    recovery: ROLLER_JUE,
+  },
   {
     date: '2026-07-24',
     weekday: weekdayOf('2026-07-24'),
@@ -181,14 +278,21 @@ export const PLAN: DayPlan[] = [
         swimEndurance('2026-07-24-pm-swim', ['100 m calentamiento', '3×100 m @ 2:10–2:20/100m, descanso 20–25 s', '100 m suelta'], '~0.7 km'),
       ),
     ],
+    recovery: ROLLER_VIE,
   },
   {
     date: '2026-07-25',
     weekday: weekdayOf('2026-07-25'),
     sessions: [longRun('2026-07-25-am', '14–15'), restPM('2026-07-25-pm', 'Descanso / recuperación')],
+    recovery: ROLLER_SAB,
   },
-  { date: '2026-07-26', weekday: weekdayOf('2026-07-26'), sessions: [restFullDay('2026-07-26')] },
-  { date: '2026-07-27', weekday: weekdayOf('2026-07-27'), sessions: [crossfit('2026-07-27-am'), restPM('2026-07-27-pm')] },
+  { date: '2026-07-26', weekday: weekdayOf('2026-07-26'), sessions: [restFullDay('2026-07-26')], recovery: ROLLER_DOM },
+  {
+    date: '2026-07-27',
+    weekday: weekdayOf('2026-07-27'),
+    sessions: [crossfit('2026-07-27-am', 'inferior'), restPM('2026-07-27-pm')],
+    recovery: ROLLER_LUN,
+  },
   {
     date: '2026-07-28',
     weekday: weekdayOf('2026-07-28'),
@@ -196,9 +300,20 @@ export const PLAN: DayPlan[] = [
       easyRun('2026-07-28-am', '6'),
       flexSlot('2026-07-28-pm', 'vóley', swimTechnique('2026-07-28-pm-swim')),
     ],
+    recovery: ROLLER_MAR,
   },
-  { date: '2026-07-29', weekday: weekdayOf('2026-07-29'), sessions: [crossfit('2026-07-29-am'), restPM('2026-07-29-pm', 'Descanso total')] },
-  { date: '2026-07-30', weekday: weekdayOf('2026-07-30'), sessions: [crossfit('2026-07-30-am'), swimTechnique('2026-07-30-pm')] },
+  {
+    date: '2026-07-29',
+    weekday: weekdayOf('2026-07-29'),
+    sessions: [crossfit('2026-07-29-am', 'pliometria'), restPM('2026-07-29-pm', 'Descanso total')],
+    recovery: ROLLER_MIE,
+  },
+  {
+    date: '2026-07-30',
+    weekday: weekdayOf('2026-07-30'),
+    sessions: [crossfit('2026-07-30-am', 'superior'), swimTechnique('2026-07-30-pm')],
+    recovery: ROLLER_JUE,
+  },
   {
     date: '2026-07-31',
     weekday: weekdayOf('2026-07-31'),
@@ -210,6 +325,7 @@ export const PLAN: DayPlan[] = [
         swimEndurance('2026-07-31-pm-swim', ['100 m calentamiento', '4×100 m @ 2:10–2:20/100m, descanso 20 s (más continuo)', '100 m suelta'], '~0.8–0.9 km'),
       ),
     ],
+    recovery: ROLLER_VIE,
   },
   {
     date: '2026-08-01',
@@ -222,15 +338,21 @@ export const PLAN: DayPlan[] = [
       ),
       restPM('2026-08-01-pm', 'Descanso / recuperación'),
     ],
+    recovery: ROLLER_SAB,
   },
-  { date: '2026-08-02', weekday: weekdayOf('2026-08-02'), sessions: [restFullDay('2026-08-02')] },
+  { date: '2026-08-02', weekday: weekdayOf('2026-08-02'), sessions: [restFullDay('2026-08-02')], recovery: ROLLER_DOM },
   {
     date: '2026-08-03',
     weekday: weekdayOf('2026-08-03'),
     sessions: [
-      crossfit('2026-08-03-am', 'Última sesión de funcional antes del intento de los 21 km — es un buen momento para pedirle a tu entrenador que baje el volumen de piernas (semana de taper).'),
+      crossfit(
+        '2026-08-03-am',
+        'taper',
+        'Última sesión de funcional antes del intento de los 21 km — es un buen momento para pedirle a tu entrenador que baje el volumen de piernas (semana de taper).',
+      ),
       restPM('2026-08-03-pm'),
     ],
+    recovery: roller('Foam roller — pasada suave de piernas', '10 min, sin presión fuerte: semana de taper.'),
   },
   {
     date: '2026-08-04',
@@ -250,6 +372,7 @@ export const PLAN: DayPlan[] = [
       },
       restPM('2026-08-04-pm', 'Descanso / movilidad suave'),
     ],
+    recovery: roller('Foam roller — pasada muy suave de piernas', '8-10 min, solo para soltar; nada de presión profunda antes del día clave.'),
   },
   {
     date: '2026-08-05',
@@ -271,6 +394,7 @@ export const PLAN: DayPlan[] = [
       },
       restPM('2026-08-05-pm', 'Descanso total — te lo ganaste'),
     ],
+    recovery: roller('Foam roller — recuperación post-21K', '15 min muy suaves por la tarde: piernas completas, sin buscar dolor.'),
   },
 ]
 
