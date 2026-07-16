@@ -16,52 +16,70 @@ const SHOW_COACH =
 
 type FocusKey = 'inferior' | 'pliometria' | 'superior' | 'taper'
 
-const FUNCIONAL_FOCUS: Record<FocusKey, { focus: string; summary: string; structure: string[]; why: string }> = {
+const FUNCIONAL_FOCUS: Record<FocusKey, { focus: string; summary: string; targets: string[]; tips: string[]; why: string }> = {
   inferior: {
     focus: 'Fortalecimiento — tren inferior',
     summary: 'Funcional · pierna',
-    structure: [
-      'Movilidad de cadera y tobillo, 8-10 min',
-      'Fuerza: sentadilla / peso muerto / zancadas — 4-5 series',
-      'Accesorio: hip thrust o step-ups — 3 series',
-      'Core anti-rotación (press Pallof, plancha con arrastre) — 3 rondas',
+    targets: [
+      'Fuerza de tren inferior: cuádriceps, glúteos e isquios',
+      'Estabilidad de cadera y tobillo',
+      'Core anti-rotación',
+    ],
+    tips: [
+      'Entra con movilidad de cadera y tobillo antes de cargar',
+      'Lo pesado de pierna al inicio de la sesión, cuando estás fresco',
       'Sin saltos hoy: la pliometría va el miércoles',
+      'Si el domingo no descansaste bien, pídele al profesor bajar el volumen',
     ],
     why: `Hoy el funcional va de fuerza de pierna: es el día más lejano al fondo del sábado y vienes del descanso del domingo, así que es el momento seguro para pierna pesada. ${SHOW_COACH}`,
   },
   pliometria: {
     focus: 'Pliometría y potencia',
     summary: 'Funcional · pliometría',
-    structure: [
-      'Calentamiento con skipping y saltos progresivos, 8-10 min',
-      'Saltos al cajón / salto vertical / bounds — 4-6 series de pocas reps (calidad, no fatiga)',
-      'Potencia: kettlebell swings o lanzamientos de balón medicinal — 3-4 series',
-      'Metcon corto opcional 8-10 min, sin sobrecargar pierna',
-      'Core dinámico (mountain climbers, hollow rocks) — 3 rondas',
+    targets: [
+      'Potencia de salto (pliometría)',
+      'Explosividad de cadera',
+      'Velocidad y reactividad',
+      'Core dinámico',
+    ],
+    tips: [
+      'Calidad sobre cantidad: pocas repeticiones con descansos completos',
+      'Corta la serie cuando pierdas altura o velocidad',
+      'Calentamiento progresivo con saltos suaves antes de lo explosivo',
+      'Sin llegar a fatiga extrema: en 3 días viene el fondo largo',
     ],
     why: `Hoy toca explosividad: saltos y potencia de calidad, que mejoran tu economía de carrera y tu rendimiento en vóley y fútbol. Faltan 3 días para el fondo, hay tiempo de sobra para recuperar. ${SHOW_COACH}`,
   },
   superior: {
     focus: 'Fortalecimiento — tren superior + core',
     summary: 'Funcional · superior',
-    structure: [
-      'Movilidad de hombro y escápula, 8 min',
-      'Empuje: press banca / press hombro / fondos — 4 series',
-      'Tracción: dominadas / remo — 4 series',
-      'Accesorios de brazo y hombro — 2-3 series',
-      'Core: hollow hold, press Pallof — 3 rondas',
-      'Cero pierna pesada: mañana rodaje y el sábado fondo largo',
+    targets: [
+      'Fuerza de empuje: pecho y hombro',
+      'Fuerza de tracción: espalda',
+      'Estabilidad de hombro (clave para el vóley)',
+      'Core',
+    ],
+    tips: [
+      'Cero pierna pesada: mañana hay rodaje y el sábado fondo largo',
+      'Equilibra empuje y tracción para cuidar el hombro',
+      'Movilidad de hombro y escápula antes de cargar',
+      'El core al final, sin prisa',
     ],
     why: `Hoy el funcional es de tren superior y core: cero pierna pesada, porque mañana hay rodaje y el sábado viene el fondo largo — así llegas con piernas frescas. ${SHOW_COACH}`,
   },
   taper: {
     focus: 'Full body suave — taper',
     summary: 'Funcional · taper',
-    structure: [
-      'Movilidad general, 10 min',
-      'Circuito full body liviano con foco en técnica — 2-3 rondas suaves',
+    targets: [
+      'Movilidad general',
+      'Técnica y activación ligera',
+      'Core suave',
+    ],
+    tips: [
+      'Menos volumen y menos peso que de costumbre',
+      'Nada que genere agujetas nuevas esta semana',
       'Sin pierna pesada ni saltos',
-      'Core suave — 2 rondas',
+      'La idea es salir activado, no cansado',
     ],
     why: `Semana de taper: el funcional de hoy es liviano para llegar fresco al intento de los 21 km. ${SHOW_COACH}`,
   },
@@ -76,7 +94,8 @@ function crossfit(id: string, focusKey: FocusKey, note?: string): Session {
     title: 'Funcional / CrossFit con entrenador',
     summary: f.summary,
     focus: f.focus,
-    structure: f.structure,
+    targets: f.targets,
+    tips: f.tips,
     fixed: true,
     why: note ?? f.why,
     selfRegulation: CROSSFIT_SELF_REG,

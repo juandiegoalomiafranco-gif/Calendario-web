@@ -62,6 +62,28 @@ function SessionDetailCard({ session, onDelete }: { session: Session; onDelete?:
         </div>
       )}
 
+      {session.targets && (
+        <div>
+          <p className="text-sm font-semibold text-ink-900 mb-1">Qué entrenar hoy</p>
+          <ul className="text-sm text-ink-600 list-disc list-inside space-y-0.5">
+            {session.targets.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {session.tips && (
+        <div className="bg-ink-100 rounded-2xl p-3">
+          <p className="text-sm font-semibold text-ink-900 mb-1">Para optimizar rendimiento y recuperación</p>
+          <ul className="text-sm text-ink-600 list-disc list-inside space-y-0.5">
+            {session.tips.map((line, i) => (
+              <li key={i}>{line}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {session.structure && (
         <div>
           <p className="text-sm font-semibold text-ink-900 mb-1">Estructura</p>

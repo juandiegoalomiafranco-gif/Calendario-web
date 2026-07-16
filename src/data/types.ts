@@ -25,6 +25,8 @@ export interface Session {
   pace?: string
   hrTarget?: string
   structure?: string[]
+  targets?: string[]
+  tips?: string[]
   why: string
   selfRegulation?: string
   flexOptions?: string[]
