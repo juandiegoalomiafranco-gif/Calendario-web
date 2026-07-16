@@ -58,7 +58,9 @@ export interface CustomActivity {
 export interface LogEntry {
   completed: boolean
   avgHr?: number
+  maxHr?: number
   distanceKm?: number
+  durationMin?: number
   feeling?: 'genial' | 'bien' | 'regular' | 'cargado'
   notes?: string
 }
