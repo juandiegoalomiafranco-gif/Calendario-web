@@ -1,5 +1,29 @@
+import { useState } from 'react'
 import { PRINCIPLES } from '../data/plan'
 import { useSettings } from '../hooks/useSettings'
+
+function readJson(key: string, fallback: unknown): unknown {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function exportAllData(): string {
+  return JSON.stringify(
+    {
+      exportado: new Date().toISOString(),
+      registroEntrenos: readJson('calendario-web:log:v1', {}),
+      actividadesPropias: readJson('calendario-web:custom:v1', []),
+      medidasCorporales: readJson('calendario-web:medidas:v1', {}),
+      ajustes: readJson('calendario-web:settings:v1', {}),
+    },
+    null,
+    2,
+  )
+}
 
 function karvonenZone2(restingHr: number, maxHr: number): string {
   const hrr = maxHr - restingHr
@@ -10,6 +34,19 @@ function karvonenZone2(restingHr: number, maxHr: number): string {
 
 export function Settings() {
   const { settings, update } = useSettings()
+  const [copied, setCopied] = useState(false)
+
+  const copyData = async () => {
+    const text = exportAllData()
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // clipboard bloqueado: compartir como archivo de texto si se puede
+      if (navigator.share) await navigator.share({ title: 'Mis datos de entrenamiento', text })
+    }
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -60,6 +97,22 @@ export function Settings() {
           Este apunte es solo para ti — el plan sigue mostrando los rangos originales, pero puedes anotar aquí cómo va
           cambiando tu ritmo real a la misma FC.
         </p>
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-2.5">
+        <h2 className="text-lg font-semibold text-ink-900">Tus datos</h2>
+        <p className="text-sm text-ink-500">
+          Todo tu progreso (entrenos, actividades, foam roller y medidas) se guarda solo en este dispositivo. Con este
+          botón lo copias como texto para respaldarlo o pegárselo a Claude cuando quieras un análisis de cómo vas.
+        </p>
+        <button
+          onClick={copyData}
+          className={`rounded-full text-sm font-semibold py-2.5 transition-colors ${
+            copied ? 'bg-ok-200 text-ok-700' : 'bg-brand-500 text-white'
+          }`}
+        >
+          {copied ? '✓ Copiado — pégalo donde quieras' : '📋 Copiar mis datos'}
+        </button>
       </div>
 
       <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-2">

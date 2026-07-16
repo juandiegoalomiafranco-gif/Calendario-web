@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import type { CustomActivity, DayPlan, Session, Slot } from '../data/types'
 
 const STORAGE_KEY = 'calendario-web:custom:v1'
@@ -13,12 +13,33 @@ function readStorage(): CustomActivity[] {
   }
 }
 
-export function useCustomActivities() {
-  const [activities, setActivities] = useState<CustomActivity[]>(() => readStorage())
+// Almacén compartido a nivel de módulo (ver nota en useTrainingLog.ts):
+// añadir una actividad desde el formulario refresca al instante la lista
+// del día y la semana, y la escritura nunca pisa datos de otro componente.
+let state: CustomActivity[] = readStorage()
+const listeners = new Set<() => void>()
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(activities))
-  }, [activities])
+function setState(next: CustomActivity[]) {
+  state = next
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // storage lleno o bloqueado: seguimos en memoria
+  }
+  listeners.forEach((l) => l())
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+function getSnapshot(): CustomActivity[] {
+  return state
+}
+
+export function useCustomActivities() {
+  const activities = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const forDate = useCallback(
     (date: string): CustomActivity[] => activities.filter((a) => a.date === date),
@@ -27,12 +48,12 @@ export function useCustomActivities() {
 
   const add = useCallback((a: Omit<CustomActivity, 'id'>): string => {
     const id = `custom-${Date.now()}`
-    setActivities((prev) => [...prev, { ...a, id }])
+    setState([...state, { ...a, id }])
     return id
   }, [])
 
   const remove = useCallback((id: string) => {
-    setActivities((prev) => prev.filter((a) => a.id !== id))
+    setState(state.filter((a) => a.id !== id))
   }, [])
 
   return { activities, forDate, add, remove }

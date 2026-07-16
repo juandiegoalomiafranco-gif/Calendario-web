@@ -25,6 +25,8 @@ export interface Session {
   pace?: string
   hrTarget?: string
   structure?: string[]
+  targets?: string[]
+  tips?: string[]
   why: string
   selfRegulation?: string
   flexOptions?: string[]
@@ -56,7 +58,9 @@ export interface CustomActivity {
 export interface LogEntry {
   completed: boolean
   avgHr?: number
+  maxHr?: number
   distanceKm?: number
+  durationMin?: number
   feeling?: 'genial' | 'bien' | 'regular' | 'cargado'
   notes?: string
 }
