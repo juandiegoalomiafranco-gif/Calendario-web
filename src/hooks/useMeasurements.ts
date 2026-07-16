@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useMemo, useSyncExternalStore } from 'react'
 import { METRICS, SEED_CONTROLS } from '../data/measurements'
 import type { Control, ControlValues, DerivedKey, MetricKey } from '../data/measurements'
 import { metricValue } from '../data/measurements'
@@ -17,6 +17,31 @@ function readStorage(): ControlMap {
   }
 }
 
+// Almacén compartido a nivel de módulo con persistencia síncrona (ver nota en
+// useTrainingLog.ts). El wizard guarda y navega en el mismo handler: la
+// escritura tiene que ocurrir antes de que el componente se desmonte.
+let state: ControlMap = readStorage()
+const listeners = new Set<() => void>()
+
+function setState(next: ControlMap) {
+  state = next
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // storage lleno o bloqueado: seguimos en memoria
+  }
+  listeners.forEach((l) => l())
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+function getSnapshot(): ControlMap {
+  return state
+}
+
 // Redondea cada valor al step de su métrica para evitar deriva de flotantes
 function roundValues(values: ControlValues): ControlValues {
   const out: ControlValues = {}
@@ -29,27 +54,8 @@ function roundValues(values: ControlValues): ControlValues {
   return out
 }
 
-// Escritura síncrona fuera del updater de React: el wizard guarda y navega en
-// el mismo handler, se desmonta en ese mismo lote y React descarta sus updaters
-// pendientes — un useEffect (o un persist dentro del updater) nunca correría.
-function persist(map: ControlMap) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(map))
-  } catch {
-    // sin espacio o storage bloqueado: la app sigue funcionando en memoria
-  }
-}
-
 export function useMeasurements() {
-  const [userControls, setUserControls] = useState<ControlMap>(() => readStorage())
-  const mapRef = useRef(userControls)
-  mapRef.current = userControls
-
-  const commit = useCallback((next: ControlMap) => {
-    persist(next)
-    mapRef.current = next
-    setUserControls(next)
-  }, [])
+  const userControls = useSyncExternalStore(subscribe, getSnapshot, getSnapshot)
 
   const controls = useMemo<Control[]>(() => {
     const merged = [...SEED_CONTROLS, ...Object.values(userControls)]
@@ -65,17 +71,17 @@ export function useMeasurements() {
       values: roundValues(data.values),
       notes: data.notes?.trim() || undefined,
     }
-    commit({ ...mapRef.current, [id]: control })
+    setState({ ...state, [id]: control })
     return id
-  }, [commit])
+  }, [])
 
   const updateControl = useCallback(
     (id: string, patch: { date?: string; values?: ControlValues; notes?: string }) => {
       if (!id.startsWith('user-')) return
-      const existing = mapRef.current[id]
+      const existing = state[id]
       if (!existing) return
-      commit({
-        ...mapRef.current,
+      setState({
+        ...state,
         [id]: {
           ...existing,
           date: patch.date ?? existing.date,
@@ -84,15 +90,15 @@ export function useMeasurements() {
         },
       })
     },
-    [commit],
+    [],
   )
 
   const removeControl = useCallback((id: string) => {
     if (!id.startsWith('user-')) return
-    const next = { ...mapRef.current }
+    const next = { ...state }
     delete next[id]
-    commit(next)
-  }, [commit])
+    setState(next)
+  }, [])
 
   const getControl = useCallback(
     (id: string): Control | undefined => controls.find((c) => c.id === id),
@@ -106,15 +112,11 @@ export function useMeasurements() {
   // clave para deltas cuando hay controles parciales.
   const latestWith = useCallback(
     (metric: MetricKey | DerivedKey, before?: string): { control: Control; value: number } | undefined => {
+      const beforeIdx = before ? controls.findIndex((x) => x.id === before) : -1
       for (let i = controls.length - 1; i >= 0; i--) {
-        const c = controls[i]
-        if (before && c.id === before) continue
-        if (before) {
-          const beforeIdx = controls.findIndex((x) => x.id === before)
-          if (beforeIdx >= 0 && i >= beforeIdx) continue
-        }
-        const v = metricValue(c, metric)
-        if (v !== undefined) return { control: c, value: v }
+        if (beforeIdx >= 0 && i >= beforeIdx) continue
+        const v = metricValue(controls[i], metric)
+        if (v !== undefined) return { control: controls[i], value: v }
       }
       return undefined
     },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { SESSION_META } from '../data/sessionMeta'
@@ -14,6 +14,7 @@ function SessionDetailCard({ session, onDelete }: { session: Session; onDelete?:
   const entry = getEntry(session.id) ?? { completed: false }
   const ref = useRef<HTMLDivElement>(null)
   const { sessionId } = useParams()
+  const [savedFlash, setSavedFlash] = useState(false)
 
   useEffect(() => {
     if (sessionId === session.id && ref.current) {
@@ -179,6 +180,21 @@ function SessionDetailCard({ session, onDelete }: { session: Session; onDelete?:
                 className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
+            <button
+              onClick={() => {
+                setEntry(session.id, entry)
+                setSavedFlash(true)
+                window.setTimeout(() => setSavedFlash(false), 2000)
+              }}
+              className={`col-span-2 rounded-full text-sm font-semibold py-2.5 transition-colors ${
+                savedFlash ? 'bg-ok-200 text-ok-700' : 'bg-ok-500 text-white'
+              }`}
+            >
+              {savedFlash ? '✓ Guardado' : 'Guardar registro'}
+            </button>
+            <p className="col-span-2 text-[11px] text-ink-400 text-center -mt-1">
+              Todo se guarda automáticamente en este dispositivo apenas lo escribes.
+            </p>
           </div>
         )}
 

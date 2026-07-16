@@ -12,24 +12,26 @@ export function parseDistance(value?: string): number {
 }
 
 export interface PlanStats {
+  /** Entrenos (sesiones no-descanso) completados en total */
   completedCount: number
-  totalPlanned: number
-  completionPct: number
+  /** Entrenos que traía el plan hasta hoy (informativo, no es una meta) */
+  plannedSoFar: number
   kmDone: number
   streak: number
-  weeks: { label: string; completed: number; total: number }[]
+  /** Entrenos completados por semana (conteo, no porcentaje) */
+  weeks: { label: string; completed: number }[]
 }
 
+// Seguimiento puro de lo hecho: los bloques de descanso no cuentan como
+// "sesiones" y no hay porcentaje de cumplimiento — solo lo que se va logrando.
 export function computePlanStats(log: LogMap): PlanStats {
   const iso = todayISO()
-  const allSessions = PLAN.flatMap((d) => d.sessions.map((s) => ({ ...s, date: d.date })))
-  const pastOrToday = allSessions.filter((s) => s.date <= iso)
+  const workouts = PLAN.flatMap((d) => d.sessions.filter((s) => s.type !== 'rest').map((s) => ({ ...s, date: d.date })))
 
-  const completedCount = pastOrToday.filter((s) => log[s.id]?.completed).length
-  const totalPlanned = pastOrToday.length
-  const completionPct = totalPlanned ? Math.round((completedCount / totalPlanned) * 100) : 0
+  const completedCount = workouts.filter((s) => log[s.id]?.completed).length
+  const plannedSoFar = workouts.filter((s) => s.date <= iso).length
 
-  const kmDone = allSessions.reduce((sum, s) => {
+  const kmDone = workouts.reduce((sum, s) => {
     const entry = log[s.id]
     if (!entry?.completed) return sum
     return sum + (entry.distanceKm ?? parseDistance(s.distanceKm))
@@ -49,14 +51,13 @@ export function computePlanStats(log: LogMap): PlanStats {
     else break
   }
 
-  const weekMap = new Map<string, { label: string; completed: number; total: number }>()
-  for (const s of pastOrToday) {
+  const weekMap = new Map<string, { label: string; completed: number }>()
+  for (const s of workouts.filter((w) => w.date <= iso)) {
     const weekLabel = s.date.slice(0, 7) + '-' + String(Math.ceil(Number(s.date.slice(8, 10)) / 7))
-    const bucket = weekMap.get(weekLabel) ?? { label: weekLabel, completed: 0, total: 0 }
-    bucket.total += 1
+    const bucket = weekMap.get(weekLabel) ?? { label: weekLabel, completed: 0 }
     if (log[s.id]?.completed) bucket.completed += 1
     weekMap.set(weekLabel, bucket)
   }
 
-  return { completedCount, totalPlanned, completionPct, kmDone, streak, weeks: Array.from(weekMap.values()) }
+  return { completedCount, plannedSoFar, kmDone, streak, weeks: Array.from(weekMap.values()) }
 }

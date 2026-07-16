@@ -107,8 +107,8 @@ export function GoalsTab() {
       {/* Resumen del plan */}
       <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
         <div>
-          <p className="text-sm text-ink-500">Cumplimiento del plan</p>
-          <p className="text-xl font-bold text-ink-900">{stats.completionPct}%</p>
+          <p className="text-sm text-ink-500">Entrenos completados</p>
+          <p className="text-xl font-bold text-ink-900 tabular-nums">{stats.completedCount}</p>
         </div>
         <div className="text-right">
           <p className="text-sm text-ink-500">Km acumulados</p>
