@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useSyncExternalStore } from 'react'
 import type { LogEntry } from '../data/types'
 
 const STORAGE_KEY = 'calendario-web:log:v1'
@@ -14,24 +14,38 @@ function readStorage(): LogMap {
   }
 }
 
-export function useTrainingLog() {
-  const [log, setLog] = useState<LogMap>(() => readStorage())
+// Store compartido a nivel de módulo: todas las instancias del hook ven el mismo
+// log, así dos tarjetas de un mismo día no se pisan las entradas entre sí.
+let cache: LogMap = readStorage()
+const listeners = new Set<() => void>()
 
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(log))
-  }, [log])
+function write(next: LogMap) {
+  cache = next
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // sin espacio o modo privado: mantenemos al menos el estado en memoria
+  }
+  listeners.forEach((l) => l())
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
+export function useTrainingLog() {
+  const log = useSyncExternalStore(subscribe, () => cache)
 
   const getEntry = useCallback((sessionId: string): LogEntry | undefined => log[sessionId], [log])
 
   const setEntry = useCallback((sessionId: string, entry: LogEntry) => {
-    setLog((prev) => ({ ...prev, [sessionId]: entry }))
+    write({ ...cache, [sessionId]: entry })
   }, [])
 
   const toggleCompleted = useCallback((sessionId: string) => {
-    setLog((prev) => {
-      const existing = prev[sessionId]
-      return { ...prev, [sessionId]: { ...existing, completed: !existing?.completed } }
-    })
+    const existing = cache[sessionId]
+    write({ ...cache, [sessionId]: { ...existing, completed: !existing?.completed } })
   }, [])
 
   return { log, getEntry, setEntry, toggleCompleted }

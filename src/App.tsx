@@ -1,5 +1,6 @@
 import { Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
+import { ScrollToTop } from './components/ScrollToTop'
 import { Today } from './pages/Today'
 import { Week } from './pages/Week'
 import { DayDetail } from './pages/DayDetail'
@@ -9,6 +10,7 @@ import { Settings } from './pages/Settings'
 export default function App() {
   return (
     <Layout>
+      <ScrollToTop />
       <Routes>
         <Route path="/" element={<Today />} />
         <Route path="/semana" element={<Week />} />

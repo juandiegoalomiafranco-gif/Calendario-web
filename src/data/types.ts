@@ -34,10 +34,13 @@ export interface DayPlan {
   note?: string
 }
 
+export type FlexActivity = 'futbol' | 'voley' | 'natacion'
+
 export interface LogEntry {
   completed: boolean
   avgHr?: number
   distanceKm?: number
+  activity?: FlexActivity
   feeling?: 'genial' | 'bien' | 'regular' | 'cargado'
   notes?: string
 }

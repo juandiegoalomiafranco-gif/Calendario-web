@@ -3,7 +3,14 @@ import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { SESSION_META } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
-import type { LogEntry, Session } from '../data/types'
+import { isDistanceSession, parsePlannedDistance } from '../lib/stats'
+import type { FlexActivity, LogEntry, Session } from '../data/types'
+
+const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
+  { id: 'futbol', emoji: '⚽', label: 'Fútbol' },
+  { id: 'voley', emoji: '🏐', label: 'Vóley' },
+  { id: 'natacion', emoji: '🏊', label: 'Natación' },
+]
 
 function SessionDetailCard({ session }: { session: Session }) {
   const meta = SESSION_META[session.type]
@@ -103,26 +110,63 @@ function SessionDetailCard({ session }: { session: Session }) {
           <span className="text-sm font-medium text-ink-900">Marcar como completada</span>
         </label>
 
+        {entry.completed && session.type === 'flex' && (
+          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-2">
+            <p className="text-sm font-semibold text-brand-800">¿Qué hiciste?</p>
+            <div className="grid grid-cols-3 gap-1.5">
+              {FLEX_ACTIVITIES.map((a) => {
+                const selected = entry.activity === a.id
+                return (
+                  <button
+                    key={a.id}
+                    type="button"
+                    onClick={() => patch({ activity: a.id })}
+                    className={`min-h-[44px] rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+                      selected ? 'bg-brand-500 text-white' : 'bg-white text-ink-700 border border-ink-200'
+                    }`}
+                  >
+                    <span aria-hidden>{a.emoji}</span> {a.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {entry.completed && isDistanceSession(session.type) && (
+          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-1.5">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-semibold text-brand-800">¿Cuántos km hiciste?</span>
+              <input
+                type="number"
+                step="0.1"
+                min="0"
+                inputMode="decimal"
+                value={entry.distanceKm ?? ''}
+                onChange={(e) => patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })}
+                placeholder={session.distanceKm ? `Plan: ${session.distanceKm} km` : '0.0'}
+                className="rounded-xl border border-brand-200 bg-white px-3 py-2.5 text-base font-semibold text-ink-900"
+              />
+            </label>
+            {entry.distanceKm == null && (
+              <p className="text-xs text-brand-700">
+                {parsePlannedDistance(session.distanceKm) > 0
+                  ? `Sin dato, contaremos ~${parsePlannedDistance(session.distanceKm)} km del plan.`
+                  : 'Sin dato, esta sesión suma 0 km en Progreso.'}
+              </p>
+            )}
+          </div>
+        )}
+
         {entry.completed && (
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-ink-500">
+            <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
               FC media (ppm)
               <input
                 type="number"
                 inputMode="numeric"
                 value={entry.avgHr ?? ''}
                 onChange={(e) => patch({ avgHr: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
-              />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-ink-500">
-              Distancia real (km)
-              <input
-                type="number"
-                step="0.1"
-                inputMode="decimal"
-                value={entry.distanceKm ?? ''}
-                onChange={(e) => patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })}
                 className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
               />
             </label>
@@ -164,8 +208,11 @@ export function DayDetail() {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-ink-500">No encontramos ese día en el plan.</p>
-        <Link to="/semana" className="text-brand-600 font-semibold">
-          Volver a la semana
+        <Link
+          to="/semana"
+          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold active:bg-brand-50"
+        >
+          <span aria-hidden>←</span> Volver a la semana
         </Link>
       </div>
     )
@@ -174,8 +221,11 @@ export function DayDetail() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <Link to="/semana" className="text-sm text-ink-400 font-medium">
-          ← Semana
+        <Link
+          to="/semana"
+          className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-500 font-medium active:bg-ink-100"
+        >
+          <span aria-hidden>←</span> Semana
         </Link>
         <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
         <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
