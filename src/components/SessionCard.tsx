@@ -14,7 +14,7 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
   return (
     <Link
       to={`/dia/${date}/${session.id}`}
-      className="block rounded-3xl bg-white shadow-card p-4 active:scale-[0.98] transition-transform"
+      className="block rounded-3xl bg-card shadow-card p-4 active:scale-[0.98] transition-transform"
     >
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center text-xl`}>
@@ -26,7 +26,7 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
               {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
             </span>
             {completed && (
-              <span className="text-[11px] font-semibold text-ok-600 bg-ok-100 rounded-full px-2 py-0.5">
+              <span className="text-[11px] font-semibold text-ok-300 bg-ok-900 rounded-full px-2 py-0.5">
                 Hecho
               </span>
             )}

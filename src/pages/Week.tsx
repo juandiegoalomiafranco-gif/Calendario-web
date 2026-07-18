@@ -1,21 +1,7 @@
 import { useMemo, useState } from 'react'
 import { PLAN, todayISO } from '../data/plan'
 import { WeekGrid } from '../components/WeekGrid'
-
-function chunkIntoWeeks<T extends { date: string }>(days: T[]): T[][] {
-  const weeks: T[][] = []
-  let current: T[] = []
-  for (const day of days) {
-    const weekday = new Date(`${day.date}T00:00:00Z`).getUTCDay()
-    if (weekday === 1 && current.length) {
-      weeks.push(current)
-      current = []
-    }
-    current.push(day)
-  }
-  if (current.length) weeks.push(current)
-  return weeks
-}
+import { chunkIntoWeeks } from '../lib/weeks'
 
 export function Week() {
   const iso = todayISO()
@@ -34,7 +20,7 @@ export function Week() {
         <h1 className="text-3xl font-bold text-ink-900">Semana</h1>
       </header>
 
-      <div className="flex items-center justify-between bg-white rounded-full shadow-card p-1.5">
+      <div className="flex items-center justify-between bg-card rounded-full shadow-card p-1.5">
         <button
           className="w-9 h-9 rounded-full flex items-center justify-center text-ink-600 disabled:opacity-30"
           onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}

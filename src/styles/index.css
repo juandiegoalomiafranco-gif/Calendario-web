@@ -2,11 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
-  height: 100%;
+html, body {
+  min-height: 100%;
+}
+
+html {
+  /* Matches bg-ink-50 so the iOS overscroll / status-bar area never flashes white */
+  background-color: #0b0b0d;
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  color: #f7f7f8;
+}
+
+.app-shell {
+  min-height: 100vh;
+  /* dvh tracks the iOS standalone dynamic viewport; the vh line above is the fallback */
+  min-height: 100dvh;
 }
