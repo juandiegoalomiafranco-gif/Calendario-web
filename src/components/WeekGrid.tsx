@@ -17,13 +17,13 @@ export function WeekGrid({ days, todayIso }: WeekGridProps) {
           <Link
             key={day.date}
             to={`/dia/${day.date}`}
-            className={`flex items-center gap-3 rounded-3xl p-3 shadow-card transition-colors ${
-              isToday ? 'bg-ink-900' : 'bg-white'
+            className={`flex items-center gap-3 rounded-3xl p-3 shadow-card transition-colors bg-card ${
+              isToday ? 'ring-2 ring-brand-500' : ''
             }`}
           >
             <div
               className={`shrink-0 w-12 h-12 rounded-2xl flex flex-col items-center justify-center ${
-                isToday ? 'bg-brand-500 text-white' : 'bg-ink-50 text-ink-700'
+                isToday ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-700'
               }`}
             >
               <span className="text-[10px] uppercase leading-none">{day.weekday.slice(0, 3)}</span>
@@ -35,9 +35,7 @@ export function WeekGrid({ days, todayIso }: WeekGridProps) {
                 return (
                   <span
                     key={s.id}
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
-                      isToday ? 'bg-white/10 text-white' : 'bg-ink-50 text-ink-700'
-                    }`}
+                    className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-ink-100 text-ink-700"
                   >
                     <span className={`w-1.5 h-1.5 rounded-full ${meta.dot}`} />
                     {meta.emoji} {s.summary}

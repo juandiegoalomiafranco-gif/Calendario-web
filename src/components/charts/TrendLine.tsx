@@ -31,7 +31,7 @@ export function TrendLine({ points, unit, color = '#fb5a17', decimals = 1 }: Tre
   const showEvery = points.length > 6 ? Math.ceil(points.length / 6) : 1
 
   return (
-    <div className="rounded-3xl bg-white shadow-card p-4">
+    <div className="rounded-3xl bg-card shadow-card p-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img">
         <polyline points={path} fill="none" stroke={color} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round" />
         {points.map((p, i) => (
@@ -39,10 +39,10 @@ export function TrendLine({ points, unit, color = '#fb5a17', decimals = 1 }: Tre
             <circle cx={x(i)} cy={y(p.value)} r={3.5} fill={color} />
             {(i % showEvery === 0 || i === points.length - 1) && (
               <>
-                <text x={x(i)} y={y(p.value) - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill="#484a53">
+                <text x={x(i)} y={y(p.value) - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill="#c5c7cd">
                   {p.value.toFixed(decimals)}
                 </text>
-                <text x={x(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#9fa2ab">
+                <text x={x(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#8b8e98">
                   {p.label}
                 </text>
               </>

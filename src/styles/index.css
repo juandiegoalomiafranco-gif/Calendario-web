@@ -8,12 +8,13 @@ html, body {
 
 html {
   /* Matches bg-ink-50 so the iOS overscroll / status-bar area never flashes white */
-  background-color: #f6f6f7;
+  background-color: #0b0b0d;
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
+  color: #f7f7f8;
 }
 
 .app-shell {

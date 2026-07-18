@@ -6,7 +6,7 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#fff4ed',
+          50: '#2a1812',
           100: '#ffe6d5',
           200: '#ffc9aa',
           300: '#ffa374',
@@ -29,18 +29,21 @@ export default {
           800: '#115c35',
           900: '#0f4c2e',
         },
+        // Escala invertida: la app es oscura, así que ink-50 es el fondo casi negro
+        // e ink-900 el texto casi blanco.
         ink: {
-          50: '#f6f6f7',
-          100: '#e2e3e6',
-          200: '#c5c7cd',
-          300: '#9fa2ab',
-          400: '#767a85',
-          500: '#5b5e68',
-          600: '#484a53',
-          700: '#3a3b43',
-          800: '#26272c',
-          900: '#151519',
+          50: '#0b0b0d',
+          100: '#26272c',
+          200: '#3a3b43',
+          300: '#5b5e68',
+          400: '#8b8e98',
+          500: '#a2a5ae',
+          600: '#c5c7cd',
+          700: '#e2e3e6',
+          800: '#eef0f2',
+          900: '#f7f7f8',
         },
+        card: '#1a1b1f',
       },
       fontFamily: {
         sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
@@ -49,7 +52,7 @@ export default {
         '4xl': '2rem',
       },
       boxShadow: {
-        card: '0 2px 20px -4px rgba(21, 21, 25, 0.08)',
+        card: '0 2px 20px -4px rgba(0, 0, 0, 0.55)',
       },
     },
   },

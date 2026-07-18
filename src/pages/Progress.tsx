@@ -153,7 +153,7 @@ export function Progress() {
         <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
       </header>
 
-      <div className="rounded-4xl bg-white shadow-card p-5 flex items-center gap-5">
+      <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">
         <ProgressRing value={completionPct} size={104} strokeWidth={12}>
           <div className="text-center">
             <p className="text-2xl font-bold text-ink-900">{completionPct}%</p>
@@ -194,7 +194,7 @@ export function Progress() {
         <StatCard label="Km corriendo" value={km.running.toFixed(1)} unit="km" icon="🏃" caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`} />
       </div>
 
-      <div className="rounded-3xl bg-white shadow-card p-4">
+      <div className="rounded-3xl bg-card shadow-card p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
           <p className="text-sm font-bold text-ink-900">

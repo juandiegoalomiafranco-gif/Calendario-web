@@ -19,14 +19,14 @@ export function Settings() {
         </p>
       </header>
 
-      <div className="rounded-3xl bg-white shadow-card p-4 flex flex-col gap-4">
+      <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-ink-500">
           FC en reposo (ppm)
           <input
             type="number"
             value={settings.restingHr}
             onChange={(e) => update({ restingHr: Number(e.target.value) })}
-            className="rounded-xl border border-ink-200 px-3 py-2 text-base text-ink-900"
+            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-base text-ink-900"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-ink-500">
@@ -35,16 +35,16 @@ export function Settings() {
             type="number"
             value={settings.maxHr}
             onChange={(e) => update({ maxHr: Number(e.target.value) })}
-            className="rounded-xl border border-ink-200 px-3 py-2 text-base text-ink-900"
+            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-base text-ink-900"
           />
         </label>
         <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-700">Tu Zona 2 aeróbica (Karvonen)</p>
-          <p className="text-lg font-bold text-brand-800">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
+          <p className="text-sm font-semibold text-brand-300">Tu Zona 2 aeróbica (Karvonen)</p>
+          <p className="text-lg font-bold text-brand-200">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
         </div>
       </div>
 
-      <div className="rounded-3xl bg-white shadow-card p-4 flex flex-col gap-2">
+      <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-2">
         <label className="flex flex-col gap-1 text-sm text-ink-500">
           Ajuste actual de ritmo (opcional)
           <textarea
@@ -52,7 +52,7 @@ export function Settings() {
             onChange={(e) => update({ paceNote: e.target.value })}
             rows={3}
             placeholder="Ej: desde la semana 3, mi rodaje suave ya sale a 7:00-7:30/km con FC en zona 2."
-            className="rounded-xl border border-ink-200 px-3 py-2 text-sm text-ink-900"
+            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
           />
         </label>
         <p className="text-xs text-ink-400">

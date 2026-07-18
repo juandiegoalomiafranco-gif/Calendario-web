@@ -30,7 +30,7 @@ export function Today() {
       </header>
 
       {remaining >= 0 && (
-        <div className="rounded-3xl bg-white shadow-card p-4 flex items-center justify-between">
+        <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
           <div>
             <p className="text-sm text-ink-500">Meta: {GOAL_DISTANCE_KM} km</p>
             <p className="text-base font-semibold text-ink-900">5 de agosto</p>
