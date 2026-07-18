@@ -321,8 +321,11 @@ export function DayDetail() {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-ink-500">No encontramos ese día en el plan.</p>
-        <Link to="/semana" className="text-brand-500 font-semibold">
-          Volver a la semana
+        <Link
+          to="/semana"
+          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-500 font-semibold active:bg-ink-100"
+        >
+          <span aria-hidden>←</span> Volver a la semana
         </Link>
       </div>
     )
@@ -331,8 +334,11 @@ export function DayDetail() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <Link to="/semana" className="text-sm text-ink-400 font-medium">
-          ← Semana
+        <Link
+          to="/semana"
+          className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-400 font-medium active:bg-ink-100"
+        >
+          <span aria-hidden>←</span> Semana
         </Link>
         <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
         <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>

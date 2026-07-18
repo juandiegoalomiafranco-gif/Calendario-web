@@ -2,14 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
-  height: 100%;
+html, body {
+  min-height: 100%;
+}
+
+html {
+  /* Coincide con bg-ink-50 para que el overscroll / barra de estado de iOS no parpadee */
+  background-color: #0b0b0d;
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   color-scheme: dark;
+}
+
+.app-shell {
+  min-height: 100vh;
+  /* dvh sigue el viewport dinámico de iOS standalone; la línea vh de arriba es el fallback */
+  min-height: 100dvh;
 }
 
 .no-scrollbar {
