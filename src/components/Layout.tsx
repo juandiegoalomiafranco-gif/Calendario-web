@@ -7,8 +7,8 @@ interface LayoutProps {
 
 export function Layout({ children }: LayoutProps) {
   return (
-    <div className="min-h-full bg-ink-50 text-ink-800">
-      <main className="mx-auto max-w-md px-4 pt-6 pb-28">{children}</main>
+    <div className="app-shell bg-ink-50 text-ink-800">
+      <main className="mx-auto max-w-md px-4 pt-[calc(env(safe-area-inset-top)+1rem)] pb-28">{children}</main>
       <BottomNav />
     </div>
   )
