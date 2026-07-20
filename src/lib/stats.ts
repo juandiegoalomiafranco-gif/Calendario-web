@@ -21,6 +21,17 @@ export function parsePlannedDistance(value?: string): number {
   return parsed.reduce((a, b) => a + b, 0) / parsed.length
 }
 
+/** Ritmo (min/km) a partir de distancia y duración, como "m:ss /km". */
+export function formatPace(km?: number, durationMin?: number): string | null {
+  if (!km || !durationMin || km <= 0 || durationMin <= 0) return null
+  const paceMin = durationMin / km
+  const minutes = Math.floor(paceMin)
+  const seconds = Math.round((paceMin - minutes) * 60)
+  const mm = seconds === 60 ? minutes + 1 : minutes
+  const ss = seconds === 60 ? 0 : seconds
+  return `${mm}:${String(ss).padStart(2, '0')} /km`
+}
+
 export function sessionCategory(session: Session, entry?: LogEntry): Category {
   if (isRunning(session.type)) return 'running'
   if (SWIM_TYPES.includes(session.type)) return 'natacion'
@@ -41,6 +52,20 @@ export function kmForEntry(session: Session, entry?: LogEntry): { km: number; es
   if (entry.distanceKm != null) return { km: entry.distanceKm, estimated: false }
   const planned = parsePlannedDistance(session.distanceKm)
   return { km: planned, estimated: planned > 0 }
+}
+
+/** Km completados agrupados por categoría de actividad. */
+export function kmByCategory(sessions: Session[], log: Record<string, LogEntry>): Map<Category, number> {
+  const m = new Map<Category, number>()
+  for (const s of sessions) {
+    const entry = log[s.id]
+    if (!entry?.completed) continue
+    const { km } = kmForEntry(s, entry)
+    if (km <= 0) continue
+    const cat = sessionCategory(s, entry)
+    m.set(cat, (m.get(cat) ?? 0) + km)
+  }
+  return m
 }
 
 /**

@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
+import { holidayName } from '../data/holidays'
 import { SESSION_META } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
-import { isDistanceSession, parsePlannedDistance } from '../lib/stats'
+import { formatPace, isDistanceSession, parsePlannedDistance } from '../lib/stats'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
 
 const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
@@ -160,6 +161,34 @@ function SessionDetailCard({ session }: { session: Session }) {
 
         {entry.completed && (
           <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1 text-xs text-ink-500">
+              Duración (min)
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={entry.durationMin ?? ''}
+                onChange={(e) => patch({ durationMin: e.target.value ? Number(e.target.value) : undefined })}
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+              />
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-ink-500">
+              Calorías
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                value={entry.calories ?? ''}
+                onChange={(e) => patch({ calories: e.target.value ? Number(e.target.value) : undefined })}
+                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+              />
+            </label>
+            {formatPace(entry.distanceKm, entry.durationMin) && (
+              <p className="col-span-2 -mt-1 text-xs text-ink-500">
+                <span className="font-semibold text-ink-900">Ritmo:</span>{' '}
+                {formatPace(entry.distanceKm, entry.durationMin)}
+              </p>
+            )}
             <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
               FC media (ppm)
               <input
@@ -229,6 +258,11 @@ export function DayDetail() {
         </Link>
         <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
         <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
+        {holidayName(day.date) && (
+          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+            🇨🇴 Festivo · {holidayName(day.date)}
+          </span>
+        )}
       </header>
 
       {day.note && <p className="text-sm text-brand-200 bg-brand-50 rounded-2xl p-3">{day.note}</p>}
