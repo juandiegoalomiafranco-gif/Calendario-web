@@ -7,7 +7,7 @@ import { TrendLine } from '../components/charts/TrendLine'
 import { BreakdownBars } from '../components/charts/BreakdownBars'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { chunkIntoWeeks } from '../lib/weeks'
-import { computeStreaks, isRunning, kmForEntry, sessionCategory, type Category } from '../lib/stats'
+import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
 import type { LogEntry } from '../data/types'
 
 const CATEGORY_META: Record<Category, { emoji: string; label: string; colorClass: string }> = {
@@ -66,6 +66,25 @@ export function Progress() {
       }
     }
     return { total, registered, estimated, running, longestRun }
+  }, [allSessions, log])
+
+  const totals = useMemo(() => {
+    let durationMin = 0
+    let calories = 0
+    for (const s of allSessions) {
+      const entry = log[s.id]
+      if (!entry?.completed) continue
+      if (entry.durationMin) durationMin += entry.durationMin
+      if (entry.calories) calories += entry.calories
+    }
+    return { durationMin, calories }
+  }, [allSessions, log])
+
+  const kmByType = useMemo(() => {
+    const counts = kmByCategory(allSessions, log)
+    return (Object.keys(CATEGORY_META) as Category[])
+      .filter((c) => c !== 'descanso' && (counts.get(c) ?? 0) > 0)
+      .map((c) => ({ key: c, ...CATEGORY_META[c], count: Number((counts.get(c) ?? 0).toFixed(1)) }))
   }, [allSessions, log])
 
   const weeks = useMemo(() => chunkIntoWeeks(PLAN), [])
@@ -140,6 +159,34 @@ export function Progress() {
     [completedRuns, log],
   )
 
+  const paceTrend = useMemo(
+    () =>
+      completedRuns
+        .map((s) => {
+          const km = kmForEntry(s, log[s.id]).km
+          const dur = log[s.id]?.durationMin
+          return { label: shortDate(s.date), value: km > 0 && dur ? dur / km : 0 }
+        })
+        .filter((p) => p.value > 0),
+    [completedRuns, log],
+  )
+
+  const runStats = useMemo(() => {
+    const runsWithKm = completedRuns
+      .map((s) => kmForEntry(s, log[s.id]).km)
+      .filter((v) => v > 0)
+    const avgPerRun = runsWithKm.length ? km.running / runsWithKm.length : 0
+    return { count: runsWithKm.length, avgPerRun }
+  }, [completedRuns, log, km.running])
+
+  const weekDelta = useMemo(() => {
+    const withValue = kmPerWeek.filter((w) => w.value > 0)
+    if (withValue.length < 2) return null
+    const last = withValue[withValue.length - 1].value
+    const prev = withValue[withValue.length - 2].value
+    return { last, delta: last - prev }
+  }, [kmPerWeek])
+
   const daysRemaining = Math.max(
     0,
     Math.round((new Date(`${GOAL_DATE}T00:00:00Z`).getTime() - new Date(`${iso}T00:00:00Z`).getTime()) / 86_400_000),
@@ -194,6 +241,54 @@ export function Progress() {
         <StatCard label="Km corriendo" value={km.running.toFixed(1)} unit="km" icon="🏃" caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`} />
       </div>
 
+      {(totals.durationMin > 0 || totals.calories > 0) && (
+        <div className="flex gap-3">
+          <StatCard
+            label="Tiempo total"
+            value={
+              totals.durationMin >= 60
+                ? `${Math.floor(totals.durationMin / 60)}h ${totals.durationMin % 60}`
+                : String(totals.durationMin)
+            }
+            unit="min"
+            icon="⏱️"
+            caption="entrenando"
+          />
+          <StatCard
+            label="Calorías"
+            value={totals.calories.toLocaleString('es-CO')}
+            unit="kcal"
+            icon="🔥"
+            caption="quemadas (registradas)"
+          />
+        </div>
+      )}
+
+      {runStats.count > 0 && (
+        <div className="flex gap-3">
+          <StatCard
+            label="Promedio por carrera"
+            value={runStats.avgPerRun.toFixed(1)}
+            unit="km"
+            icon="📏"
+            caption={`en ${runStats.count} ${runStats.count === 1 ? 'carrera' : 'carreras'}`}
+          />
+          {weekDelta && (
+            <StatCard
+              label="Última semana"
+              value={weekDelta.last.toFixed(1)}
+              unit="km"
+              icon="📈"
+              caption={
+                weekDelta.delta === 0
+                  ? 'igual que la anterior'
+                  : `${weekDelta.delta > 0 ? '+' : ''}${weekDelta.delta.toFixed(1)} km vs. anterior`
+              }
+            />
+          )}
+        </div>
+      )}
+
       <div className="rounded-3xl bg-card shadow-card p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
@@ -218,6 +313,13 @@ export function Progress() {
         </section>
       )}
 
+      {kmByType.length > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por tipo</h2>
+          <BreakdownBars rows={kmByType} />
+        </section>
+      )}
+
       {feelings.total > 0 && (
         <section>
           <h2 className="text-lg font-semibold text-ink-900 mb-3">Sensaciones</h2>
@@ -229,6 +331,13 @@ export function Progress() {
         <section>
           <h2 className="text-lg font-semibold text-ink-900 mb-3">Distancia por carrera</h2>
           <TrendLine points={runDistanceTrend} unit="km por carrera" />
+        </section>
+      )}
+
+      {paceTrend.length >= 2 && (
+        <section>
+          <h2 className="text-lg font-semibold text-ink-900 mb-3">Ritmo por carrera</h2>
+          <TrendLine points={paceTrend} unit="min/km (más bajo es más rápido)" color="#10b981" decimals={1} />
         </section>
       )}
 

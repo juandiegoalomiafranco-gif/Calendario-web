@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { DayPlan } from '../data/types'
 import { SESSION_META } from '../data/sessionMeta'
+import { holidayName } from '../data/holidays'
 
 interface WeekGridProps {
   days: DayPlan[]
@@ -13,6 +14,7 @@ export function WeekGrid({ days, todayIso }: WeekGridProps) {
       {days.map((day) => {
         const isToday = day.date === todayIso
         const dayNum = day.date.slice(8, 10)
+        const holiday = holidayName(day.date)
         return (
           <Link
             key={day.date}
@@ -30,6 +32,11 @@ export function WeekGrid({ days, todayIso }: WeekGridProps) {
               <span className="text-base font-bold leading-tight">{dayNum}</span>
             </div>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
+              {holiday && (
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+                  🇨🇴 Festivo
+                </span>
+              )}
               {day.sessions.map((s) => {
                 const meta = SESSION_META[s.type]
                 return (

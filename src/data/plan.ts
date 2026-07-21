@@ -1,4 +1,5 @@
 import type { DayPlan, Session } from './types'
+import { holidayName } from './holidays'
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -142,7 +143,7 @@ export const PRINCIPLES: string[] = [
 export const GOAL_DATE = '2026-08-05'
 export const GOAL_DISTANCE_KM = 21
 
-export const PLAN: DayPlan[] = [
+const RAW_PLAN: DayPlan[] = [
   { date: '2026-07-15', weekday: weekdayOf('2026-07-15'), sessions: [crossfit('2026-07-15-am'), restPM('2026-07-15-pm')] },
   { date: '2026-07-16', weekday: weekdayOf('2026-07-16'), sessions: [crossfit('2026-07-16-am'), swimTechnique('2026-07-16-pm')] },
   {
@@ -273,6 +274,34 @@ export const PLAN: DayPlan[] = [
     ],
   },
 ]
+
+// En día festivo el gimnasio cierra: el funcional (con entrenador) se cambia por
+// descanso. Regla general aplicada a cualquier festivo de holidays.ts.
+function applyHolidays(plan: DayPlan[]): DayPlan[] {
+  return plan.map((day) => {
+    const name = holidayName(day.date)
+    if (!name) return day
+    const hasFuncional = day.sessions.some((s) => s.type === 'crossfit')
+    const sessions = day.sessions.map<Session>((s) =>
+      s.type === 'crossfit'
+        ? {
+            id: s.id,
+            slot: s.slot,
+            type: 'rest',
+            title: 'Descanso (festivo)',
+            summary: 'Descanso',
+            why: 'Hoy es festivo y el gimnasio cierra, así que el funcional se cambia por descanso: foam roller, estiramiento suave o simplemente recuperar. No agregues carga nueva.',
+          }
+        : s,
+    )
+    const note = hasFuncional
+      ? `Festivo (${name}): el gimnasio cierra, el funcional se cambia por descanso.`
+      : day.note ?? `Festivo: ${name}.`
+    return { ...day, sessions, note }
+  })
+}
+
+export const PLAN: DayPlan[] = applyHolidays(RAW_PLAN)
 
 export function getDayPlan(date: string): DayPlan | undefined {
   return PLAN.find((d) => d.date === date)

@@ -3,6 +3,7 @@ import { PLAN, PRINCIPLES, GOAL_DATE, GOAL_DISTANCE_KM, todayISO, getDayPlan } f
 import { SessionCard } from '../components/SessionCard'
 import { PrincipleCard } from '../components/PrincipleCard'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { holidayName } from '../data/holidays'
 
 function daysUntil(dateIso: string): number {
   const today = new Date(`${todayISO()}T00:00:00Z`)
@@ -21,12 +22,18 @@ export function Today() {
   }, [iso])
 
   const remaining = daysUntil(GOAL_DATE)
+  const holiday = holidayName(iso)
 
   return (
     <div className="flex flex-col gap-5">
       <header>
         <p className="text-sm text-ink-500 capitalize">{day?.weekday ?? ''}</p>
         <h1 className="text-3xl font-bold text-ink-900">Hoy</h1>
+        {holiday && (
+          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+            🇨🇴 Festivo · {holiday}
+          </span>
+        )}
       </header>
 
       {remaining >= 0 && (

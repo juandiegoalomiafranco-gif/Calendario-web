@@ -40,6 +40,8 @@ export interface LogEntry {
   completed: boolean
   avgHr?: number
   distanceKm?: number
+  durationMin?: number
+  calories?: number
   activity?: FlexActivity
   feeling?: 'genial' | 'bien' | 'regular' | 'cargado'
   notes?: string
