@@ -1,4 +1,5 @@
 import { useSettings } from '../hooks/useSettings'
+import { useAuth } from '../hooks/useAuth'
 
 function karvonenZone2(restingHr: number, maxHr: number): string {
   const hrr = maxHr - restingHr
@@ -9,6 +10,7 @@ function karvonenZone2(restingHr: number, maxHr: number): string {
 
 export function Settings() {
   const { settings, update } = useSettings()
+  const { user, signOut } = useAuth()
 
   return (
     <div className="flex flex-col gap-5">
@@ -59,6 +61,20 @@ export function Settings() {
           Este apunte es solo para ti — el plan sigue mostrando los rangos originales, pero puedes anotar aquí cómo va
           cambiando tu ritmo real a la misma FC.
         </p>
+      </div>
+
+      <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
+        <div>
+          <p className="text-sm font-semibold text-ink-900">Cuenta</p>
+          <p className="text-sm text-ink-500 mt-0.5 break-all">{user?.email ?? 'Sesión activa'}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => signOut()}
+          className="min-h-[44px] rounded-xl border border-ink-200 text-ink-700 font-medium active:bg-ink-100"
+        >
+          Cerrar sesión
+        </button>
       </div>
     </div>
   )
