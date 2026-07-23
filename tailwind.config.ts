@@ -47,6 +47,7 @@ export default {
       },
       fontFamily: {
         sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Fraunces"', 'Georgia', 'ui-serif', 'serif'],
       },
       borderRadius: {
         '4xl': '2rem',

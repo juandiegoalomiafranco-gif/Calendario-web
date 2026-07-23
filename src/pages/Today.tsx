@@ -28,7 +28,7 @@ export function Today() {
     <div className="flex flex-col gap-5">
       <header>
         <p className="text-sm text-ink-500 capitalize">{day?.weekday ?? ''}</p>
-        <h1 className="text-3xl font-bold text-ink-900">Hoy</h1>
+        <h1 className="text-3xl font-bold text-ink-900 font-display">Hoy</h1>
         {holiday && (
           <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
             🇨🇴 Festivo · {holiday}

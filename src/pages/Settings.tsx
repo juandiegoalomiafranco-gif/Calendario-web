@@ -13,7 +13,7 @@ export function Settings() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-3xl font-bold text-ink-900">Ajustes</h1>
+        <h1 className="text-3xl font-bold text-ink-900 font-display">Ajustes</h1>
         <p className="text-sm text-ink-500 mt-1">
           Los ritmos y zonas se recalibran a medida que mejora tu base aeróbica. Actualiza esto cada 2-3 semanas.
         </p>
