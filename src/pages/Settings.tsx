@@ -1,5 +1,5 @@
 import { useSettings } from '../hooks/useSettings'
-import { PinSettings } from '../components/PinSettings'
+import { AccountSettings } from '../components/AccountSettings'
 
 function karvonenZone2(restingHr: number, maxHr: number): string {
   const hrr = maxHr - restingHr
@@ -20,7 +20,7 @@ export function Settings() {
         </p>
       </header>
 
-      <PinSettings />
+      <AccountSettings />
 
       <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-ink-500">

@@ -1,7 +1,7 @@
 import { Route, Routes } from 'react-router-dom'
 import { Layout } from './components/Layout'
 import { ScrollToTop } from './components/ScrollToTop'
-import { PinGate } from './components/PinGate'
+import { CodeGate } from './components/CodeGate'
 import { Today } from './pages/Today'
 import { Week } from './pages/Week'
 import { DayDetail } from './pages/DayDetail'
@@ -21,7 +21,7 @@ import { Mas } from './pages/Mas'
 
 export default function App() {
   return (
-    <PinGate>
+    <CodeGate>
       <Layout>
         <ScrollToTop />
         <Routes>
@@ -44,6 +44,6 @@ export default function App() {
           <Route path="/ajustes" element={<Settings />} />
         </Routes>
       </Layout>
-    </PinGate>
+    </CodeGate>
   )
 }
