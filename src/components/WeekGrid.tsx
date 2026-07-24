@@ -33,7 +33,7 @@ export function WeekGrid({ days, todayIso }: WeekGridProps) {
             </div>
             <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
               {holiday && (
-                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-600">
                   🇨🇴 Festivo
                 </span>
               )}

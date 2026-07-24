@@ -1,4 +1,5 @@
 import { useSettings } from '../hooks/useSettings'
+import { PinSettings } from '../components/PinSettings'
 
 function karvonenZone2(restingHr: number, maxHr: number): string {
   const hrr = maxHr - restingHr
@@ -13,11 +14,13 @@ export function Settings() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-3xl font-bold text-ink-900">Ajustes</h1>
+        <h1 className="text-3xl font-bold text-ink-900 font-display">Ajustes</h1>
         <p className="text-sm text-ink-500 mt-1">
           Los ritmos y zonas se recalibran a medida que mejora tu base aeróbica. Actualiza esto cada 2-3 semanas.
         </p>
       </header>
+
+      <PinSettings />
 
       <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-4">
         <label className="flex flex-col gap-1 text-sm text-ink-500">
@@ -39,8 +42,8 @@ export function Settings() {
           />
         </label>
         <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-300">Tu Zona 2 aeróbica (Karvonen)</p>
-          <p className="text-lg font-bold text-brand-200">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
+          <p className="text-sm font-semibold text-brand-700">Tu Zona 2 aeróbica (Karvonen)</p>
+          <p className="text-lg font-bold text-brand-600">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
         </div>
       </div>
 

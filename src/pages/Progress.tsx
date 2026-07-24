@@ -197,7 +197,7 @@ export function Progress() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
+        <h1 className="text-3xl font-bold text-ink-900 font-display">Progreso</h1>
       </header>
 
       <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">

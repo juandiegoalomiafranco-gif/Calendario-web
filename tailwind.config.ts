@@ -6,7 +6,7 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#2a1812',
+          50: '#fff3ec',
           100: '#ffe6d5',
           200: '#ffc9aa',
           300: '#ffa374',
@@ -29,30 +29,30 @@ export default {
           800: '#115c35',
           900: '#0f4c2e',
         },
-        // Escala invertida: la app es oscura, así que ink-50 es el fondo casi negro
-        // e ink-900 el texto casi blanco.
+        // Tema claro: ink-50 es el fondo casi blanco e ink-900 el texto casi negro.
         ink: {
-          50: '#0b0b0d',
-          100: '#26272c',
-          200: '#3a3b43',
-          300: '#5b5e68',
-          400: '#8b8e98',
-          500: '#a2a5ae',
-          600: '#c5c7cd',
-          700: '#e2e3e6',
-          800: '#eef0f2',
-          900: '#f7f7f8',
+          50: '#f6f6f8',
+          100: '#eeeff2',
+          200: '#e3e4e9',
+          300: '#c9ccd4',
+          400: '#9a9ea9',
+          500: '#71757f',
+          600: '#565a64',
+          700: '#3a3d45',
+          800: '#23262d',
+          900: '#101216',
         },
-        card: '#1a1b1f',
+        card: '#ffffff',
       },
       fontFamily: {
         sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
+        display: ['"Fraunces"', 'Georgia', 'ui-serif', 'serif'],
       },
       borderRadius: {
         '4xl': '2rem',
       },
       boxShadow: {
-        card: '0 2px 20px -4px rgba(0, 0, 0, 0.55)',
+        card: '0 1px 2px rgba(16, 18, 22, 0.04), 0 10px 30px -12px rgba(16, 18, 22, 0.12)',
       },
     },
   },

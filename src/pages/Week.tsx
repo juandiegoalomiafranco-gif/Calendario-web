@@ -17,7 +17,7 @@ export function Week() {
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <h1 className="text-3xl font-bold text-ink-900">Semana</h1>
+        <h1 className="text-3xl font-bold text-ink-900 font-display">Semana</h1>
       </header>
 
       <div className="flex items-center justify-between bg-card rounded-full shadow-card p-1.5">

@@ -39,10 +39,10 @@ export function TrendLine({ points, unit, color = '#fb5a17', decimals = 1 }: Tre
             <circle cx={x(i)} cy={y(p.value)} r={3.5} fill={color} />
             {(i % showEvery === 0 || i === points.length - 1) && (
               <>
-                <text x={x(i)} y={y(p.value) - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill="#c5c7cd">
+                <text x={x(i)} y={y(p.value) - 9} textAnchor="middle" fontSize={11} fontWeight={600} fill="#3a3d45">
                   {p.value.toFixed(decimals)}
                 </text>
-                <text x={x(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#8b8e98">
+                <text x={x(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="#9a9ea9">
                   {p.label}
                 </text>
               </>

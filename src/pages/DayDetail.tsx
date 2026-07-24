@@ -93,8 +93,8 @@ function SessionDetailCard({ session }: { session: Session }) {
 
       {session.selfRegulation && (
         <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-300 mb-0.5">Auto-regulación</p>
-          <p className="text-sm text-brand-200">{session.selfRegulation}</p>
+          <p className="text-sm font-semibold text-brand-700 mb-0.5">Auto-regulación</p>
+          <p className="text-sm text-brand-600">{session.selfRegulation}</p>
         </div>
       )}
 
@@ -113,7 +113,7 @@ function SessionDetailCard({ session }: { session: Session }) {
 
         {entry.completed && session.type === 'flex' && (
           <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-2">
-            <p className="text-sm font-semibold text-brand-200">¿Qué hiciste?</p>
+            <p className="text-sm font-semibold text-brand-600">¿Qué hiciste?</p>
             <div className="grid grid-cols-3 gap-1.5">
               {FLEX_ACTIVITIES.map((a) => {
                 const selected = entry.activity === a.id
@@ -137,7 +137,7 @@ function SessionDetailCard({ session }: { session: Session }) {
         {entry.completed && isDistanceSession(session.type) && (
           <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-1.5">
             <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-brand-200">¿Cuántos km hiciste?</span>
+              <span className="text-sm font-semibold text-brand-600">¿Cuántos km hiciste?</span>
               <input
                 type="number"
                 step="0.1"
@@ -150,7 +150,7 @@ function SessionDetailCard({ session }: { session: Session }) {
               />
             </label>
             {entry.distanceKm == null && (
-              <p className="text-xs text-brand-300">
+              <p className="text-xs text-brand-700">
                 {parsePlannedDistance(session.distanceKm) > 0
                   ? `Sin dato, contaremos ~${parsePlannedDistance(session.distanceKm)} km del plan.`
                   : 'Sin dato, esta sesión suma 0 km en Progreso.'}
@@ -259,13 +259,13 @@ export function DayDetail() {
         <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
         <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
         {holidayName(day.date) && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-600">
             🇨🇴 Festivo · {holidayName(day.date)}
           </span>
         )}
       </header>
 
-      {day.note && <p className="text-sm text-brand-200 bg-brand-50 rounded-2xl p-3">{day.note}</p>}
+      {day.note && <p className="text-sm text-brand-600 bg-brand-50 rounded-2xl p-3">{day.note}</p>}
 
       <div className="flex flex-col gap-4">
         {day.sessions.map((s) => (

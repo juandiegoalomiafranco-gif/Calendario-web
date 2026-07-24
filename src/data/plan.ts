@@ -132,12 +132,15 @@ function flexSlot(id: string, sport: 'fútbol' | 'vóley', swimAlt: Session): Se
 }
 
 export const PRINCIPLES: string[] = [
-  'La FC manda, no el ritmo: en los rodajes fáciles, ve más lento de lo que creas necesario.',
-  'Nunca apiles dos sesiones fuertes de pierna seguidas si lo puedes evitar — por eso el running de calidad no existe todavía, el funcional y el deporte ya cubren esa dosis.',
-  'El fútbol y el vóley cuentan como sesión de alta intensidad: sustituyen una sesión de la semana, no se suman a todo lo demás.',
-  'Dolor articular no es lo mismo que dolor muscular. El primero cancela la sesión; el segundo se maneja con foam roller y sigue el plan.',
-  'Nunca se corre la distancia completa del objetivo justo antes del día clave — por eso el 1 de agosto el fondo se queda en 17–18 km, no en 21.',
-  'Tu VO2máx (51) y tu FC en reposo (55) muestran que el motor está bien. Lo que falta es base aeróbica para usarlo a baja FC — eso se construye con constancia, no con velocidad.',
+  'No se trata de un día perfecto, sino de no romper la cadena. Hoy suma uno más.',
+  'Compite contra el que fuiste ayer, no contra nadie más.',
+  'Los 21 km se corren en agosto, pero se construyen en cada rodaje suave de hoy.',
+  'Disciplina es hacer lo que dijiste que ibas a hacer, aun cuando ya no tengas ganas.',
+  'El músculo se gana en la constancia y la grasa se pierde en la cocina: gánales a los dos con paciencia.',
+  'El descanso también entrena: el cuerpo crece cuando lo dejas recuperar.',
+  'Ir lento hoy, con la FC baja, es aprender a correr más rápido mañana. El ego no manda.',
+  'Cada página de cuaderno, cada kilómetro y cada comida ordenada suman al mismo proyecto: tú.',
+  'Lo pequeño hecho todos los días vence a lo grande hecho de vez en cuando.',
 ]
 
 export const GOAL_DATE = '2026-08-05'
