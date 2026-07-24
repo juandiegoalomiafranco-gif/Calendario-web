@@ -14,6 +14,8 @@ import { Strength } from './pages/Strength'
 import { GymNotes } from './pages/GymNotes'
 import { BodyProgress } from './pages/BodyProgress'
 import { Comida } from './pages/Comida'
+import { Pendientes } from './pages/Pendientes'
+import { Calendario } from './pages/Calendario'
 import { Mas } from './pages/Mas'
 import { Placeholder } from './pages/Placeholder'
 
@@ -33,8 +35,8 @@ export default function App() {
           <Route path="/mas" element={<Mas />} />
           <Route path="/cuerpo" element={<BodyProgress />} />
           <Route path="/finanzas" element={<Placeholder title="Finanzas" emoji="💰" />} />
-          <Route path="/calendario" element={<Placeholder title="Calendario" emoji="📅" />} />
-          <Route path="/pendientes" element={<Placeholder title="Pendientes" emoji="✅" />} />
+          <Route path="/calendario" element={<Calendario />} />
+          <Route path="/pendientes" element={<Pendientes />} />
           <Route path="/semana" element={<Week />} />
           <Route path="/dia/:date" element={<DayDetail />} />
           <Route path="/dia/:date/:sessionId" element={<DayDetail />} />
