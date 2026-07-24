@@ -39,8 +39,8 @@ export function Settings() {
           />
         </label>
         <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-300">Tu Zona 2 aeróbica (Karvonen)</p>
-          <p className="text-lg font-bold text-brand-200">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
+          <p className="text-sm font-semibold text-brand-700">Tu Zona 2 aeróbica (Karvonen)</p>
+          <p className="text-lg font-bold text-brand-600">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
         </div>
       </div>
 

@@ -9,7 +9,7 @@ interface Meta {
 }
 
 export const SESSION_META: Record<SessionType, Meta> = {
-  crossfit: { emoji: '🏋️', label: 'Funcional', bg: 'bg-ink-200', text: 'text-white', dot: 'bg-ink-500' },
+  crossfit: { emoji: '🏋️', label: 'Funcional', bg: 'bg-ink-800', text: 'text-white', dot: 'bg-ink-700' },
   'running-easy': { emoji: '🏃', label: 'Rodaje suave', bg: 'bg-brand-500', text: 'text-white', dot: 'bg-brand-500' },
   'running-long': { emoji: '🏃', label: 'Fondo largo', bg: 'bg-brand-600', text: 'text-white', dot: 'bg-brand-600' },
   'running-shakeout': { emoji: '🏃', label: 'Trote suave', bg: 'bg-brand-300', text: 'text-ink-900', dot: 'bg-brand-300' },

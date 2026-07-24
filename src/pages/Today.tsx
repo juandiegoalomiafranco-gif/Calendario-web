@@ -30,7 +30,7 @@ export function Today() {
         <p className="text-sm text-ink-500 capitalize">{day?.weekday ?? ''}</p>
         <h1 className="text-3xl font-bold text-ink-900 font-display">Hoy</h1>
         {holiday && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
+          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-600">
             🇨🇴 Festivo · {holiday}
           </span>
         )}
