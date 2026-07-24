@@ -1,25 +1,121 @@
 import { useCallback } from 'react'
-import { createLocalStore } from '../lib/localStore'
-import type { ClassNote, SchoolConfig, SchoolTask } from '../data/schoolTypes'
+import type { ClassNote, SchoolConfig, SchoolTask, Urgency } from '../data/schoolTypes'
+import { createCollection, createSingleton } from '../lib/cloudStore'
 
-// Valores por defecto: ancla configurable en la app. Hoy = Día 1 hasta que Juan Diego
-// lo ajuste con "Hoy es Día N" (que crea un reinicio del ciclo).
+// Ancla por defecto (configurable en la app): hoy = Día 1 hasta que Juan Diego lo ajuste
+// con "hoy es el Día N" (que crea un reinicio del ciclo).
 const DEFAULT_CONFIG: SchoolConfig = {
   anchorDate: '2026-07-23',
   anchorDay: 1,
   overrides: [],
 }
 
-const configStore = createLocalStore<SchoolConfig>('mivida:school-config:v1', DEFAULT_CONFIG)
-const notesStore = createLocalStore<ClassNote[]>('mivida:class-notes:v1', [])
-const tasksStore = createLocalStore<SchoolTask[]>('mivida:tasks:v1', [])
+// --- Formas de fila en Supabase (el cliente no está tipado con el esquema) ----
+interface ConfigRow {
+  anchor_date: string
+  anchor_day: number
+  overrides: { date: string; day: number }[] | null
+}
+interface NoteRow {
+  id: string
+  class_code: string
+  date: string
+  unit: string | null
+  title: string | null
+  notebook_page: string | null
+  body: string | null
+  important: boolean | null
+}
+interface TaskRow {
+  id: string
+  class_code: string | null
+  title: string
+  notes: string | null
+  due_date: string | null
+  urgency: string | null
+  done: boolean | null
+}
+
+const configStore = createSingleton<SchoolConfig, ConfigRow>({
+  key: 'mivida:school-config:v1',
+  table: 'school_config',
+  fallback: DEFAULT_CONFIG,
+  rowToValue: (r) => ({
+    anchorDate: r.anchor_date,
+    anchorDay: r.anchor_day,
+    overrides: r.overrides ?? [],
+  }),
+  valueToRow: (v, userId) => ({
+    user_id: userId,
+    anchor_date: v.anchorDate,
+    anchor_day: v.anchorDay,
+    overrides: v.overrides,
+    updated_at: new Date().toISOString(),
+  }),
+})
+
+const notesStore = createCollection<ClassNote, NoteRow>({
+  key: 'mivida:class-notes:v1',
+  table: 'class_notes',
+  rowToItem: (r) => ({
+    id: r.id,
+    classCode: r.class_code,
+    date: r.date,
+    unit: r.unit ?? '',
+    title: r.title ?? '',
+    notebookPage: r.notebook_page ?? '',
+    body: r.body ?? '',
+    important: r.important ?? false,
+  }),
+  itemToRow: (n, userId) => ({
+    id: n.id,
+    user_id: userId,
+    class_code: n.classCode,
+    date: n.date,
+    unit: n.unit,
+    title: n.title,
+    notebook_page: n.notebookPage,
+    body: n.body,
+    important: n.important,
+    updated_at: new Date().toISOString(),
+  }),
+})
+
+// Las tareas de Colegio viven en la tabla global `tasks` (con `class_code`), lista para
+// que el módulo de Pendientes de la Fase 3 comparta el mismo origen de datos.
+const tasksStore = createCollection<SchoolTask, TaskRow>({
+  key: 'mivida:tasks:v1',
+  table: 'tasks',
+  rowToItem: (r) => ({
+    id: r.id,
+    classCode: r.class_code ?? undefined,
+    title: r.title,
+    detail: r.notes ?? undefined,
+    dueDate: r.due_date ?? undefined,
+    urgency: (r.urgency as Urgency) ?? 'normal',
+    done: r.done ?? false,
+  }),
+  itemToRow: (t, userId) => ({
+    id: t.id,
+    user_id: userId,
+    class_code: t.classCode ?? null,
+    title: t.title,
+    notes: t.detail ?? null,
+    due_date: t.dueDate ?? null,
+    urgency: t.urgency,
+    done: t.done,
+    updated_at: new Date().toISOString(),
+  }),
+})
 
 function uid(): string {
-  return Math.random().toString(36).slice(2, 10)
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 10)
 }
 
 export function useSchoolConfig() {
-  const config = configStore.useStore()
+  const config = configStore.useValue()
 
   /** Reinicia el ciclo: a partir de `date`, el día pasa a ser `day`. */
   const setCycleDayOn = useCallback((date: string, day: number) => {
@@ -35,34 +131,35 @@ export function useSchoolConfig() {
 }
 
 export function useClassNotes(classCode?: string) {
-  const all = notesStore.useStore()
+  const all = notesStore.useAll()
   const notes = classCode ? all.filter((n) => n.classCode === classCode) : all
 
   const addNote = useCallback((note: Omit<ClassNote, 'id'>) => {
-    notesStore.update((prev) => [...prev, { ...note, id: uid() }])
+    notesStore.upsert({ ...note, id: uid() })
   }, [])
 
   const removeNote = useCallback((id: string) => {
-    notesStore.update((prev) => prev.filter((n) => n.id !== id))
+    notesStore.remove(id)
   }, [])
 
   return { notes, addNote, removeNote }
 }
 
 export function useTasks(classCode?: string) {
-  const all = tasksStore.useStore()
+  const all = tasksStore.useAll()
   const tasks = classCode ? all.filter((t) => t.classCode === classCode) : all
 
   const addTask = useCallback((task: Omit<SchoolTask, 'id' | 'done'>) => {
-    tasksStore.update((prev) => [...prev, { ...task, id: uid(), done: false }])
+    tasksStore.upsert({ ...task, id: uid(), done: false })
   }, [])
 
   const toggleTask = useCallback((id: string) => {
-    tasksStore.update((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)))
+    const t = tasksStore.get().find((x) => x.id === id)
+    if (t) tasksStore.upsert({ ...t, done: !t.done })
   }, [])
 
   const removeTask = useCallback((id: string) => {
-    tasksStore.update((prev) => prev.filter((t) => t.id !== id))
+    tasksStore.remove(id)
   }, [])
 
   return { tasks, addTask, toggleTask, removeTask }
