@@ -38,6 +38,13 @@ supabase.auth.onAuthStateChange((_event, session) => {
   loaders.forEach((l) => l(next))
 })
 
+/** Id único para items nuevos (UUID v4 cuando está disponible). */
+export function newId(): string {
+  return typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).slice(2, 10)
+}
+
 function readJSON<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key)
