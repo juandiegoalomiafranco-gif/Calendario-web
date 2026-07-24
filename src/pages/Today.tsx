@@ -9,6 +9,9 @@ import { cycleInfoFor } from '../lib/cycle'
 import { CLASSES, TIMETABLE } from '../data/schoolTimetable'
 import { useSchoolConfig, useTasks } from '../hooks/useSchool'
 import { URGENCY_META } from '../data/schoolTypes'
+import { scenarioForDay } from '../lib/nutrition'
+import { SCENARIOS } from '../data/nutrition'
+import { useNutritionDay } from '../hooks/useNutritionLog'
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -28,6 +31,8 @@ export function Today() {
   const { getEntry, toggleCompleted } = useTrainingLog()
   const { config } = useSchoolConfig()
   const { tasks } = useTasks()
+  const { scenarioOverride } = useNutritionDay(iso)
+  const scenario = SCENARIOS[scenarioOverride ?? scenarioForDay(day?.sessions ?? [])]
 
   const principle = useMemo(() => {
     const idx = PLAN.findIndex((d) => d.date === iso)
@@ -134,6 +139,19 @@ export function Today() {
         )}
         {day?.note && <p className="text-sm text-ink-500 bg-ink-100 rounded-2xl p-3">{day.note}</p>}
       </section>
+
+      {/* Comida de hoy */}
+      <Link to="/comida" className="rounded-3xl bg-card shadow-card p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
+        <span className={`shrink-0 w-11 h-11 rounded-2xl ${scenario.color} text-white flex items-center justify-center text-base font-bold`}>
+          {scenario.code}
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">Comida</h2>
+          <p className="text-base font-semibold text-ink-900">{scenario.name}</p>
+          <p className="text-xs text-ink-500">{scenario.kcal} kcal · {scenario.carbsG} g carb</p>
+        </div>
+        <span className="text-ink-400" aria-hidden>›</span>
+      </Link>
 
       {/* Pendientes que vencen */}
       {dueTasks.length > 0 && (

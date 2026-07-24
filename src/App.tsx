@@ -13,6 +13,7 @@ import { Entreno } from './pages/Entreno'
 import { Strength } from './pages/Strength'
 import { GymNotes } from './pages/GymNotes'
 import { BodyProgress } from './pages/BodyProgress'
+import { Comida } from './pages/Comida'
 import { Mas } from './pages/Mas'
 import { Placeholder } from './pages/Placeholder'
 
@@ -28,7 +29,7 @@ export default function App() {
           <Route path="/entreno" element={<Entreno />} />
           <Route path="/entreno/fuerza" element={<Strength />} />
           <Route path="/entreno/notas" element={<GymNotes />} />
-          <Route path="/comida" element={<Placeholder title="Comida" emoji="🍎" />} />
+          <Route path="/comida" element={<Comida />} />
           <Route path="/mas" element={<Mas />} />
           <Route path="/cuerpo" element={<BodyProgress />} />
           <Route path="/finanzas" element={<Placeholder title="Finanzas" emoji="💰" />} />
