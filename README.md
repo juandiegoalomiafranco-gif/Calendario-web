@@ -2,7 +2,8 @@
 
 App personal (Vite + React + TypeScript + Tailwind) que evolucionó desde un calendario de
 entrenamiento a un sistema integral de organización, con datos en **Supabase** (Postgres +
-RLS), **sesión anónima** por dispositivo (sin login) y un **PIN local** opcional.
+RLS) y **login por código**: el mismo código de acceso abre tus mismos datos en cualquier
+dispositivo, y a la vez bloquea la entrada a la app.
 
 ## Módulos
 
@@ -21,7 +22,7 @@ RLS), **sesión anónima** por dispositivo (sin login) y un **PIN local** opcion
     mesada e interés automáticos y gráficas. Moneda COP.
   - **Calendario** — mes + agenda del día, fechas importantes resaltadas.
   - **Pendientes** — tareas con urgencias y filtros.
-  - **Semana**, **Estadísticas de entreno** y **Ajustes** (PIN, FC y ritmo).
+  - **Semana**, **Estadísticas de entreno** y **Ajustes** (cuenta, FC y ritmo).
 
 ## Desarrollo
 
@@ -31,9 +32,18 @@ npm run dev
 ```
 
 Abre `http://localhost:5173`. Copia `.env.example` a `.env` con los valores **públicos**
-de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`). Requiere **Anonymous
-sign-ins** activado en Supabase (Authentication → Providers) para sincronizar con la nube;
-sin eso, la app funciona igual pero guarda solo en el dispositivo (`localStorage`).
+de Supabase (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`).
+
+En Supabase (Authentication → Providers) el **proveedor Email** debe estar **activado** y
+**"Confirm email" desactivado** — el login por código usa email+contraseña con un email
+interno derivado del código (no se envían correos).
+
+## Login por código
+
+`src/lib/auth.ts` + `src/components/CodeGate.tsx`. Al abrir la app pides tu código; se inicia
+sesión en Supabase con un email determinista derivado del código (`u<hash>@mivida.local`) y
+el código como contraseña. El mismo código → la misma cuenta → los mismos datos en todos tus
+dispositivos. **El código es tu llave: guárdalo bien** (quien lo sepa entra a tus datos).
 
 ## Build y despliegue
 
@@ -48,10 +58,9 @@ Usa `HashRouter`, así que no hacen falta reglas de rewrite.
 ## Arquitectura de datos
 
 - `src/lib/cloudStore.ts` — stores reutilizables con **caché en localStorage + sync a
-  Supabase** (con migración única local→nube). Generaliza el patrón de `useTrainingLog`.
-  Cada dominio tiene su hook (`useSchool`, `useBodyProgress`, `useStrength`,
-  `useTrainingNotes`, `useNutritionLog`, `useCalendarEvents`, `useFinance`).
-- `src/lib/pin.ts` + `src/components/PinGate.tsx` — PIN local de entrada.
+  Supabase** (con migración única local→nube). Cada dominio tiene su hook (`useSchool`,
+  `useBodyProgress`, `useStrength`, `useTrainingNotes`, `useNutritionLog`,
+  `useCalendarEvents`, `useFinance`).
 - Datos de referencia estáticos: `src/data/plan.ts` (entreno), `schoolTimetable.ts`
   (horario), `nutrition.ts` (dieta), `bodyTypes.ts` (línea base corporal).
 
