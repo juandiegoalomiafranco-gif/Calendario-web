@@ -1,4 +1,10 @@
-import type { SessionType } from './types'
+import type { SessionType, Slot } from './types'
+
+export const SLOT_LABEL: Record<Slot, string> = {
+  AM: 'Mañana',
+  PM: 'Tarde',
+  ALL: 'Todo el día',
+}
 
 interface Meta {
   emoji: string

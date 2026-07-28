@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
-import { SESSION_META } from '../data/sessionMeta'
+import { SESSION_META, SLOT_LABEL } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { formatPace, isDistanceSession, parsePlannedDistance } from '../lib/stats'
+import { formatLongDate, capitalizeFirst } from '../lib/dates'
+import { ArrowLeftIcon, CheckIcon } from '../components/icons'
+import { HolidayBadge } from '../components/HolidayBadge'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
 
 const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
@@ -26,20 +29,46 @@ function SessionDetailCard({ session }: { session: Session }) {
     }
   }, [sessionId, session.id])
 
-  const patch = (p: Partial<LogEntry>) => setEntry(session.id, { ...entry, ...p })
+  const [justSaved, setJustSaved] = useState(false)
+  const savedTimer = useRef<ReturnType<typeof setTimeout>>()
+
+  const flashSaved = useCallback(() => {
+    setJustSaved(true)
+    if (savedTimer.current) clearTimeout(savedTimer.current)
+    savedTimer.current = setTimeout(() => setJustSaved(false), 1600)
+  }, [])
+
+  useEffect(() => () => {
+    if (savedTimer.current) clearTimeout(savedTimer.current)
+  }, [])
+
+  const patch = (p: Partial<LogEntry>) => {
+    setEntry(session.id, { ...entry, ...p })
+    flashSaved()
+  }
+
+  const handleToggle = () => {
+    toggleCompleted(session.id)
+    flashSaved()
+  }
 
   return (
     <div ref={ref} className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3 scroll-mt-4">
       <div className="flex items-start gap-3">
         <div className={`shrink-0 w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center text-xl`}>
-          {meta.emoji}
+          <span aria-hidden>{meta.emoji}</span>
         </div>
         <div className="min-w-0 flex-1">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-            {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
+            {SLOT_LABEL[session.slot]}
           </span>
           <h3 className="text-lg font-semibold text-ink-900">{session.title}</h3>
         </div>
+        {justSaved && (
+          <span className="shrink-0 inline-flex items-center gap-1 text-[11px] font-semibold text-ok-300 app-page-enter">
+            <CheckIcon className="w-3 h-3" /> Guardado
+          </span>
+        )}
       </div>
 
       {(session.distanceKm || session.pace || session.hrTarget) && (
@@ -105,7 +134,7 @@ function SessionDetailCard({ session }: { session: Session }) {
           <input
             type="checkbox"
             checked={entry.completed}
-            onChange={() => toggleCompleted(session.id)}
+            onChange={handleToggle}
             className="w-5 h-5 rounded accent-ok-500"
           />
           <span className="text-sm font-medium text-ink-900">Marcar como completada</span>
@@ -239,9 +268,9 @@ export function DayDetail() {
         <p className="text-ink-500">No encontramos ese día en el plan.</p>
         <Link
           to="/semana"
-          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold active:bg-brand-50"
+          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold transition-colors active:bg-brand-50"
         >
-          <span aria-hidden>←</span> Volver a la semana
+          <ArrowLeftIcon className="w-4 h-4" /> Volver a la semana
         </Link>
       </div>
     )
@@ -252,16 +281,15 @@ export function DayDetail() {
       <header>
         <Link
           to="/semana"
-          className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-500 font-medium active:bg-ink-100"
+          className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-500 font-medium transition-colors active:bg-ink-100"
         >
-          <span aria-hidden>←</span> Semana
+          <ArrowLeftIcon className="w-4 h-4" /> Semana
         </Link>
-        <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
-        <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
+        <h1 className="text-2xl font-bold text-ink-900 mt-1">{capitalizeFirst(formatLongDate(day.date))}</h1>
         {holidayName(day.date) && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
-            🇨🇴 Festivo · {holidayName(day.date)}
-          </span>
+          <div className="mt-2">
+            <HolidayBadge name={holidayName(day.date)} />
+          </div>
         )}
       </header>
 

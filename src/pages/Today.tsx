@@ -4,12 +4,8 @@ import { SessionCard } from '../components/SessionCard'
 import { PrincipleCard } from '../components/PrincipleCard'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { holidayName } from '../data/holidays'
-
-function daysUntil(dateIso: string): number {
-  const today = new Date(`${todayISO()}T00:00:00Z`)
-  const target = new Date(`${dateIso}T00:00:00Z`)
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000)
-}
+import { daysBetween, formatLongDate, formatDayMonth, capitalizeFirst } from '../lib/dates'
+import { HolidayBadge } from '../components/HolidayBadge'
 
 export function Today() {
   const iso = todayISO()
@@ -21,18 +17,18 @@ export function Today() {
     return PRINCIPLES[(idx >= 0 ? idx : 0) % PRINCIPLES.length]
   }, [iso])
 
-  const remaining = daysUntil(GOAL_DATE)
+  const remaining = daysBetween(iso, GOAL_DATE)
   const holiday = holidayName(iso)
 
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <p className="text-sm text-ink-500 capitalize">{day?.weekday ?? ''}</p>
         <h1 className="text-3xl font-bold text-ink-900">Hoy</h1>
+        <p className="text-sm text-ink-500 mt-0.5">{capitalizeFirst(formatLongDate(iso))}</p>
         {holiday && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
-            🇨🇴 Festivo · {holiday}
-          </span>
+          <div className="mt-2">
+            <HolidayBadge name={holiday} />
+          </div>
         )}
       </header>
 
@@ -40,11 +36,11 @@ export function Today() {
         <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
           <div>
             <p className="text-sm text-ink-500">Meta: {GOAL_DISTANCE_KM} km</p>
-            <p className="text-base font-semibold text-ink-900">5 de agosto</p>
+            <p className="text-base font-semibold text-ink-900">{formatDayMonth(GOAL_DATE)}</p>
           </div>
           <div className="text-right">
-            <p className="text-3xl font-bold text-brand-600">{remaining}</p>
-            <p className="text-xs text-ink-400">días restantes</p>
+            <p className="text-3xl font-bold text-brand-600 tabular-nums">{remaining}</p>
+            <p className="text-xs text-ink-400">{remaining === 1 ? 'día restante' : 'días restantes'}</p>
           </div>
         </div>
       )}

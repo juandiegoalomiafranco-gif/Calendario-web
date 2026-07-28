@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import type { Session } from '../data/types'
-import { SESSION_META } from '../data/sessionMeta'
+import { SESSION_META, SLOT_LABEL } from '../data/sessionMeta'
+import { CheckIcon } from './icons'
 
 interface SessionCardProps {
   session: Session
@@ -23,17 +24,17 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-              {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
+              {SLOT_LABEL[session.slot]}
             </span>
             {completed && (
-              <span className="text-[11px] font-semibold text-ok-300 bg-ok-900 rounded-full px-2 py-0.5">
-                Hecho
+              <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-ok-300 bg-ok-900 rounded-full px-2 py-0.5">
+                <CheckIcon className="w-3 h-3" /> Hecho
               </span>
             )}
           </div>
           <h3 className="text-base font-semibold text-ink-900 mt-0.5 truncate">{session.title}</h3>
           {(session.distanceKm || session.pace) && (
-            <p className="text-sm text-ink-500 mt-0.5">
+            <p className="text-sm text-ink-500 mt-0.5 tabular-nums">
               {session.distanceKm ? `${session.distanceKm} km` : ''}
               {session.distanceKm && session.pace ? ' · ' : ''}
               {session.pace ?? ''}

@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Inter variable, self-hosted (funciona offline, sin CDN). Cubre el subconjunto
+   latino, que incluye acentos y signos del español (á, é, í, ó, ú, ñ, ¿, ¡). */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('/fonts/inter-latin-wght-normal.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA,
+    U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+2074, U+20AC, U+2122, U+2191,
+    U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
 html, body {
   min-height: 100%;
 }
@@ -15,10 +28,50 @@ body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
   color: #f7f7f8;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .app-shell {
   min-height: 100vh;
   /* dvh tracks the iOS standalone dynamic viewport; the vh line above is the fallback */
   min-height: 100dvh;
+}
+
+@layer base {
+  /* Foco visible para teclado en todo interactivo que no defina uno propio.
+     Antes no había ninguno y el tap-highlight está desactivado. */
+  :focus-visible {
+    outline: 2px solid #ff7a3c; /* brand-400 */
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+}
+
+/* Micro-animación de entrada por vista (Fase 5). Suave y corta. */
+@keyframes app-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.app-page-enter {
+  animation: app-fade-in 0.28s ease-out both;
+}
+
+/* Respetar la preferencia de menos movimiento: sin animaciones ni transiciones. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

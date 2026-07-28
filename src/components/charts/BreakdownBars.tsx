@@ -6,10 +6,12 @@ interface Row {
   colorClass: string
 }
 
-export function BreakdownBars({ rows }: { rows: Row[] }) {
+export function BreakdownBars({ rows, ariaLabel }: { rows: Row[]; ariaLabel?: string }) {
   const max = Math.max(...rows.map((r) => r.count), 1)
+  const desc = ariaLabel ?? rows.map((r) => `${r.label}: ${r.count}`).join('. ')
+
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
+    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3" role="img" aria-label={desc}>
       {rows.map((r) => (
         <div key={r.key} className="flex items-center gap-2.5">
           <span className="w-6 text-center text-lg" aria-hidden>
@@ -18,10 +20,13 @@ export function BreakdownBars({ rows }: { rows: Row[] }) {
           <div className="flex-1 min-w-0">
             <div className="flex justify-between text-sm mb-1">
               <span className="font-medium text-ink-800 truncate">{r.label}</span>
-              <span className="font-semibold text-ink-900">{r.count}</span>
+              <span className="font-semibold text-ink-900 tabular-nums">{r.count}</span>
             </div>
             <div className="h-2 rounded-full bg-ink-100 overflow-hidden">
-              <div className={`h-full rounded-full ${r.colorClass}`} style={{ width: `${(r.count / max) * 100}%` }} />
+              <div
+                className={`h-full rounded-full ${r.colorClass}`}
+                style={{ width: `${(r.count / max) * 100}%`, transition: 'width 0.3s ease' }}
+              />
             </div>
           </div>
         </div>

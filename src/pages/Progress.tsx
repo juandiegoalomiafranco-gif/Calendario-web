@@ -1,6 +1,8 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
 import { PLAN, GOAL_DATE, GOAL_DISTANCE_KM, todayISO } from '../data/plan'
 import { StatCard } from '../components/StatCard'
+import { TrendingUpIcon } from '../components/icons'
 import { ProgressRing } from '../components/ProgressRing'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
@@ -8,12 +10,13 @@ import { BreakdownBars } from '../components/charts/BreakdownBars'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { chunkIntoWeeks } from '../lib/weeks'
 import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
+import { daysBetween } from '../lib/dates'
 import type { LogEntry } from '../data/types'
 
 const CATEGORY_META: Record<Category, { emoji: string; label: string; colorClass: string }> = {
   running: { emoji: '🏃', label: 'Running', colorClass: 'bg-brand-500' },
   natacion: { emoji: '🏊', label: 'Natación', colorClass: 'bg-sky-500' },
-  funcional: { emoji: '🏋️', label: 'Funcional', colorClass: 'bg-ink-700' },
+  funcional: { emoji: '🏋️', label: 'Funcional', colorClass: 'bg-violet-500' },
   futbol: { emoji: '⚽', label: 'Fútbol', colorClass: 'bg-ok-500' },
   voley: { emoji: '🏐', label: 'Vóley', colorClass: 'bg-amber-400' },
   flex: { emoji: '🎲', label: 'Flex (sin detalle)', colorClass: 'bg-ink-400' },
@@ -187,12 +190,38 @@ export function Progress() {
     return { last, delta: last - prev }
   }, [kmPerWeek])
 
-  const daysRemaining = Math.max(
-    0,
-    Math.round((new Date(`${GOAL_DATE}T00:00:00Z`).getTime() - new Date(`${iso}T00:00:00Z`).getTime()) / 86_400_000),
-  )
+  const daysRemaining = Math.max(0, daysBetween(iso, GOAL_DATE))
 
   const longestRunPct = Math.min(100, (km.longestRun / GOAL_DISTANCE_KM) * 100)
+
+  if (completedCount === 0) {
+    return (
+      <div className="flex flex-col gap-5">
+        <header>
+          <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
+        </header>
+        <div className="rounded-4xl bg-card shadow-card p-6 flex flex-col items-center text-center gap-3">
+          <div className="w-14 h-14 rounded-2xl bg-brand-50 text-brand-300 flex items-center justify-center">
+            <TrendingUpIcon className="w-7 h-7" />
+          </div>
+          <p className="text-lg font-semibold text-ink-900">Aún no hay entrenos registrados</p>
+          <p className="text-sm text-ink-500 max-w-[19rem]">
+            Marca tu primera sesión como completada en <span className="font-medium text-ink-700">Hoy</span> o en el
+            detalle de un día; aquí verás tus kilómetros, rachas y tendencias.
+          </p>
+          <p className="text-sm text-ink-500 tabular-nums">
+            Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km
+          </p>
+          <Link
+            to="/"
+            className="mt-1 inline-flex items-center min-h-[44px] rounded-full bg-brand-500 px-5 text-sm font-semibold text-white transition-colors active:bg-brand-600"
+          >
+            Ir a Hoy
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -203,15 +232,15 @@ export function Progress() {
       <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">
         <ProgressRing value={completionPct} size={104} strokeWidth={12}>
           <div className="text-center">
-            <p className="text-2xl font-bold text-ink-900">{completionPct}%</p>
+            <p className="text-2xl font-bold text-ink-900 tabular-nums">{completionPct}%</p>
           </div>
         </ProgressRing>
         <div>
           <p className="text-sm text-ink-500">Sesiones completadas</p>
-          <p className="text-xl font-bold text-ink-900">
+          <p className="text-xl font-bold text-ink-900 tabular-nums">
             {completedCount} / {totalPlanned}
           </p>
-          <p className="text-sm text-ink-500 mt-2">Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km</p>
+          <p className="text-sm text-ink-500 mt-2 tabular-nums">Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km</p>
         </div>
       </div>
 
@@ -292,7 +321,7 @@ export function Progress() {
       <div className="rounded-3xl bg-card shadow-card p-4">
         <div className="flex items-center justify-between mb-2">
           <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
-          <p className="text-sm font-bold text-ink-900">
+          <p className="text-sm font-bold text-ink-900 tabular-nums">
             {km.longestRun.toFixed(1)} <span className="text-ink-400 font-medium">/ {GOAL_DISTANCE_KM} km</span>
           </p>
         </div>

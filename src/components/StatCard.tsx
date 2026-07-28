@@ -13,7 +13,7 @@ export function StatCard({ label, value, unit, icon, caption }: StatCardProps) {
         {icon && <span>{icon}</span>}
         <span>{label}</span>
       </div>
-      <p className="mt-1 text-2xl font-bold text-ink-900">
+      <p className="mt-1 text-2xl font-bold text-ink-900 tabular-nums">
         {value}
         {unit && <span className="text-sm font-medium text-ink-400 ml-1">{unit}</span>}
       </p>
