@@ -4,7 +4,9 @@ import { getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
 import { SESSION_META } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
-import { formatPace, isDistanceSession, parsePlannedDistance } from '../lib/stats'
+import { useGoals } from '../hooks/useGoals'
+import { formatPace, isDistanceSession, plannedKmOf } from '../lib/stats'
+import { formatLong } from '../lib/dates'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
 
 const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
@@ -42,7 +44,7 @@ function SessionDetailCard({ session }: { session: Session }) {
         </div>
       </div>
 
-      {(session.distanceKm || session.pace || session.hrTarget) && (
+      {(session.distanceKm || session.pace || session.effort) && (
         <div className="grid grid-cols-1 gap-1.5 text-sm text-ink-600 bg-ink-100 rounded-2xl p-3">
           {session.distanceKm && (
             <p>
@@ -54,9 +56,9 @@ function SessionDetailCard({ session }: { session: Session }) {
               <span className="font-semibold text-ink-900">Ritmo:</span> {session.pace}
             </p>
           )}
-          {session.hrTarget && (
+          {session.effort && (
             <p>
-              <span className="font-semibold text-ink-900">FC objetivo:</span> {session.hrTarget}
+              <span className="font-semibold text-ink-900">Esfuerzo:</span> {session.effort}
             </p>
           )}
         </div>
@@ -151,8 +153,8 @@ function SessionDetailCard({ session }: { session: Session }) {
             </label>
             {entry.distanceKm == null && (
               <p className="text-xs text-brand-300">
-                {parsePlannedDistance(session.distanceKm) > 0
-                  ? `Sin dato, contaremos ~${parsePlannedDistance(session.distanceKm)} km del plan.`
+                {plannedKmOf(session) > 0
+                  ? `Sin dato, contaremos ~${plannedKmOf(session)} km del plan.`
                   : 'Sin dato, esta sesión suma 0 km en Progreso.'}
               </p>
             )}
@@ -190,16 +192,6 @@ function SessionDetailCard({ session }: { session: Session }) {
               </p>
             )}
             <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
-              FC media (ppm)
-              <input
-                type="number"
-                inputMode="numeric"
-                value={entry.avgHr ?? ''}
-                onChange={(e) => patch({ avgHr: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
-              />
-            </label>
-            <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
               Sensación
               <select
                 value={entry.feeling ?? ''}
@@ -231,7 +223,8 @@ function SessionDetailCard({ session }: { session: Session }) {
 
 export function DayDetail() {
   const { date } = useParams()
-  const day = date ? getDayPlan(date) : undefined
+  const { activeGoal } = useGoals()
+  const day = date ? getDayPlan(date, activeGoal) : undefined
 
   if (!day) {
     return (
@@ -256,8 +249,7 @@ export function DayDetail() {
         >
           <span aria-hidden>←</span> Semana
         </Link>
-        <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
-        <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
+        <h1 className="text-2xl font-bold text-ink-900 mt-1">{formatLong(day.date)}</h1>
         {holidayName(day.date) && (
           <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
             🇨🇴 Festivo · {holidayName(day.date)}

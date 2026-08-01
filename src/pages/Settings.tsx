@@ -1,11 +1,5 @@
 import { useSettings } from '../hooks/useSettings'
-
-function karvonenZone2(restingHr: number, maxHr: number): string {
-  const hrr = maxHr - restingHr
-  const low = Math.round(restingHr + hrr * 0.6)
-  const high = Math.round(restingHr + hrr * 0.7)
-  return `${low}-${high} ppm`
-}
+import { PRINCIPLES } from '../data/plan'
 
 export function Settings() {
   const { settings, update } = useSettings()
@@ -15,34 +9,9 @@ export function Settings() {
       <header>
         <h1 className="text-3xl font-bold text-ink-900">Ajustes</h1>
         <p className="text-sm text-ink-500 mt-1">
-          Los ritmos y zonas se recalibran a medida que mejora tu base aeróbica. Actualiza esto cada 2-3 semanas.
+          Los ritmos se recalibran a medida que mejora tu base aeróbica. Actualiza esto cada 2-3 semanas.
         </p>
       </header>
-
-      <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-4">
-        <label className="flex flex-col gap-1 text-sm text-ink-500">
-          FC en reposo (ppm)
-          <input
-            type="number"
-            value={settings.restingHr}
-            onChange={(e) => update({ restingHr: Number(e.target.value) })}
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-base text-ink-900"
-          />
-        </label>
-        <label className="flex flex-col gap-1 text-sm text-ink-500">
-          FC máxima estimada/medida (ppm)
-          <input
-            type="number"
-            value={settings.maxHr}
-            onChange={(e) => update({ maxHr: Number(e.target.value) })}
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-base text-ink-900"
-          />
-        </label>
-        <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-300">Tu Zona 2 aeróbica (Karvonen)</p>
-          <p className="text-lg font-bold text-brand-200">{karvonenZone2(settings.restingHr, settings.maxHr)}</p>
-        </div>
-      </div>
 
       <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-2">
         <label className="flex flex-col gap-1 text-sm text-ink-500">
@@ -51,15 +20,29 @@ export function Settings() {
             value={settings.paceNote}
             onChange={(e) => update({ paceNote: e.target.value })}
             rows={3}
-            placeholder="Ej: desde la semana 3, mi rodaje suave ya sale a 7:00-7:30/km con FC en zona 2."
+            placeholder="Ej: desde la semana 3, mi rodaje suave ya sale a 7:00-7:30/km yendo cómodo."
             className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
           />
         </label>
         <p className="text-xs text-ink-400">
-          Este apunte es solo para ti — el plan sigue mostrando los rangos originales, pero puedes anotar aquí cómo va
-          cambiando tu ritmo real a la misma FC.
+          Este apunte es solo para ti — el plan sigue proponiendo las mismas distancias, pero puedes anotar aquí cómo va
+          cambiando tu ritmo real al mismo esfuerzo.
         </p>
       </div>
+
+      <section>
+        <h2 className="text-lg font-semibold text-ink-900 mb-3">Los principios del plan</h2>
+        <ul className="flex flex-col gap-2">
+          {PRINCIPLES.map((principle, i) => (
+            <li key={i} className="rounded-2xl bg-card shadow-card p-3 text-sm text-ink-600 flex gap-2.5">
+              <span className="shrink-0 w-6 h-6 rounded-full bg-brand-50 text-brand-200 text-xs font-bold flex items-center justify-center">
+                {i + 1}
+              </span>
+              {principle}
+            </li>
+          ))}
+        </ul>
+      </section>
     </div>
   )
 }

@@ -43,6 +43,11 @@ export function sessionCategory(session: Session, entry?: LogEntry): Category {
   return 'flex'
 }
 
+/** Km que el plan propone para una sesión. */
+export function plannedKmOf(session: Session): number {
+  return session.plannedKm ?? parsePlannedDistance(session.distanceKm)
+}
+
 /**
  * Km que aporta una sesión al total: los km ingresados por el usuario tal cual;
  * si no ingresó nada, el estimado del plan (marcado como `estimated`).
@@ -50,7 +55,7 @@ export function sessionCategory(session: Session, entry?: LogEntry): Category {
 export function kmForEntry(session: Session, entry?: LogEntry): { km: number; estimated: boolean } {
   if (!entry?.completed) return { km: 0, estimated: false }
   if (entry.distanceKm != null) return { km: entry.distanceKm, estimated: false }
-  const planned = parsePlannedDistance(session.distanceKm)
+  const planned = plannedKmOf(session)
   return { km: planned, estimated: planned > 0 }
 }
 

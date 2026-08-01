@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom'
 const ITEMS = [
   { to: '/', label: 'Hoy', emoji: '☀️' },
   { to: '/semana', label: 'Semana', emoji: '🗓️' },
+  { to: '/metas', label: 'Metas', emoji: '🎯' },
   { to: '/progreso', label: 'Progreso', emoji: '📈' },
   { to: '/ajustes', label: 'Ajustes', emoji: '⚙️' },
 ]
@@ -18,7 +19,7 @@ export function BottomNav() {
               to={item.to}
               end={item.to === '/'}
               className={({ isActive }) =>
-                `flex flex-col items-center justify-center gap-0.5 rounded-full px-4 py-2 text-xs font-medium transition-colors ${
+                `flex flex-col items-center justify-center gap-0.5 rounded-full px-2.5 py-2 text-[11px] font-medium transition-colors ${
                   isActive ? 'bg-brand-500 text-white' : 'text-ink-400'
                 }`
               }

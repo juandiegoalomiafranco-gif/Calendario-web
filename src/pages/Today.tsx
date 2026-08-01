@@ -1,33 +1,32 @@
 import { useMemo } from 'react'
-import { PLAN, PRINCIPLES, GOAL_DATE, GOAL_DISTANCE_KM, todayISO, getDayPlan } from '../data/plan'
+import { Link } from 'react-router-dom'
+import { PRINCIPLES, PROGRAM_START, getDayPlan } from '../data/plan'
+import { formatKm } from '../data/program'
 import { SessionCard } from '../components/SessionCard'
 import { PrincipleCard } from '../components/PrincipleCard'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { useGoals } from '../hooks/useGoals'
 import { holidayName } from '../data/holidays'
-
-function daysUntil(dateIso: string): number {
-  const today = new Date(`${todayISO()}T00:00:00Z`)
-  const target = new Date(`${dateIso}T00:00:00Z`)
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000)
-}
+import { daysBetween, formatLong, todayISO } from '../lib/dates'
 
 export function Today() {
   const iso = todayISO()
-  const day = getDayPlan(iso)
+  const { activeGoal } = useGoals()
+  const day = getDayPlan(iso, activeGoal)
   const { getEntry } = useTrainingLog()
 
   const principle = useMemo(() => {
-    const idx = PLAN.findIndex((d) => d.date === iso)
-    return PRINCIPLES[(idx >= 0 ? idx : 0) % PRINCIPLES.length]
+    const idx = Math.max(0, daysBetween(PROGRAM_START, iso))
+    return PRINCIPLES[idx % PRINCIPLES.length]
   }, [iso])
 
-  const remaining = daysUntil(GOAL_DATE)
+  const remaining = activeGoal ? daysBetween(iso, activeGoal.targetDate) : null
   const holiday = holidayName(iso)
 
   return (
     <div className="flex flex-col gap-5">
       <header>
-        <p className="text-sm text-ink-500 capitalize">{day?.weekday ?? ''}</p>
+        <p className="text-sm text-ink-500">{formatLong(iso)}</p>
         <h1 className="text-3xl font-bold text-ink-900">Hoy</h1>
         {holiday && (
           <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
@@ -36,17 +35,42 @@ export function Today() {
         )}
       </header>
 
-      {remaining >= 0 && (
-        <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
+      {activeGoal && remaining !== null ? (
+        <Link
+          to="/metas"
+          className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between gap-3 active:scale-[0.98] transition-transform"
+        >
+          <div className="min-w-0">
+            <p className="text-sm text-ink-500">
+              {activeGoal.targetKm ? `Meta: ${formatKm(activeGoal.targetKm)} km` : 'Tu próxima meta'}
+            </p>
+            <p className="text-base font-semibold text-ink-900 truncate">{activeGoal.title}</p>
+            <p className="text-xs text-ink-400 mt-0.5">{formatLong(activeGoal.targetDate)}</p>
+          </div>
+          <div className="text-right shrink-0">
+            {remaining === 0 ? (
+              <p className="text-2xl font-bold text-brand-600">¡Hoy!</p>
+            ) : (
+              <>
+                <p className="text-3xl font-bold text-brand-600">{remaining}</p>
+                <p className="text-xs text-ink-400">{remaining === 1 ? 'día restante' : 'días restantes'}</p>
+              </>
+            )}
+          </div>
+        </Link>
+      ) : (
+        <Link
+          to="/metas"
+          className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between gap-3 active:scale-[0.98] transition-transform"
+        >
           <div>
-            <p className="text-sm text-ink-500">Meta: {GOAL_DISTANCE_KM} km</p>
-            <p className="text-base font-semibold text-ink-900">5 de agosto</p>
+            <p className="text-base font-semibold text-ink-900">🎯 Ponte tu próxima meta</p>
+            <p className="text-sm text-ink-500 mt-0.5">El plan se organiza alrededor de ella.</p>
           </div>
-          <div className="text-right">
-            <p className="text-3xl font-bold text-brand-600">{remaining}</p>
-            <p className="text-xs text-ink-400">días restantes</p>
-          </div>
-        </div>
+          <span className="text-brand-600 text-xl shrink-0" aria-hidden>
+            →
+          </span>
+        </Link>
       )}
 
       <PrincipleCard text={principle} />
@@ -60,9 +84,7 @@ export function Today() {
         ) : (
           <p className="text-ink-500 text-sm">No hay un plan cargado para hoy todavía.</p>
         )}
-        {day?.note && (
-          <p className="text-sm text-ink-500 bg-ink-100 rounded-2xl p-3">{day.note}</p>
-        )}
+        {day?.note && <p className="text-sm text-ink-500 bg-ink-100 rounded-2xl p-3">{day.note}</p>}
       </section>
     </div>
   )

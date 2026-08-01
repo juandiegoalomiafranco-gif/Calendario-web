@@ -5,6 +5,7 @@ import { Today } from './pages/Today'
 import { Week } from './pages/Week'
 import { DayDetail } from './pages/DayDetail'
 import { Progress } from './pages/Progress'
+import { Goals } from './pages/Goals'
 import { Settings } from './pages/Settings'
 
 export default function App() {
@@ -17,6 +18,7 @@ export default function App() {
         <Route path="/dia/:date" element={<DayDetail />} />
         <Route path="/dia/:date/:sessionId" element={<DayDetail />} />
         <Route path="/progreso" element={<Progress />} />
+        <Route path="/metas" element={<Goals />} />
         <Route path="/ajustes" element={<Settings />} />
       </Routes>
     </Layout>

@@ -1,14 +1,20 @@
 import { useMemo } from 'react'
-import { PLAN, GOAL_DATE, GOAL_DISTANCE_KM, todayISO } from '../data/plan'
+import { PROGRAM_START, getRange } from '../data/plan'
+import { formatKm } from '../data/program'
 import { StatCard } from '../components/StatCard'
 import { ProgressRing } from '../components/ProgressRing'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
 import { BreakdownBars } from '../components/charts/BreakdownBars'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { useGoals } from '../hooks/useGoals'
 import { chunkIntoWeeks } from '../lib/weeks'
 import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
+import { daysBetween, formatShort, todayISO } from '../lib/dates'
 import type { LogEntry } from '../data/types'
+
+/** Semanas que se muestran en las gráficas: el plan es infinito, la vista no. */
+const WEEKS_SHOWN = 12
 
 const CATEGORY_META: Record<Category, { emoji: string; label: string; colorClass: string }> = {
   running: { emoji: '🏃', label: 'Running', colorClass: 'bg-brand-500' },
@@ -27,19 +33,18 @@ const FEELING_META: { id: NonNullable<LogEntry['feeling']>; emoji: string; label
   { id: 'cargado', emoji: '😖', label: 'Cargado', colorClass: 'bg-brand-600' },
 ]
 
-function shortDate(iso: string): string {
-  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
-}
-
 export function Progress() {
   const { log } = useTrainingLog()
+  const { activeGoal } = useGoals()
   const iso = todayISO()
 
-  const allSessions = useMemo(() => PLAN.flatMap((d) => d.sessions.map((s) => ({ ...s, date: d.date }))), [])
-  const pastOrTodaySessions = useMemo(() => allSessions.filter((s) => s.date <= iso), [allSessions, iso])
+  // El plan se genera sin fin, así que las estadísticas se acotan a lo vivido:
+  // del arranque del programa hasta hoy.
+  const days = useMemo(() => getRange(PROGRAM_START, iso, activeGoal), [iso, activeGoal])
+  const allSessions = useMemo(() => days.flatMap((d) => d.sessions.map((s) => ({ ...s, date: d.date }))), [days])
 
-  const completedCount = pastOrTodaySessions.filter((s) => log[s.id]?.completed).length
-  const totalPlanned = pastOrTodaySessions.length
+  const completedCount = allSessions.filter((s) => log[s.id]?.completed).length
+  const totalPlanned = allSessions.length
   const completionPct = totalPlanned ? Math.round((completedCount / totalPlanned) * 100) : 0
 
   const workoutsDone = useMemo(
@@ -47,7 +52,7 @@ export function Progress() {
     [allSessions, log],
   )
 
-  const streaks = useMemo(() => computeStreaks(PLAN, log, iso), [log, iso])
+  const streaks = useMemo(() => computeStreaks(days, log, iso), [days, log, iso])
 
   const km = useMemo(() => {
     let total = 0
@@ -87,29 +92,34 @@ export function Progress() {
       .map((c) => ({ key: c, ...CATEGORY_META[c], count: Number((counts.get(c) ?? 0).toFixed(1)) }))
   }, [allSessions, log])
 
-  const weeks = useMemo(() => chunkIntoWeeks(PLAN), [])
+  // Últimas semanas, numeradas desde el arranque del programa.
+  const weeks = useMemo(() => {
+    const all = chunkIntoWeeks(days)
+    const from = Math.max(0, all.length - WEEKS_SHOWN)
+    return all.slice(from).map((week, i) => ({ week, label: `Sem ${from + i + 1}` }))
+  }, [days])
 
   const kmPerWeek = useMemo(
     () =>
-      weeks.map((week, i) => {
+      weeks.map(({ week, label }) => {
         const value = week.reduce(
           (sum, day) => sum + day.sessions.reduce((s, sess) => s + kmForEntry(sess, log[sess.id]).km, 0),
           0,
         )
-        return { label: `Sem ${i + 1}`, value, display: value ? value.toFixed(1) : '0' }
+        return { label, value, display: value ? value.toFixed(1) : '0' }
       }),
     [weeks, log],
   )
 
   const completionPerWeek = useMemo(
     () =>
-      weeks.map((week, i) => {
-        const past = week.filter((d) => d.date <= iso).flatMap((d) => d.sessions)
-        const done = past.filter((s) => log[s.id]?.completed).length
-        const pct = past.length ? Math.round((done / past.length) * 100) : 0
-        return { label: `Sem ${i + 1}`, value: pct, display: `${pct}%` }
+      weeks.map(({ week, label }) => {
+        const sessions = week.flatMap((d) => d.sessions)
+        const done = sessions.filter((s) => log[s.id]?.completed).length
+        const pct = sessions.length ? Math.round((done / sessions.length) * 100) : 0
+        return { label, value: pct, display: `${pct}%` }
       }),
-    [weeks, log, iso],
+    [weeks, log],
   )
 
   const byActivity = useMemo(() => {
@@ -131,7 +141,13 @@ export function Progress() {
       const entry = log[s.id]
       if (entry?.completed && entry.feeling) counts.set(entry.feeling, (counts.get(entry.feeling) ?? 0) + 1)
     }
-    const rows = FEELING_META.map((f) => ({ key: f.id, emoji: f.emoji, label: f.label, colorClass: f.colorClass, count: counts.get(f.id) ?? 0 }))
+    const rows = FEELING_META.map((f) => ({
+      key: f.id,
+      emoji: f.emoji,
+      label: f.label,
+      colorClass: f.colorClass,
+      count: counts.get(f.id) ?? 0,
+    }))
     return { rows, total: rows.reduce((a, r) => a + r.count, 0) }
   }, [allSessions, log])
 
@@ -143,18 +159,10 @@ export function Progress() {
     [allSessions, log],
   )
 
-  const hrTrend = useMemo(
-    () =>
-      completedRuns
-        .filter((s) => log[s.id]?.avgHr != null)
-        .map((s) => ({ label: shortDate(s.date), value: log[s.id]!.avgHr! })),
-    [completedRuns, log],
-  )
-
   const runDistanceTrend = useMemo(
     () =>
       completedRuns
-        .map((s) => ({ label: shortDate(s.date), value: kmForEntry(s, log[s.id]).km }))
+        .map((s) => ({ label: formatShort(s.date), value: kmForEntry(s, log[s.id]).km }))
         .filter((p) => p.value > 0),
     [completedRuns, log],
   )
@@ -163,18 +171,16 @@ export function Progress() {
     () =>
       completedRuns
         .map((s) => {
-          const km = kmForEntry(s, log[s.id]).km
+          const runKm = kmForEntry(s, log[s.id]).km
           const dur = log[s.id]?.durationMin
-          return { label: shortDate(s.date), value: km > 0 && dur ? dur / km : 0 }
+          return { label: formatShort(s.date), value: runKm > 0 && dur ? dur / runKm : 0 }
         })
         .filter((p) => p.value > 0),
     [completedRuns, log],
   )
 
   const runStats = useMemo(() => {
-    const runsWithKm = completedRuns
-      .map((s) => kmForEntry(s, log[s.id]).km)
-      .filter((v) => v > 0)
+    const runsWithKm = completedRuns.map((s) => kmForEntry(s, log[s.id]).km).filter((v) => v > 0)
     const avgPerRun = runsWithKm.length ? km.running / runsWithKm.length : 0
     return { count: runsWithKm.length, avgPerRun }
   }, [completedRuns, log, km.running])
@@ -187,12 +193,9 @@ export function Progress() {
     return { last, delta: last - prev }
   }, [kmPerWeek])
 
-  const daysRemaining = Math.max(
-    0,
-    Math.round((new Date(`${GOAL_DATE}T00:00:00Z`).getTime() - new Date(`${iso}T00:00:00Z`).getTime()) / 86_400_000),
-  )
-
-  const longestRunPct = Math.min(100, (km.longestRun / GOAL_DISTANCE_KM) * 100)
+  const daysRemaining = activeGoal ? Math.max(0, daysBetween(iso, activeGoal.targetDate)) : null
+  const goalKm = activeGoal?.targetKm
+  const longestRunPct = goalKm ? Math.min(100, (km.longestRun / goalKm) * 100) : 0
 
   return (
     <div className="flex flex-col gap-5">
@@ -211,7 +214,11 @@ export function Progress() {
           <p className="text-xl font-bold text-ink-900">
             {completedCount} / {totalPlanned}
           </p>
-          <p className="text-sm text-ink-500 mt-2">Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km</p>
+          {activeGoal && daysRemaining !== null && (
+            <p className="text-sm text-ink-500 mt-2">
+              Faltan {daysRemaining} {daysRemaining === 1 ? 'día' : 'días'} para {activeGoal.title}
+            </p>
+          )}
         </div>
       </div>
 
@@ -238,7 +245,13 @@ export function Progress() {
               : 'todo registrado por ti'
           }
         />
-        <StatCard label="Km corriendo" value={km.running.toFixed(1)} unit="km" icon="🏃" caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`} />
+        <StatCard
+          label="Km corriendo"
+          value={km.running.toFixed(1)}
+          unit="km"
+          icon="🏃"
+          caption={goalKm ? `meta: ${formatKm(goalKm)} km seguidos` : 'total acumulado'}
+        />
       </div>
 
       {(totals.durationMin > 0 || totals.calories > 0) && (
@@ -289,17 +302,29 @@ export function Progress() {
         </div>
       )}
 
-      <div className="rounded-3xl bg-card shadow-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
-          <p className="text-sm font-bold text-ink-900">
-            {km.longestRun.toFixed(1)} <span className="text-ink-400 font-medium">/ {GOAL_DISTANCE_KM} km</span>
-          </p>
+      {goalKm ? (
+        <div className="rounded-3xl bg-card shadow-card p-4">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
+            <p className="text-sm font-bold text-ink-900">
+              {km.longestRun.toFixed(1)} <span className="text-ink-400 font-medium">/ {formatKm(goalKm)} km</span>
+            </p>
+          </div>
+          <div className="h-3 rounded-full bg-ink-100 overflow-hidden">
+            <div
+              className="h-full rounded-full bg-ok-500"
+              style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }}
+            />
+          </div>
         </div>
-        <div className="h-3 rounded-full bg-ink-100 overflow-hidden">
-          <div className="h-full rounded-full bg-ok-500" style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }} />
-        </div>
-      </div>
+      ) : (
+        km.longestRun > 0 && (
+          <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
+            <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
+            <p className="text-sm font-bold text-ink-900">{km.longestRun.toFixed(1)} km</p>
+          </div>
+        )
+      )}
 
       <section>
         <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por semana</h2>
@@ -338,13 +363,6 @@ export function Progress() {
         <section>
           <h2 className="text-lg font-semibold text-ink-900 mb-3">Ritmo por carrera</h2>
           <TrendLine points={paceTrend} unit="min/km (más bajo es más rápido)" color="#10b981" decimals={1} />
-        </section>
-      )}
-
-      {hrTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">FC media en carrera</h2>
-          <TrendLine points={hrTrend} unit="pulsaciones por minuto" color="#0ea5e9" decimals={0} />
         </section>
       )}
 

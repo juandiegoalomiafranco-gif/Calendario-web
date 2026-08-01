@@ -1,18 +1,18 @@
 import { useMemo, useState } from 'react'
-import { PLAN, todayISO } from '../data/plan'
+import { getRange } from '../data/plan'
 import { WeekGrid } from '../components/WeekGrid'
-import { chunkIntoWeeks } from '../lib/weeks'
+import { useGoals } from '../hooks/useGoals'
+import { addDays, formatShort, todayISO, weekStart } from '../lib/dates'
 
 export function Week() {
   const iso = todayISO()
-  const weeks = useMemo(() => chunkIntoWeeks(PLAN), [])
-  const currentWeekIdx = useMemo(() => {
-    const idx = weeks.findIndex((w) => w.some((d) => d.date === iso))
-    return idx >= 0 ? idx : 0
-  }, [weeks, iso])
-  const [weekIdx, setWeekIdx] = useState(currentWeekIdx)
+  const { activeGoal } = useGoals()
+  // Semanas relativas a la actual: el plan se genera, así que no hay tope.
+  const [offset, setOffset] = useState(0)
 
-  const week = weeks[weekIdx] ?? []
+  const start = useMemo(() => addDays(weekStart(iso), offset * 7), [iso, offset])
+  const end = useMemo(() => addDays(start, 6), [start])
+  const days = useMemo(() => getRange(start, end, activeGoal), [start, end, activeGoal])
 
   return (
     <div className="flex flex-col gap-5">
@@ -22,27 +22,32 @@ export function Week() {
 
       <div className="flex items-center justify-between bg-card rounded-full shadow-card p-1.5">
         <button
-          className="w-9 h-9 rounded-full flex items-center justify-center text-ink-600 disabled:opacity-30"
-          onClick={() => setWeekIdx((i) => Math.max(0, i - 1))}
-          disabled={weekIdx === 0}
+          className="w-11 h-11 rounded-full flex items-center justify-center text-ink-600 active:bg-ink-100"
+          onClick={() => setOffset((i) => i - 1)}
           aria-label="Semana anterior"
         >
           ←
         </button>
-        <span className="text-sm font-semibold text-ink-700">
-          {week[0]?.date} → {week[week.length - 1]?.date}
-        </span>
         <button
-          className="w-9 h-9 rounded-full flex items-center justify-center text-ink-600 disabled:opacity-30"
-          onClick={() => setWeekIdx((i) => Math.min(weeks.length - 1, i + 1))}
-          disabled={weekIdx === weeks.length - 1}
+          className="flex flex-col items-center px-2 py-1 rounded-2xl active:bg-ink-100"
+          onClick={() => setOffset(0)}
+          aria-label="Volver a la semana actual"
+        >
+          <span className="text-sm font-semibold text-ink-700">
+            {formatShort(start)} → {formatShort(end)}
+          </span>
+          {offset !== 0 && <span className="text-[11px] text-brand-600 font-medium">volver a hoy</span>}
+        </button>
+        <button
+          className="w-11 h-11 rounded-full flex items-center justify-center text-ink-600 active:bg-ink-100"
+          onClick={() => setOffset((i) => i + 1)}
           aria-label="Semana siguiente"
         >
           →
         </button>
       </div>
 
-      <WeekGrid days={week} todayIso={iso} />
+      <WeekGrid days={days} todayIso={iso} />
     </div>
   )
 }
