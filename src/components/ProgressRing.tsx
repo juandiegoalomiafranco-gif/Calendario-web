@@ -2,8 +2,9 @@ interface ProgressRingProps {
   value: number // 0-100
   size?: number
   strokeWidth?: number
-  trackColor?: string
-  progressColor?: string
+  /** Clases de Tailwind; el SVG pinta con los colores del sistema, no con hex sueltos. */
+  trackClass?: string
+  progressClass?: string
   children?: React.ReactNode
 }
 
@@ -11,8 +12,8 @@ export function ProgressRing({
   value,
   size = 96,
   strokeWidth = 10,
-  trackColor = '#26272c',
-  progressColor = '#fb5a17',
+  trackClass = 'stroke-ink-100',
+  progressClass = 'stroke-brand-500',
   children,
 }: ProgressRingProps) {
   const radius = (size - strokeWidth) / 2
@@ -23,13 +24,20 @@ export function ProgressRing({
   return (
     <div className="relative inline-flex items-center justify-center" style={{ width: size, height: size }}>
       <svg width={size} height={size} className="-rotate-90">
-        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={trackColor} strokeWidth={strokeWidth} />
         <circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
           fill="none"
-          stroke={progressColor}
+          className={trackClass}
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className={progressClass}
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeDashoffset={offset}

@@ -4,6 +4,7 @@ import { PRINCIPLES, PROGRAM_START, getDayPlan } from '../data/plan'
 import { formatKm } from '../data/program'
 import { SessionCard } from '../components/SessionCard'
 import { PrincipleCard } from '../components/PrincipleCard'
+import { HolidayBadge } from '../components/HolidayBadge'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { useGoals } from '../hooks/useGoals'
 import { holidayName } from '../data/holidays'
@@ -28,11 +29,7 @@ export function Today() {
       <header>
         <p className="text-sm text-ink-500">{formatLong(iso)}</p>
         <h1 className="text-3xl font-bold text-ink-900">Hoy</h1>
-        {holiday && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
-            🇨🇴 Festivo · {holiday}
-          </span>
-        )}
+        {holiday && <HolidayBadge name={holiday} className="mt-2" />}
       </header>
 
       {activeGoal && remaining !== null ? (
@@ -79,7 +76,7 @@ export function Today() {
         <h2 className="text-lg font-semibold text-ink-900">Entrenamiento de hoy</h2>
         {day && day.sessions.length > 0 ? (
           day.sessions.map((s) => (
-            <SessionCard key={s.id} session={s} date={day.date} completed={getEntry(s.id)?.completed} />
+            <SessionCard key={s.id} session={s} date={day.date} completed={getEntry(s.id)?.completed} from="/" />
           ))
         ) : (
           <p className="text-ink-500 text-sm">No hay un plan cargado para hoy todavía.</p>

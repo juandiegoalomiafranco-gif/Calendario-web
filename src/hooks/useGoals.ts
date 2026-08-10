@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react'
 import type { Goal, GoalSport } from '../data/types'
 import { supabase } from '../lib/supabase'
-import { createCloudStore } from '../lib/cloudStore'
+import { createCloudStore, reportWrite } from '../lib/cloudStore'
 import { todayISO } from '../lib/dates'
 
 const SEED_KEY = 'calendario-web:goals:seeded'
@@ -54,23 +54,30 @@ const store = createCloudStore<Goal[]>({
   storageKey: 'calendario-web:goals:v1',
   initial: [],
   hydrate: (raw) => (Array.isArray(raw) ? byDate(raw as Goal[]) : []),
-  load: async () => {
+  load: async (userId, local) => {
     const { data, error } = await supabase.from('goals').select('*').order('target_date')
     // Si la tabla todavía no existe, la app sigue funcionando con la caché local.
     if (error || !data) return null
-    return (data as Row[]).map(rowToGoal)
+
+    const cloud = (data as Row[]).map(rowToGoal)
+    // Primera sincronización: si la nube está vacía y aquí hay metas, se suben en
+    // vez de borrarse. (Después manda la nube: fusionar por meta resucitaría las
+    // que borraste desde otro dispositivo.)
+    if (cloud.length === 0 && local.length > 0) {
+      for (const goal of local) pushGoal(goal, userId)
+      return local
+    }
+    return cloud
   },
 })
 
-function pushGoal(goal: Goal) {
-  const userId = store.userId()
-  if (!userId) return
+function pushGoal(goal: Goal, userId?: string) {
+  const id = userId ?? store.userId()
+  if (!id) return
   void supabase
     .from('goals')
-    .upsert(goalToRow(userId, goal), { onConflict: 'id' })
-    .then(({ error }) => {
-      if (error) console.error('No se pudo guardar la meta:', error.message)
-    })
+    .upsert(goalToRow(id, goal), { onConflict: 'id' })
+    .then(({ error }) => reportWrite(error, 'la meta'))
 }
 
 function deleteGoalRow(id: string) {
@@ -79,9 +86,7 @@ function deleteGoalRow(id: string) {
     .from('goals')
     .delete()
     .eq('id', id)
-    .then(({ error }) => {
-      if (error) console.error('No se pudo borrar la meta:', error.message)
-    })
+    .then(({ error }) => reportWrite(error, 'el borrado de la meta'))
 }
 
 function newId(): string {

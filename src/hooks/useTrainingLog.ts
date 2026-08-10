@@ -1,7 +1,8 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import type { LogEntry } from '../data/types'
 import { supabase } from '../lib/supabase'
-import { createCloudStore } from '../lib/cloudStore'
+import { createCloudStore, reportWrite } from '../lib/cloudStore'
+import { mergeByUpdatedAt } from '../lib/merge'
 
 type LogMap = Record<string, LogEntry>
 
@@ -15,6 +16,7 @@ interface Row {
   activity: string | null
   feeling: string | null
   notes: string | null
+  updated_at: string | null
 }
 
 function rowToEntry(r: Row): LogEntry {
@@ -26,6 +28,7 @@ function rowToEntry(r: Row): LogEntry {
     activity: (r.activity as LogEntry['activity']) ?? undefined,
     feeling: (r.feeling as LogEntry['feeling']) ?? undefined,
     notes: r.notes ?? undefined,
+    updatedAt: r.updated_at ?? undefined,
   }
 }
 
@@ -46,31 +49,41 @@ function entryToRow(sessionId: string, userId: string, e: LogEntry) {
     activity: e.activity ?? null,
     feeling: e.feeling ?? null,
     notes: e.notes ?? null,
-    updated_at: new Date().toISOString(),
+    updated_at: e.updatedAt ?? new Date().toISOString(),
   }
+}
+
+function pushEntry(sessionId: string, entry: LogEntry, userId: string) {
+  void supabase
+    .from('training_log')
+    .upsert(entryToRow(sessionId, userId, entry), { onConflict: 'user_id,session_id' })
+    .then(({ error }) => reportWrite(error, 'el entrenamiento'))
 }
 
 const store = createCloudStore<LogMap>({
   storageKey: 'calendario-web:log:v1',
   initial: {},
-  load: async () => {
+  load: async (userId, local) => {
     const { data, error } = await supabase.from('training_log').select('*')
     if (error || !data) return null // sin conexión / error: nos quedamos con la caché local
-    const map: LogMap = {}
-    for (const r of data as Row[]) map[r.session_id] = rowToEntry(r)
-    return map
+
+    const cloud: LogMap = {}
+    for (const r of data as Row[]) cloud[r.session_id] = rowToEntry(r)
+
+    // Fusión, no reemplazo: lo que registraste sin conexión es más nuevo que lo
+    // que hay en la nube y no puede perderse. Gana la marca de tiempo más alta.
+    const { merged, pending } = mergeByUpdatedAt(local, cloud)
+    for (const id of pending) pushEntry(id, merged[id], userId)
+
+    return merged
   },
 })
 
-function pushEntry(sessionId: string, entry: LogEntry) {
+function save(sessionId: string, entry: LogEntry) {
+  const stamped: LogEntry = { ...entry, updatedAt: new Date().toISOString() }
+  store.setLocal({ ...store.snapshot(), [sessionId]: stamped }) // optimista + caché
   const userId = store.userId()
-  if (!userId) return
-  void supabase
-    .from('training_log')
-    .upsert(entryToRow(sessionId, userId, entry), { onConflict: 'user_id,session_id' })
-    .then(({ error }) => {
-      if (error) console.error('No se pudo guardar el entrenamiento:', error.message)
-    })
+  if (userId) pushEntry(sessionId, stamped, userId)
 }
 
 export function useTrainingLog() {
@@ -78,16 +91,11 @@ export function useTrainingLog() {
 
   const getEntry = useCallback((sessionId: string): LogEntry | undefined => log[sessionId], [log])
 
-  const setEntry = useCallback((sessionId: string, entry: LogEntry) => {
-    store.setLocal({ ...store.snapshot(), [sessionId]: entry }) // optimista + caché
-    pushEntry(sessionId, entry)
-  }, [])
+  const setEntry = useCallback((sessionId: string, entry: LogEntry) => save(sessionId, entry), [])
 
   const toggleCompleted = useCallback((sessionId: string) => {
-    const current = store.snapshot()
-    const next: LogEntry = { ...current[sessionId], completed: !current[sessionId]?.completed }
-    store.setLocal({ ...current, [sessionId]: next })
-    pushEntry(sessionId, next)
+    const current = store.snapshot()[sessionId]
+    save(sessionId, { ...current, completed: !current?.completed })
   }, [])
 
   return { log, getEntry, setEntry, toggleCompleted }

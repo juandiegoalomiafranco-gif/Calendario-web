@@ -1,8 +1,10 @@
+import { Icon, type IconName } from './Icon'
+
 interface StatCardProps {
   label: string
   value: string
   unit?: string
-  icon?: string
+  icon?: IconName
   caption?: string
 }
 
@@ -10,7 +12,7 @@ export function StatCard({ label, value, unit, icon, caption }: StatCardProps) {
   return (
     <div className="rounded-3xl bg-card shadow-card p-4 flex-1 min-w-[8rem]">
       <div className="flex items-center gap-1.5 text-ink-500 text-sm">
-        {icon && <span>{icon}</span>}
+        {icon && <Icon name={icon} size={16} />}
         <span>{label}</span>
       </div>
       <p className="mt-1 text-2xl font-bold text-ink-900">

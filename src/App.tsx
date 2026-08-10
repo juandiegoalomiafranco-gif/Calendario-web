@@ -7,6 +7,7 @@ import { DayDetail } from './pages/DayDetail'
 import { Progress } from './pages/Progress'
 import { Goals } from './pages/Goals'
 import { Settings } from './pages/Settings'
+import { NotFound } from './pages/NotFound'
 
 export default function App() {
   return (
@@ -20,6 +21,7 @@ export default function App() {
         <Route path="/progreso" element={<Progress />} />
         <Route path="/metas" element={<Goals />} />
         <Route path="/ajustes" element={<Settings />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
   )

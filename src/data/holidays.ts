@@ -96,7 +96,3 @@ export function holidayName(date: string): string | undefined {
   if (!Number.isFinite(year)) return undefined
   return holidaysInYear(year)[date]
 }
-
-export function isHoliday(date: string): boolean {
-  return holidayName(date) !== undefined
-}

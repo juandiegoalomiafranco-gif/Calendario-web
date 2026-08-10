@@ -53,7 +53,7 @@ function GoalForm({ initial, onSave, onCancel }: FormProps) {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Ej: media maratón de Bogotá"
-          className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
+          className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
         />
       </label>
 
@@ -65,7 +65,7 @@ function GoalForm({ initial, onSave, onCancel }: FormProps) {
               key={s.id}
               type="button"
               onClick={() => setSport(s.id)}
-              className={`min-h-[44px] rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+              className={`min-h-[44px] rounded-2xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
                 sport === s.id ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-700 border border-ink-200'
               }`}
             >
@@ -86,7 +86,7 @@ function GoalForm({ initial, onSave, onCancel }: FormProps) {
             value={targetKm}
             onChange={(e) => setTargetKm(e.target.value)}
             placeholder="opcional"
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
+            className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
           />
         </label>
         <label className="flex flex-col gap-1 text-sm text-ink-500">
@@ -95,7 +95,7 @@ function GoalForm({ initial, onSave, onCancel }: FormProps) {
             type="date"
             value={targetDate}
             onChange={(e) => setTargetDate(e.target.value)}
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
+            className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2.5 text-base text-ink-900"
           />
         </label>
       </div>

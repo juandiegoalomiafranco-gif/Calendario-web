@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, useLocation, useSearchParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
 import { SESSION_META } from '../data/sessionMeta'
+import { HolidayBadge } from '../components/HolidayBadge'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { useGoals } from '../hooks/useGoals'
 import { formatPace, isDistanceSession, plannedKmOf } from '../lib/stats'
-import { formatLong } from '../lib/dates'
+import { addDays, formatLong } from '../lib/dates'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
 
 const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
@@ -88,13 +89,34 @@ function SessionDetailCard({ session }: { session: Session }) {
         </div>
       )}
 
+      {session.alternative && (
+        <div className="bg-ink-100 rounded-2xl p-3 flex flex-col gap-1.5">
+          <p className="text-sm font-semibold text-ink-900">Si no juegas: {session.alternative.title}</p>
+          {(session.alternative.distanceKm || session.alternative.pace) && (
+            <p className="text-sm text-ink-600">
+              {session.alternative.distanceKm ? `${session.alternative.distanceKm} km` : ''}
+              {session.alternative.distanceKm && session.alternative.pace ? ' · ' : ''}
+              {session.alternative.pace ?? ''}
+            </p>
+          )}
+          {session.alternative.structure && (
+            <ul className="text-sm text-ink-600 list-disc list-inside space-y-0.5">
+              {session.alternative.structure.map((line, i) => (
+                <li key={i}>{line}</li>
+              ))}
+            </ul>
+          )}
+          <p className="text-sm text-ink-500">{session.alternative.why}</p>
+        </div>
+      )}
+
       <div>
         <p className="text-sm font-semibold text-ink-900 mb-0.5">Por qué</p>
         <p className="text-sm text-ink-600">{session.why}</p>
       </div>
 
       {session.selfRegulation && (
-        <div className="bg-brand-50 rounded-2xl p-3">
+        <div className="bg-brand-tint rounded-2xl p-3">
           <p className="text-sm font-semibold text-brand-300 mb-0.5">Auto-regulación</p>
           <p className="text-sm text-brand-200">{session.selfRegulation}</p>
         </div>
@@ -114,7 +136,7 @@ function SessionDetailCard({ session }: { session: Session }) {
         </label>
 
         {entry.completed && session.type === 'flex' && (
-          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-2">
+          <div className="bg-brand-tint rounded-2xl p-3 flex flex-col gap-2">
             <p className="text-sm font-semibold text-brand-200">¿Qué hiciste?</p>
             <div className="grid grid-cols-3 gap-1.5">
               {FLEX_ACTIVITIES.map((a) => {
@@ -124,7 +146,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                     key={a.id}
                     type="button"
                     onClick={() => patch({ activity: a.id })}
-                    className={`min-h-[44px] rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
+                    className={`min-h-[44px] rounded-2xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
                       selected ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-700 border border-ink-200'
                     }`}
                   >
@@ -137,7 +159,7 @@ function SessionDetailCard({ session }: { session: Session }) {
         )}
 
         {entry.completed && isDistanceSession(session.type) && (
-          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-1.5">
+          <div className="bg-brand-tint rounded-2xl p-3 flex flex-col gap-1.5">
             <label className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-brand-200">¿Cuántos km hiciste?</span>
               <input
@@ -148,7 +170,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 value={entry.distanceKm ?? ''}
                 onChange={(e) => patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })}
                 placeholder={session.distanceKm ? `Plan: ${session.distanceKm} km` : '0.0'}
-                className="rounded-xl border border-brand-500/50 bg-ink-100 px-3 py-2.5 text-base font-semibold text-ink-900"
+                className="rounded-2xl border border-brand-500/50 bg-ink-100 px-3 py-2.5 text-base font-semibold text-ink-900"
               />
             </label>
             {entry.distanceKm == null && (
@@ -171,7 +193,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 min="0"
                 value={entry.durationMin ?? ''}
                 onChange={(e) => patch({ durationMin: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
             <label className="flex flex-col gap-1 text-xs text-ink-500">
@@ -182,7 +204,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 min="0"
                 value={entry.calories ?? ''}
                 onChange={(e) => patch({ calories: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
             {formatPace(entry.distanceKm, entry.durationMin) && (
@@ -196,7 +218,7 @@ function SessionDetailCard({ session }: { session: Session }) {
               <select
                 value={entry.feeling ?? ''}
                 onChange={(e) => patch({ feeling: (e.target.value || undefined) as LogEntry['feeling'] })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               >
                 <option value="">Sin especificar</option>
                 <option value="genial">Genial</option>
@@ -211,7 +233,7 @@ function SessionDetailCard({ session }: { session: Session }) {
                 value={entry.notes ?? ''}
                 onChange={(e) => patch({ notes: e.target.value })}
                 rows={2}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                className="rounded-2xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
             </label>
           </div>
@@ -221,20 +243,34 @@ function SessionDetailCard({ session }: { session: Session }) {
   )
 }
 
+/** De dónde vino el usuario, para que el botón de volver no lo mande a otro sitio. */
+const ORIGINS: Record<string, { to: string; label: string }> = {
+  '/': { to: '/', label: 'Hoy' },
+  '/semana': { to: '/semana', label: 'Semana' },
+  '/progreso': { to: '/progreso', label: 'Progreso' },
+}
+
 export function DayDetail() {
   const { date } = useParams()
+  const { state } = useLocation()
+  const [params] = useSearchParams()
   const { activeGoal } = useGoals()
   const day = date ? getDayPlan(date, activeGoal) : undefined
+
+  // El origen llega por estado de router, o por la URL cuando el enlace no puede
+  // llevarlo (los puntos de las gráficas son anclas dentro de un SVG).
+  const origin = (state as { from?: string } | null)?.from ?? params.get('from') ?? '/semana'
+  const from = ORIGINS[origin] ?? ORIGINS['/semana']
 
   if (!day) {
     return (
       <div className="flex flex-col gap-4">
         <p className="text-ink-500">No encontramos ese día en el plan.</p>
         <Link
-          to="/semana"
-          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold active:bg-brand-50"
+          to={from.to}
+          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold active:bg-brand-tint"
         >
-          <span aria-hidden>←</span> Volver a la semana
+          <span aria-hidden>←</span> Volver a {from.label}
         </Link>
       </div>
     )
@@ -244,26 +280,39 @@ export function DayDetail() {
     <div className="flex flex-col gap-5">
       <header>
         <Link
-          to="/semana"
+          to={from.to}
           className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-500 font-medium active:bg-ink-100"
         >
-          <span aria-hidden>←</span> Semana
+          <span aria-hidden>←</span> {from.label}
         </Link>
         <h1 className="text-2xl font-bold text-ink-900 mt-1">{formatLong(day.date)}</h1>
-        {holidayName(day.date) && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-200">
-            🇨🇴 Festivo · {holidayName(day.date)}
-          </span>
-        )}
+        {holidayName(day.date) && <HolidayBadge name={holidayName(day.date)!} className="mt-2" />}
       </header>
 
-      {day.note && <p className="text-sm text-brand-200 bg-brand-50 rounded-2xl p-3">{day.note}</p>}
+      {day.note && <p className="text-sm text-brand-200 bg-brand-tint rounded-2xl p-3">{day.note}</p>}
 
       <div className="flex flex-col gap-4">
         {day.sessions.map((s) => (
           <SessionDetailCard key={s.id} session={s} />
         ))}
       </div>
+
+      <nav className="flex items-center justify-between gap-2">
+        <Link
+          to={`/dia/${addDays(day.date, -1)}`}
+          state={{ from: from.to }}
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full bg-card shadow-card text-sm font-medium text-ink-700 active:bg-ink-100"
+        >
+          <span aria-hidden>←</span> Día anterior
+        </Link>
+        <Link
+          to={`/dia/${addDays(day.date, 1)}`}
+          state={{ from: from.to }}
+          className="inline-flex items-center gap-1.5 min-h-[44px] px-4 rounded-full bg-card shadow-card text-sm font-medium text-ink-700 active:bg-ink-100"
+        >
+          Día siguiente <span aria-hidden>→</span>
+        </Link>
+      </nav>
     </div>
   )
 }

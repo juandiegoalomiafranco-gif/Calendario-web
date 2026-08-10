@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Inter servida desde la propia app: estaba declarada en Tailwind pero no se
+   cargaba en ninguna parte, así que todo caía a la fuente del sistema. Un solo
+   archivo variable (48 KB, subconjunto latino) cubre de 400 a 700 y funciona sin
+   conexión. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/inter-latin.woff2') format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC,
+    U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215,
+    U+FEFF, U+FFFD;
+}
+
 html, body {
   min-height: 100%;
 }
@@ -21,4 +36,12 @@ body {
   min-height: 100vh;
   /* dvh tracks the iOS standalone dynamic viewport; the vh line above is the fallback */
   min-height: 100dvh;
+}
+
+/* En escritorio la columna del celular quedaba flotando en un vacío negro; este
+   halo la acompaña sin cambiar la app, que sigue siendo mobile-first. */
+@media (min-width: 768px) {
+  .app-shell {
+    background-image: radial-gradient(48rem 32rem at 50% -6rem, #1a1b1f, transparent);
+  }
 }

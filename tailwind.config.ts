@@ -6,7 +6,10 @@ export default {
     extend: {
       colors: {
         brand: {
-          50: '#2a1812',
+          // Fondo tenue de marca. No es un "50" de la rampa: la app es oscura, así
+          // que el tono suave es café oscuro. Con nombre propio para que nadie lo
+          // confunda con el escalón claro de una escala normal.
+          tint: '#2a1812',
           100: '#ffe6d5',
           200: '#ffc9aa',
           300: '#ffa374',

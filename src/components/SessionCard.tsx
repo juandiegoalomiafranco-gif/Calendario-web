@@ -6,14 +6,17 @@ interface SessionCardProps {
   session: Session
   date: string
   completed?: boolean
+  /** Ruta desde la que se abre, para que el detalle sepa a dónde volver. */
+  from?: string
 }
 
-export function SessionCard({ session, date, completed }: SessionCardProps) {
+export function SessionCard({ session, date, completed, from = '/' }: SessionCardProps) {
   const meta = SESSION_META[session.type]
 
   return (
     <Link
       to={`/dia/${date}/${session.id}`}
+      state={{ from }}
       className="block rounded-3xl bg-card shadow-card p-4 active:scale-[0.98] transition-transform"
     >
       <div className="flex items-start gap-3">
@@ -26,12 +29,12 @@ export function SessionCard({ session, date, completed }: SessionCardProps) {
               {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
             </span>
             {completed && (
-              <span className="text-[11px] font-semibold text-ok-300 bg-ok-900 rounded-full px-2 py-0.5">
+              <span className="shrink-0 text-[11px] font-semibold text-ok-300 bg-ok-900 rounded-full px-2 py-0.5">
                 Hecho
               </span>
             )}
           </div>
-          <h3 className="text-base font-semibold text-ink-900 mt-0.5 truncate">{session.title}</h3>
+          <h3 className="text-base font-semibold text-ink-900 mt-0.5 line-clamp-2">{session.title}</h3>
           {(session.distanceKm || session.pace) && (
             <p className="text-sm text-ink-500 mt-0.5">
               {session.distanceKm ? `${session.distanceKm} km` : ''}

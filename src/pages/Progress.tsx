@@ -1,4 +1,5 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
+import { Link } from 'react-router-dom'
 import { PROGRAM_START, getRange } from '../data/plan'
 import { formatKm } from '../data/program'
 import { StatCard } from '../components/StatCard'
@@ -8,9 +9,20 @@ import { TrendLine } from '../components/charts/TrendLine'
 import { BreakdownBars } from '../components/charts/BreakdownBars'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { useGoals } from '../hooks/useGoals'
-import { chunkIntoWeeks } from '../lib/weeks'
-import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
-import { daysBetween, formatShort, todayISO } from '../lib/dates'
+import {
+  computeStreaks,
+  formatMinutes,
+  kmByCategory,
+  lastFinishedWeekDelta,
+  runStats,
+  runTrends,
+  sessionCategory,
+  summarize,
+  weekSummaries,
+  type Category,
+  type TrendPoint,
+} from '../lib/stats'
+import { daysBetween, todayISO } from '../lib/dates'
 import type { LogEntry } from '../data/types'
 
 /** Semanas que se muestran en las gráficas: el plan es infinito, la vista no. */
@@ -33,6 +45,47 @@ const FEELING_META: { id: NonNullable<LogEntry['feeling']>; emoji: string; label
   { id: 'cargado', emoji: '😖', label: 'Cargado', colorClass: 'bg-brand-600' },
 ]
 
+function Section({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section>
+      <h2 className="text-lg font-semibold text-ink-900 mb-3">{title}</h2>
+      {children}
+    </section>
+  )
+}
+
+/**
+ * Una tendencia necesita al menos dos puntos. Cuando no los hay lo dice, en vez
+ * de desaparecer y dejar la página cambiando de forma sin explicación.
+ */
+function TrendSection({
+  title,
+  points,
+  unit,
+  hint,
+  colorClass,
+  format,
+}: {
+  title: string
+  points: TrendPoint[]
+  unit: string
+  hint: string
+  colorClass?: string
+  format?: (v: number) => string
+}) {
+  return (
+    <Section title={title}>
+      {points.length >= 2 ? (
+        <TrendLine points={points} unit={unit} colorClass={colorClass} format={format} />
+      ) : (
+        <p className="rounded-3xl bg-card shadow-card p-4 text-sm text-ink-500">
+          {hint} {points.length === 1 ? '(llevas 1)' : '(no llevas ninguna)'}
+        </p>
+      )}
+    </Section>
+  )
+}
+
 export function Progress() {
   const { log } = useTrainingLog()
   const { activeGoal } = useGoals()
@@ -41,90 +94,23 @@ export function Progress() {
   // El plan se genera sin fin, así que las estadísticas se acotan a lo vivido:
   // del arranque del programa hasta hoy.
   const days = useMemo(() => getRange(PROGRAM_START, iso, activeGoal), [iso, activeGoal])
-  const allSessions = useMemo(() => days.flatMap((d) => d.sessions.map((s) => ({ ...s, date: d.date }))), [days])
-
-  const completedCount = allSessions.filter((s) => log[s.id]?.completed).length
-  const totalPlanned = allSessions.length
-  const completionPct = totalPlanned ? Math.round((completedCount / totalPlanned) * 100) : 0
-
-  const workoutsDone = useMemo(
-    () => allSessions.filter((s) => s.type !== 'rest' && log[s.id]?.completed).length,
-    [allSessions, log],
-  )
-
+  const summary = useMemo(() => summarize(days, log), [days, log])
   const streaks = useMemo(() => computeStreaks(days, log, iso), [days, log, iso])
-
-  const km = useMemo(() => {
-    let total = 0
-    let registered = 0
-    let estimated = 0
-    let running = 0
-    let longestRun = 0
-    for (const s of allSessions) {
-      const r = kmForEntry(s, log[s.id])
-      total += r.km
-      if (r.estimated) estimated += r.km
-      else registered += r.km
-      if (isRunning(s.type)) {
-        running += r.km
-        longestRun = Math.max(longestRun, r.km)
-      }
-    }
-    return { total, registered, estimated, running, longestRun }
-  }, [allSessions, log])
-
-  const totals = useMemo(() => {
-    let durationMin = 0
-    let calories = 0
-    for (const s of allSessions) {
-      const entry = log[s.id]
-      if (!entry?.completed) continue
-      if (entry.durationMin) durationMin += entry.durationMin
-      if (entry.calories) calories += entry.calories
-    }
-    return { durationMin, calories }
-  }, [allSessions, log])
+  const weeks = useMemo(() => weekSummaries(days, log, iso, WEEKS_SHOWN), [days, log, iso])
+  const weekDelta = useMemo(() => lastFinishedWeekDelta(weeks), [weeks])
+  const trends = useMemo(() => runTrends(summary.sessions, log), [summary.sessions, log])
+  const runs = useMemo(() => runStats(summary.sessions, log), [summary.sessions, log])
 
   const kmByType = useMemo(() => {
-    const counts = kmByCategory(allSessions, log)
+    const counts = kmByCategory(summary.sessions, log)
     return (Object.keys(CATEGORY_META) as Category[])
       .filter((c) => c !== 'descanso' && (counts.get(c) ?? 0) > 0)
       .map((c) => ({ key: c, ...CATEGORY_META[c], count: Number((counts.get(c) ?? 0).toFixed(1)) }))
-  }, [allSessions, log])
-
-  // Últimas semanas, numeradas desde el arranque del programa.
-  const weeks = useMemo(() => {
-    const all = chunkIntoWeeks(days)
-    const from = Math.max(0, all.length - WEEKS_SHOWN)
-    return all.slice(from).map((week, i) => ({ week, label: `Sem ${from + i + 1}` }))
-  }, [days])
-
-  const kmPerWeek = useMemo(
-    () =>
-      weeks.map(({ week, label }) => {
-        const value = week.reduce(
-          (sum, day) => sum + day.sessions.reduce((s, sess) => s + kmForEntry(sess, log[sess.id]).km, 0),
-          0,
-        )
-        return { label, value, display: value ? value.toFixed(1) : '0' }
-      }),
-    [weeks, log],
-  )
-
-  const completionPerWeek = useMemo(
-    () =>
-      weeks.map(({ week, label }) => {
-        const sessions = week.flatMap((d) => d.sessions)
-        const done = sessions.filter((s) => log[s.id]?.completed).length
-        const pct = sessions.length ? Math.round((done / sessions.length) * 100) : 0
-        return { label, value: pct, display: `${pct}%` }
-      }),
-    [weeks, log],
-  )
+  }, [summary.sessions, log])
 
   const byActivity = useMemo(() => {
     const counts = new Map<Category, number>()
-    for (const s of allSessions) {
+    for (const s of summary.sessions) {
       const entry = log[s.id]
       if (!entry?.completed || s.type === 'rest') continue
       const cat = sessionCategory(s, entry)
@@ -133,11 +119,11 @@ export function Progress() {
     return (Object.keys(CATEGORY_META) as Category[])
       .filter((c) => c !== 'descanso' && (counts.get(c) ?? 0) > 0)
       .map((c) => ({ key: c, ...CATEGORY_META[c], count: counts.get(c) ?? 0 }))
-  }, [allSessions, log])
+  }, [summary.sessions, log])
 
   const feelings = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const s of allSessions) {
+    for (const s of summary.sessions) {
       const entry = log[s.id]
       if (entry?.completed && entry.feeling) counts.set(entry.feeling, (counts.get(entry.feeling) ?? 0) + 1)
     }
@@ -149,53 +135,63 @@ export function Progress() {
       count: counts.get(f.id) ?? 0,
     }))
     return { rows, total: rows.reduce((a, r) => a + r.count, 0) }
-  }, [allSessions, log])
+  }, [summary.sessions, log])
 
-  const completedRuns = useMemo(
+  const kmPerWeek = useMemo(
     () =>
-      allSessions
-        .filter((s) => isRunning(s.type) && log[s.id]?.completed)
-        .sort((a, b) => a.date.localeCompare(b.date)),
-    [allSessions, log],
+      weeks.map((w) => ({
+        label: w.label,
+        value: w.km,
+        display: w.km ? w.km.toFixed(1) : '0',
+        to: `/semana?desde=${w.start}`,
+        inProgress: w.inProgress,
+      })),
+    [weeks],
   )
 
-  const runDistanceTrend = useMemo(
+  const completionPerWeek = useMemo(
     () =>
-      completedRuns
-        .map((s) => ({ label: formatShort(s.date), value: kmForEntry(s, log[s.id]).km }))
-        .filter((p) => p.value > 0),
-    [completedRuns, log],
+      weeks.map((w) => ({
+        label: w.label,
+        value: w.completionPct,
+        display: `${w.completionPct}%`,
+        to: `/semana?desde=${w.start}`,
+        inProgress: w.inProgress,
+      })),
+    [weeks],
   )
-
-  const paceTrend = useMemo(
-    () =>
-      completedRuns
-        .map((s) => {
-          const runKm = kmForEntry(s, log[s.id]).km
-          const dur = log[s.id]?.durationMin
-          return { label: formatShort(s.date), value: runKm > 0 && dur ? dur / runKm : 0 }
-        })
-        .filter((p) => p.value > 0),
-    [completedRuns, log],
-  )
-
-  const runStats = useMemo(() => {
-    const runsWithKm = completedRuns.map((s) => kmForEntry(s, log[s.id]).km).filter((v) => v > 0)
-    const avgPerRun = runsWithKm.length ? km.running / runsWithKm.length : 0
-    return { count: runsWithKm.length, avgPerRun }
-  }, [completedRuns, log, km.running])
-
-  const weekDelta = useMemo(() => {
-    const withValue = kmPerWeek.filter((w) => w.value > 0)
-    if (withValue.length < 2) return null
-    const last = withValue[withValue.length - 1].value
-    const prev = withValue[withValue.length - 2].value
-    return { last, delta: last - prev }
-  }, [kmPerWeek])
 
   const daysRemaining = activeGoal ? Math.max(0, daysBetween(iso, activeGoal.targetDate)) : null
   const goalKm = activeGoal?.targetKm
-  const longestRunPct = goalKm ? Math.min(100, (km.longestRun / goalKm) * 100) : 0
+  const { km, totals } = summary
+
+  // Estado vacío de verdad: sin nada registrado, los ceros y las columnas grises
+  // se leían como una pantalla rota.
+  if (!summary.hasAnyLog) {
+    return (
+      <div className="flex flex-col gap-5">
+        <header>
+          <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
+        </header>
+        <div className="rounded-3xl bg-card shadow-card p-5 flex flex-col gap-3 items-start">
+          <p className="text-5xl" aria-hidden>
+            📈
+          </p>
+          <p className="text-base font-semibold text-ink-900">Aún no has registrado nada</p>
+          <p className="text-sm text-ink-500">
+            Marca tu primera sesión como completada y aquí aparecerán tus kilómetros, tus rachas y cómo va cambiando tu
+            ritmo.
+          </p>
+          <Link
+            to="/"
+            className="min-h-[44px] px-5 inline-flex items-center rounded-full bg-brand-500 text-white font-semibold"
+          >
+            Ir al entrenamiento de hoy
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -203,17 +199,20 @@ export function Progress() {
         <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
       </header>
 
-      <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">
-        <ProgressRing value={completionPct} size={104} strokeWidth={12}>
+      <div className="rounded-3xl bg-card shadow-card p-5 flex items-center gap-5">
+        <ProgressRing value={summary.completionPct} size={104} strokeWidth={12}>
           <div className="text-center">
-            <p className="text-2xl font-bold text-ink-900">{completionPct}%</p>
+            <p className="text-2xl font-bold text-ink-900">{summary.completionPct}%</p>
           </div>
         </ProgressRing>
         <div>
-          <p className="text-sm text-ink-500">Sesiones completadas</p>
+          <p className="text-sm text-ink-500">Entrenamientos completados</p>
           <p className="text-xl font-bold text-ink-900">
-            {completedCount} / {totalPlanned}
+            {summary.completedTrainings} / {summary.trainings.length}
           </p>
+          {summary.completedRests > 0 && (
+            <p className="text-[11px] text-ink-400">y {summary.completedRests} descansos marcados</p>
+          )}
           {activeGoal && daysRemaining !== null && (
             <p className="text-sm text-ink-500 mt-2">
               Faltan {daysRemaining} {daysRemaining === 1 ? 'día' : 'días'} para {activeGoal.title}
@@ -223,12 +222,12 @@ export function Progress() {
       </div>
 
       <div className="flex gap-3">
-        <StatCard label="Entrenos" value={String(workoutsDone)} icon="💪" caption="sesiones completadas" />
+        <StatCard label="Entrenos" value={String(summary.completedTrainings)} icon="entrenos" caption="sesiones completadas" />
         <StatCard
           label="Racha"
           value={String(streaks.current)}
           unit={streaks.current === 1 ? 'día' : 'días'}
-          icon="🔥"
+          icon="racha"
           caption={`mejor: ${streaks.best} ${streaks.best === 1 ? 'día' : 'días'}`}
         />
       </div>
@@ -238,7 +237,7 @@ export function Progress() {
           label="Km acumulados"
           value={km.total.toFixed(1)}
           unit="km"
-          icon="📍"
+          icon="distancia"
           caption={
             km.estimated > 0
               ? `${km.registered.toFixed(1)} km registrados · ${km.estimated.toFixed(1)} km estimados del plan`
@@ -249,7 +248,7 @@ export function Progress() {
           label="Km corriendo"
           value={km.running.toFixed(1)}
           unit="km"
-          icon="🏃"
+          icon="correr"
           caption={goalKm ? `meta: ${formatKm(goalKm)} km seguidos` : 'total acumulado'}
         />
       </div>
@@ -264,34 +263,34 @@ export function Progress() {
                 : String(totals.durationMin)
             }
             unit="min"
-            icon="⏱️"
+            icon="tiempo"
             caption="entrenando"
           />
           <StatCard
             label="Calorías"
             value={totals.calories.toLocaleString('es-CO')}
             unit="kcal"
-            icon="🔥"
+            icon="energia"
             caption="quemadas (registradas)"
           />
         </div>
       )}
 
-      {runStats.count > 0 && (
+      {runs.count > 0 && (
         <div className="flex gap-3">
           <StatCard
             label="Promedio por carrera"
-            value={runStats.avgPerRun.toFixed(1)}
+            value={runs.avgPerRun.toFixed(1)}
             unit="km"
-            icon="📏"
-            caption={`en ${runStats.count} ${runStats.count === 1 ? 'carrera' : 'carreras'}`}
+            icon="regla"
+            caption={`en ${runs.count} ${runs.count === 1 ? 'carrera' : 'carreras'}`}
           />
           {weekDelta && (
             <StatCard
-              label="Última semana"
+              label="Última semana completa"
               value={weekDelta.last.toFixed(1)}
               unit="km"
-              icon="📈"
+              icon="tendencia"
               caption={
                 weekDelta.delta === 0
                   ? 'igual que la anterior'
@@ -313,7 +312,7 @@ export function Progress() {
           <div className="h-3 rounded-full bg-ink-100 overflow-hidden">
             <div
               className="h-full rounded-full bg-ok-500"
-              style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }}
+              style={{ width: `${Math.min(100, (km.longestRun / goalKm) * 100)}%`, transition: 'width 0.3s ease' }}
             />
           </div>
         </div>
@@ -326,50 +325,47 @@ export function Progress() {
         )
       )}
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por semana</h2>
+      <Section title="Km por semana">
         <WeeklyBars bars={kmPerWeek} />
-      </section>
+      </Section>
 
       {byActivity.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Por actividad</h2>
-          <BreakdownBars rows={byActivity} />
-        </section>
+        <Section title="Por actividad">
+          <BreakdownBars rows={byActivity} unit="sesiones" unitOne="sesión" />
+        </Section>
       )}
 
       {kmByType.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por tipo</h2>
-          <BreakdownBars rows={kmByType} />
-        </section>
+        <Section title="Km por tipo">
+          <BreakdownBars rows={kmByType} unit="km" />
+        </Section>
       )}
 
       {feelings.total > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Sensaciones</h2>
-          <BreakdownBars rows={feelings.rows} />
-        </section>
+        <Section title="Sensaciones">
+          <BreakdownBars rows={feelings.rows} unit="veces" unitOne="vez" />
+        </Section>
       )}
 
-      {runDistanceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Distancia por carrera</h2>
-          <TrendLine points={runDistanceTrend} unit="km por carrera" />
-        </section>
-      )}
+      <TrendSection
+        title="Distancia por carrera"
+        points={trends.distance}
+        unit="km por carrera · toca un punto para ver el día"
+        hint="Necesitas 2 carreras registradas para ver la tendencia"
+      />
 
-      {paceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Ritmo por carrera</h2>
-          <TrendLine points={paceTrend} unit="min/km (más bajo es más rápido)" color="#10b981" decimals={1} />
-        </section>
-      )}
+      <TrendSection
+        title="Ritmo por carrera"
+        points={trends.pace}
+        unit="min/km (más bajo es más rápido) · toca un punto para ver el día"
+        hint="Necesitas 2 carreras con distancia y duración para ver el ritmo"
+        colorClass="text-ok-500"
+        format={formatMinutes}
+      />
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Cumplimiento por semana</h2>
+      <Section title="Cumplimiento por semana">
         <WeeklyBars bars={completionPerWeek} max={100} />
-      </section>
+      </Section>
     </div>
   )
 }

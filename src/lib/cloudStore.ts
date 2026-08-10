@@ -8,15 +8,21 @@
  * La escritura en la nube la hace cada hook, porque cada uno sube algo distinto
  * (una fila, un mapa completo, una lista).
  */
-import { supabase } from './supabase'
+import { isSupabaseConfigured, supabase } from './supabase'
+import { setSyncState } from './syncStatus'
 
 interface Options<T> {
   storageKey: string
   initial: T
   /** Normaliza lo que venga de localStorage (formatos viejos incluidos). */
   hydrate?: (raw: unknown) => T
-  /** Lee el estado del usuario. `null` = no hay nada o falló: se conserva la caché. */
-  load: (userId: string) => Promise<T | null>
+  /**
+   * Lee el estado del usuario y lo **fusiona** con lo que ya hay en el
+   * dispositivo. Recibe la caché actual justamente para no pisarla: devolver la
+   * respuesta de la nube tal cual borraría lo que se registró sin conexión.
+   * `null` = no hay nada o falló: se conserva la caché.
+   */
+  load: (userId: string, local: T) => Promise<T | null>
 }
 
 export interface CloudStore<T> {
@@ -56,24 +62,37 @@ export function createCloudStore<T>(options: Options<T>): CloudStore<T> {
   }
 
   async function loadRemote() {
-    if (!currentUserId) return
-    const remote = await options.load(currentUserId)
-    if (remote !== null) setLocal(remote)
+    if (!currentUserId) {
+      setSyncState('local')
+      return
+    }
+    setSyncState('sincronizando')
+    try {
+      const merged = await options.load(currentUserId, cache)
+      if (merged !== null) setLocal(merged)
+      setSyncState(merged === null ? 'sin-conexion' : 'sincronizado')
+    } catch (error) {
+      setSyncState('sin-conexion', error instanceof Error ? error.message : String(error))
+    }
   }
 
   // Cargar al entrar y limpiar al salir, para no mezclar datos entre usuarios.
-  const ready = supabase.auth.getSession().then(async ({ data }) => {
-    currentUserId = data.session?.user.id ?? null
-    await loadRemote()
-  })
+  const ready = isSupabaseConfigured
+    ? supabase.auth.getSession().then(async ({ data }) => {
+        currentUserId = data.session?.user.id ?? null
+        await loadRemote()
+      })
+    : Promise.resolve()
 
-  supabase.auth.onAuthStateChange((_event, session) => {
-    const nextId = session?.user.id ?? null
-    if (nextId === currentUserId) return
-    currentUserId = nextId
-    if (nextId) void loadRemote()
-    else setLocal(options.initial)
-  })
+  if (isSupabaseConfigured) {
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const nextId = session?.user.id ?? null
+      if (nextId === currentUserId) return
+      currentUserId = nextId
+      if (nextId) void loadRemote()
+      else setLocal(options.initial)
+    })
+  }
 
   return {
     subscribe(listener) {
@@ -86,5 +105,15 @@ export function createCloudStore<T>(options: Options<T>): CloudStore<T> {
     setLocal,
     userId: () => currentUserId,
     ready,
+  }
+}
+
+/** Marca el resultado de una escritura en la nube en el estado de sincronización. */
+export function reportWrite(error: { message: string } | null, what: string) {
+  if (error) {
+    console.error(`No se pudo guardar ${what}:`, error.message)
+    setSyncState('sin-conexion', error.message)
+  } else {
+    setSyncState('sincronizado')
   }
 }

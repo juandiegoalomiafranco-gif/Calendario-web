@@ -17,8 +17,12 @@ export interface Session {
   type: SessionType
   title: string
   summary: string
+  /**
+   * Distancia del plan **solo como número**: "5", "10–11", "~0.6–0.7".
+   * Nunca lleva la unidad dentro — la pone quien la pinta.
+   */
   distanceKm?: string
-  /** Distancia del plan como número, cuando la genera el motor. */
+  /** La misma distancia como número, para los cálculos. */
   plannedKm?: number
   pace?: string
   /** Cómo debe sentirse la sesión (reemplaza a la vieja prescripción por pulsaciones). */
@@ -27,6 +31,8 @@ export interface Session {
   why: string
   selfRegulation?: string
   flexOptions?: string[]
+  /** En los días flexibles, el entrenamiento que sustituye al deporte si no juegas. */
+  alternative?: Session
 }
 
 export interface DayPlan {
@@ -46,6 +52,8 @@ export interface LogEntry {
   activity?: FlexActivity
   feeling?: 'genial' | 'bien' | 'regular' | 'cargado'
   notes?: string
+  /** Cuándo se guardó, para decidir quién gana al fusionar con la nube. */
+  updatedAt?: string
 }
 
 export type GoalSport = 'running' | 'natacion' | 'funcional'

@@ -170,7 +170,7 @@ export function swimTechnique(id: string): Session {
     type: 'swim-technique',
     title: 'Natación — técnica',
     summary: 'Nado técnica',
-    distanceKm: '~0.6–0.7 km',
+    distanceKm: '~0.6–0.7',
     plannedKm: 0.65,
     pace: 'Sin objetivo de ritmo — foco en técnica',
     structure: [
@@ -200,7 +200,7 @@ export function swimEndurance(id: string, structure: string[], totalKm: string, 
   }
 }
 
-export function flexSlot(id: string, sport: 'fútbol' | 'vóley', altTitle: string): Session {
+export function flexSlot(id: string, sport: 'fútbol' | 'vóley', alternative: Session): Session {
   const deporte = sport === 'fútbol' ? 'Fútbol' : 'Vóley'
   return {
     id,
@@ -208,7 +208,8 @@ export function flexSlot(id: string, sport: 'fútbol' | 'vóley', altTitle: stri
     type: 'flex',
     title: `${deporte} (si juegas) o natación`,
     summary: `${deporte} / nado`,
-    flexOptions: [`${deporte} recreativo`, altTitle],
+    flexOptions: [`${deporte} recreativo`, alternative.title],
+    alternative,
     why: `${sport === 'fútbol' ? 'El fútbol' : 'El vóley'} cuenta como sesión de alta intensidad/impacto. Si juegas esta semana, esta sesión la reemplaza — no se suma a la natación del mismo día.`,
     selfRegulation:
       'Si jugaste fútbol o vóley esta semana, no agregues la natación de resistencia el mismo día — elige una de las dos.',
@@ -226,7 +227,7 @@ export interface DayContext {
   isDeload: boolean
 }
 
-const SWIM_ENDURANCE_STRUCTURE = [
+export const SWIM_ENDURANCE_STRUCTURE = [
   '100 m calentamiento',
   '4×100 m @ 2:10–2:20/100 m, descanso 20 s',
   '100 m suelta',
@@ -240,13 +241,17 @@ export const WEEK_TEMPLATE: Record<number, DayBuilder> = {
   1: (c) => [crossfit(`${c.date}-am`), restPM(`${c.date}-pm`)],
   2: (c) => [
     easyRun(`${c.date}-am`, formatKm(c.easyRunKm), c.easyRunKm),
-    flexSlot(`${c.date}-pm`, 'vóley', 'Natación — técnica'),
+    flexSlot(`${c.date}-pm`, 'vóley', swimTechnique(`${c.date}-pm-swim`)),
   ],
   3: (c) => [crossfit(`${c.date}-am`), restPM(`${c.date}-pm`, 'Descanso total')],
   4: (c) => [crossfit(`${c.date}-am`), swimTechnique(`${c.date}-pm`)],
   5: (c) => [
     easyRun(`${c.date}-am`, formatKm(c.easyRunKm), c.easyRunKm),
-    flexSlot(`${c.date}-pm`, 'fútbol', 'Natación — resistencia'),
+    flexSlot(
+      `${c.date}-pm`,
+      'fútbol',
+      swimEndurance(`${c.date}-pm-swim`, SWIM_ENDURANCE_STRUCTURE, '~0.8–0.9', 0.85),
+    ),
   ],
   6: (c) => [
     longRun(
@@ -260,5 +265,3 @@ export const WEEK_TEMPLATE: Record<number, DayBuilder> = {
     restPM(`${c.date}-pm`, 'Descanso / recuperación'),
   ],
 }
-
-export { SWIM_ENDURANCE_STRUCTURE }

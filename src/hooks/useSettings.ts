@@ -1,6 +1,6 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { supabase } from '../lib/supabase'
-import { createCloudStore } from '../lib/cloudStore'
+import { createCloudStore, reportWrite } from '../lib/cloudStore'
 
 export interface Settings {
   paceNote: string
@@ -16,10 +16,12 @@ const store = createCloudStore<Settings>({
   storageKey: 'calendario-web:settings:v1',
   initial: DEFAULT_SETTINGS,
   hydrate: (raw) => ({ ...DEFAULT_SETTINGS, ...(raw as Partial<Settings>) }),
-  load: async () => {
+  load: async (_userId, local) => {
     const { data, error } = await supabase.from('settings').select('*').maybeSingle()
     if (error || !data) return null
-    return { paceNote: data.pace_note ?? '' }
+    const cloud = { paceNote: (data.pace_note as string | null) ?? '' }
+    // Una nota vacía en la nube no puede borrar la que escribiste sin conexión.
+    return cloud.paceNote === '' && local.paceNote !== '' ? local : cloud
   },
 })
 
@@ -36,9 +38,7 @@ function pushSettings(next: Settings) {
       },
       { onConflict: 'user_id' },
     )
-    .then(({ error }) => {
-      if (error) console.error('No se pudieron guardar los ajustes:', error.message)
-    })
+    .then(({ error }) => reportWrite(error, 'los ajustes'))
 }
 
 export function useSettings() {

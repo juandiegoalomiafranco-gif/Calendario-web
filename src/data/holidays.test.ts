@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { holidayName, holidaysInYear, isHoliday } from './holidays'
+import { holidayName, holidaysInYear } from './holidays'
 
 describe('festivos de Colombia', () => {
   it('reproduce los de 2026 que estaban escritos a mano', () => {
@@ -15,8 +15,8 @@ describe('festivos de Colombia', () => {
 
   it('traslada al lunes siguiente los de Ley Emiliani', () => {
     // 15-ago-2026 cae sábado, así que el festivo es el lunes 17.
-    expect(isHoliday('2026-08-15')).toBe(false)
-    expect(isHoliday('2026-08-17')).toBe(true)
+    expect(holidayName('2026-08-15')).toBeUndefined()
+    expect(holidayName('2026-08-17')).toBe('Asunción de la Virgen')
   })
 
   it('calcula los que dependen de la Pascua', () => {
@@ -35,7 +35,7 @@ describe('festivos de Colombia', () => {
   })
 
   it('un día normal no es festivo', () => {
-    expect(isHoliday('2026-08-18')).toBe(false)
+    expect(holidayName('2026-08-18')).toBeUndefined()
     expect(holidayName('no-es-fecha')).toBeUndefined()
   })
 })

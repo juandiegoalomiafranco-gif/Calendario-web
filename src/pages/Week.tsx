@@ -1,14 +1,27 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { getRange } from '../data/plan'
 import { WeekGrid } from '../components/WeekGrid'
 import { useGoals } from '../hooks/useGoals'
-import { addDays, formatShort, todayISO, weekStart } from '../lib/dates'
+import { addDays, daysBetween, formatShort, todayISO, weekStart } from '../lib/dates'
 
 export function Week() {
   const iso = todayISO()
   const { activeGoal } = useGoals()
+  const [params] = useSearchParams()
+
+  // `?desde=` permite llegar aquí desde una barra de Progreso.
+  const desde = params.get('desde')
+  const offsetFromParam = useMemo(
+    () => (desde ? Math.round(daysBetween(weekStart(iso), weekStart(desde)) / 7) : null),
+    [desde, iso],
+  )
+
   // Semanas relativas a la actual: el plan se genera, así que no hay tope.
-  const [offset, setOffset] = useState(0)
+  const [offset, setOffset] = useState(offsetFromParam ?? 0)
+  useEffect(() => {
+    if (offsetFromParam !== null) setOffset(offsetFromParam)
+  }, [offsetFromParam])
 
   const start = useMemo(() => addDays(weekStart(iso), offset * 7), [iso, offset])
   const end = useMemo(() => addDays(start, 6), [start])
