@@ -1,0 +1,103 @@
+/*
+ * Tokens de diseño. Cada color se declara como canales RGB separados por espacios
+ * para que Tailwind pueda aplicarle opacidad: rgb(var(--surface) / 0.5).
+ *
+ * El tema claro vive en :root y el oscuro se aplica con [data-theme="dark"] en <html>.
+ * `useTheme` escribe ese atributo; el script inline de index.html lo hace antes del
+ * primer pintado para que no haya parpadeo al recargar.
+ */
+
+:root {
+  /* Superficies */
+  --bg: 246 244 241;
+  --surface: 255 255 255;
+  --surface-2: 241 239 236;
+  --surface-3: 232 229 224;
+  --line: 229 225 220;
+  --line-strong: 213 208 201;
+
+  /* Texto */
+  --text: 20 22 26;
+  --text-muted: 106 112 122;
+  --text-subtle: 145 150 159;
+
+  /* Marca */
+  --brand: 251 90 23;
+  --brand-strong: 196 43 12;
+  --brand-soft: 255 236 226;
+  --on-brand: 255 255 255;
+
+  /* Estados */
+  --ok: 15 149 76;
+  --ok-soft: 214 250 225;
+  --warn: 217 119 6;
+  --warn-soft: 254 243 199;
+
+  /* Actividades — un color por familia de sesión */
+  --act-run: 234 88 12;
+  --act-goal: 190 24 12;
+  --act-swim: 2 132 199;
+  --act-strength: 109 74 245;
+  --act-flex: 15 149 76;
+  --act-rest: 113 125 145;
+
+  /* Fondo suave de cada actividad (chips, bloques del calendario) */
+  --act-run-soft: 255 237 225;
+  --act-goal-soft: 254 231 226;
+  --act-swim-soft: 224 242 254;
+  --act-strength-soft: 237 233 255;
+  --act-flex-soft: 218 248 230;
+  --act-rest-soft: 236 238 242;
+
+  /* Sombras: en claro hacen todo el trabajo de separar planos */
+  --shadow-sm: 0 1px 2px rgb(16 18 22 / 0.05);
+  --shadow-md: 0 1px 2px rgb(16 18 22 / 0.04), 0 8px 24px -10px rgb(16 18 22 / 0.14);
+  --shadow-lg: 0 2px 4px rgb(16 18 22 / 0.04), 0 18px 44px -14px rgb(16 18 22 / 0.2);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: 11 11 13;
+  --surface: 22 23 27;
+  --surface-2: 31 32 37;
+  --surface-3: 42 43 49;
+  --line: 42 43 49;
+  --line-strong: 60 62 70;
+
+  --text: 247 247 248;
+  --text-muted: 162 165 174;
+  --text-subtle: 122 126 135;
+
+  --brand: 251 90 23;
+  --brand-strong: 255 122 60;
+  --brand-soft: 47 26 18;
+  --on-brand: 255 255 255;
+
+  --ok: 62 213 126;
+  --ok-soft: 17 60 40;
+  --warn: 251 191 36;
+  --warn-soft: 61 45 12;
+
+  /* En oscuro los colores se aclaran para mantener el contraste sobre el fondo */
+  --act-run: 255 122 60;
+  --act-goal: 248 92 60;
+  --act-swim: 56 189 248;
+  --act-strength: 158 137 255;
+  --act-flex: 62 213 126;
+  --act-rest: 148 163 184;
+
+  --act-run-soft: 56 27 14;
+  --act-goal-soft: 61 22 18;
+  --act-swim-soft: 11 41 61;
+  --act-strength-soft: 35 29 66;
+  --act-flex-soft: 12 48 32;
+  --act-rest-soft: 33 37 45;
+
+  /* En oscuro las sombras casi no se ven: los bordes separan los planos */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md: 0 2px 16px -4px rgb(0 0 0 / 0.55);
+  --shadow-lg: 0 8px 40px -8px rgb(0 0 0 / 0.65);
+
+  color-scheme: dark;
+}

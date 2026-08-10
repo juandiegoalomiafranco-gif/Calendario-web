@@ -1,46 +1,146 @@
 import { useMemo } from 'react'
+import {
+  Activity,
+  Dumbbell,
+  FaceGrinning,
+  FaceNeutral,
+  FaceSlightlyFrowning,
+  FaceSlightlySmiling,
+  Flame,
+  Footprints,
+  Goal,
+  type LucideIcon,
+  MapPin,
+  Moon,
+  Ruler,
+  Shuffle,
+  Target,
+  Timer,
+  TrendingUp,
+  Volleyball,
+  WavesLadder,
+} from 'lucide-react'
 import { PLAN, GOAL_DATE, GOAL_DISTANCE_KM, todayISO } from '../data/plan'
 import { StatCard } from '../components/StatCard'
 import { ProgressRing } from '../components/ProgressRing'
+import { Card, Section } from '../components/ui/Card'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
 import { BreakdownBars } from '../components/charts/BreakdownBars'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { chunkIntoWeeks } from '../lib/weeks'
-import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
+import { daysBetween, formatShort } from '../lib/dates'
+import { allSessionsWithDate } from '../lib/planQuery'
+import {
+  completionRate,
+  computeStreaks,
+  isRunning,
+  kmByCategory,
+  kmForEntry,
+  sessionCategory,
+  type Category,
+} from '../lib/stats'
 import type { LogEntry } from '../data/types'
 
-const CATEGORY_META: Record<Category, { emoji: string; label: string; colorClass: string }> = {
-  running: { emoji: '🏃', label: 'Running', colorClass: 'bg-brand-500' },
-  natacion: { emoji: '🏊', label: 'Natación', colorClass: 'bg-sky-500' },
-  funcional: { emoji: '🏋️', label: 'Funcional', colorClass: 'bg-ink-700' },
-  futbol: { emoji: '⚽', label: 'Fútbol', colorClass: 'bg-ok-500' },
-  voley: { emoji: '🏐', label: 'Vóley', colorClass: 'bg-amber-400' },
-  flex: { emoji: '🎲', label: 'Flex (sin detalle)', colorClass: 'bg-ink-400' },
-  descanso: { emoji: '😴', label: 'Descanso', colorClass: 'bg-ink-300' },
+interface CategoryMeta {
+  Icon: LucideIcon
+  label: string
+  colorClass: string
+  toneClass: string
 }
 
-const FEELING_META: { id: NonNullable<LogEntry['feeling']>; emoji: string; label: string; colorClass: string }[] = [
-  { id: 'genial', emoji: '😄', label: 'Genial', colorClass: 'bg-ok-500' },
-  { id: 'bien', emoji: '🙂', label: 'Bien', colorClass: 'bg-sky-500' },
-  { id: 'regular', emoji: '😐', label: 'Regular', colorClass: 'bg-amber-400' },
-  { id: 'cargado', emoji: '😖', label: 'Cargado', colorClass: 'bg-brand-600' },
+const CATEGORY_META: Record<Category, CategoryMeta> = {
+  running: {
+    Icon: Footprints,
+    label: 'Running',
+    colorClass: 'bg-act-run',
+    toneClass: 'bg-act-soft-run text-act-run',
+  },
+  natacion: {
+    Icon: WavesLadder,
+    label: 'Natación',
+    colorClass: 'bg-act-swim',
+    toneClass: 'bg-act-soft-swim text-act-swim',
+  },
+  funcional: {
+    Icon: Dumbbell,
+    label: 'Funcional',
+    colorClass: 'bg-act-strength',
+    toneClass: 'bg-act-soft-strength text-act-strength',
+  },
+  futbol: {
+    Icon: Goal,
+    label: 'Fútbol',
+    colorClass: 'bg-act-flex',
+    toneClass: 'bg-act-soft-flex text-act-flex',
+  },
+  voley: {
+    Icon: Volleyball,
+    label: 'Vóley',
+    colorClass: 'bg-warn',
+    toneClass: 'bg-warn-soft text-warn',
+  },
+  flex: {
+    Icon: Shuffle,
+    label: 'Flex (sin detalle)',
+    colorClass: 'bg-act-rest',
+    toneClass: 'bg-act-soft-rest text-act-rest',
+  },
+  descanso: {
+    Icon: Moon,
+    label: 'Descanso',
+    colorClass: 'bg-act-rest',
+    toneClass: 'bg-act-soft-rest text-act-rest',
+  },
+}
+
+const FEELING_META: {
+  id: NonNullable<LogEntry['feeling']>
+  Icon: LucideIcon
+  label: string
+  colorClass: string
+  toneClass: string
+}[] = [
+  {
+    id: 'genial',
+    Icon: FaceGrinning,
+    label: 'Genial',
+    colorClass: 'bg-ok',
+    toneClass: 'bg-ok-soft text-ok',
+  },
+  {
+    id: 'bien',
+    Icon: FaceSlightlySmiling,
+    label: 'Bien',
+    colorClass: 'bg-act-swim',
+    toneClass: 'bg-act-soft-swim text-act-swim',
+  },
+  {
+    id: 'regular',
+    Icon: FaceNeutral,
+    label: 'Regular',
+    colorClass: 'bg-warn',
+    toneClass: 'bg-warn-soft text-warn',
+  },
+  {
+    id: 'cargado',
+    Icon: FaceSlightlyFrowning,
+    label: 'Cargado',
+    colorClass: 'bg-act-goal',
+    toneClass: 'bg-act-soft-goal text-act-goal',
+  },
 ]
-
-function shortDate(iso: string): string {
-  return `${iso.slice(8, 10)}/${iso.slice(5, 7)}`
-}
 
 export function Progress() {
   const { log } = useTrainingLog()
   const iso = todayISO()
 
-  const allSessions = useMemo(() => PLAN.flatMap((d) => d.sessions.map((s) => ({ ...s, date: d.date }))), [])
-  const pastOrTodaySessions = useMemo(() => allSessions.filter((s) => s.date <= iso), [allSessions, iso])
+  const allSessions = useMemo(() => allSessionsWithDate(), [])
 
-  const completedCount = pastOrTodaySessions.filter((s) => log[s.id]?.completed).length
-  const totalPlanned = pastOrTodaySessions.length
-  const completionPct = totalPlanned ? Math.round((completedCount / totalPlanned) * 100) : 0
+  const { done: completedCount, planned: totalPlanned, pct: completionPct } = useMemo(
+    () => completionRate(PLAN, log, iso),
+    [log, iso],
+  )
 
   const workoutsDone = useMemo(
     () => allSessions.filter((s) => s.type !== 'rest' && log[s.id]?.completed).length,
@@ -105,8 +205,8 @@ export function Progress() {
     () =>
       weeks.map((week, i) => {
         const past = week.filter((d) => d.date <= iso).flatMap((d) => d.sessions)
-        const done = past.filter((s) => log[s.id]?.completed).length
-        const pct = past.length ? Math.round((done / past.length) * 100) : 0
+        const doneCount = past.filter((s) => log[s.id]?.completed).length
+        const pct = past.length ? Math.round((doneCount / past.length) * 100) : 0
         return { label: `Sem ${i + 1}`, value: pct, display: `${pct}%` }
       }),
     [weeks, log, iso],
@@ -131,7 +231,14 @@ export function Progress() {
       const entry = log[s.id]
       if (entry?.completed && entry.feeling) counts.set(entry.feeling, (counts.get(entry.feeling) ?? 0) + 1)
     }
-    const rows = FEELING_META.map((f) => ({ key: f.id, emoji: f.emoji, label: f.label, colorClass: f.colorClass, count: counts.get(f.id) ?? 0 }))
+    const rows = FEELING_META.map((f) => ({
+      key: f.id,
+      Icon: f.Icon,
+      label: f.label,
+      colorClass: f.colorClass,
+      toneClass: f.toneClass,
+      count: counts.get(f.id) ?? 0,
+    }))
     return { rows, total: rows.reduce((a, r) => a + r.count, 0) }
   }, [allSessions, log])
 
@@ -147,14 +254,14 @@ export function Progress() {
     () =>
       completedRuns
         .filter((s) => log[s.id]?.avgHr != null)
-        .map((s) => ({ label: shortDate(s.date), value: log[s.id]!.avgHr! })),
+        .map((s) => ({ label: formatShort(s.date), value: log[s.id]!.avgHr! })),
     [completedRuns, log],
   )
 
   const runDistanceTrend = useMemo(
     () =>
       completedRuns
-        .map((s) => ({ label: shortDate(s.date), value: kmForEntry(s, log[s.id]).km }))
+        .map((s) => ({ label: formatShort(s.date), value: kmForEntry(s, log[s.id]).km }))
         .filter((p) => p.value > 0),
     [completedRuns, log],
   )
@@ -163,18 +270,16 @@ export function Progress() {
     () =>
       completedRuns
         .map((s) => {
-          const km = kmForEntry(s, log[s.id]).km
+          const kmRun = kmForEntry(s, log[s.id]).km
           const dur = log[s.id]?.durationMin
-          return { label: shortDate(s.date), value: km > 0 && dur ? dur / km : 0 }
+          return { label: formatShort(s.date), value: kmRun > 0 && dur ? dur / kmRun : 0 }
         })
         .filter((p) => p.value > 0),
     [completedRuns, log],
   )
 
   const runStats = useMemo(() => {
-    const runsWithKm = completedRuns
-      .map((s) => kmForEntry(s, log[s.id]).km)
-      .filter((v) => v > 0)
+    const runsWithKm = completedRuns.map((s) => kmForEntry(s, log[s.id]).km).filter((v) => v > 0)
     const avgPerRun = runsWithKm.length ? km.running / runsWithKm.length : 0
     return { count: runsWithKm.length, avgPerRun }
   }, [completedRuns, log, km.running])
@@ -187,62 +292,103 @@ export function Progress() {
     return { last, delta: last - prev }
   }, [kmPerWeek])
 
-  const daysRemaining = Math.max(
-    0,
-    Math.round((new Date(`${GOAL_DATE}T00:00:00Z`).getTime() - new Date(`${iso}T00:00:00Z`).getTime()) / 86_400_000),
-  )
-
+  const daysRemaining = daysBetween(iso, GOAL_DATE)
   const longestRunPct = Math.min(100, (km.longestRun / GOAL_DISTANCE_KM) * 100)
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-5 lg:gap-6">
       <header>
-        <h1 className="text-3xl font-bold text-ink-900">Progreso</h1>
+        <h1 className="text-3xl font-bold tracking-tight text-content lg:text-4xl">Progreso</h1>
+        <p className="mt-1 text-sm text-content-muted">
+          Todo lo que llevas registrado desde que arrancó el plan.
+        </p>
       </header>
 
-      <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">
-        <ProgressRing value={completionPct} size={104} strokeWidth={12}>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-ink-900">{completionPct}%</p>
+      {/* Resumen: cumplimiento y fondo más largo */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card padding="lg" className="flex items-center gap-5">
+          <ProgressRing value={completionPct} size={104} strokeWidth={11}>
+            <span className="text-2xl font-bold tabular text-content">{completionPct}%</span>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="text-sm text-content-muted">Sesiones completadas</p>
+            <p className="text-xl font-bold tabular text-content">
+              {completedCount} / {totalPlanned}
+            </p>
+            <p className="mt-2 text-sm text-content-muted">
+              {daysRemaining > 0
+                ? `Faltan ${daysRemaining} ${daysRemaining === 1 ? 'día' : 'días'} para el intento de ${GOAL_DISTANCE_KM} km`
+                : daysRemaining === 0
+                  ? `Hoy es el intento de ${GOAL_DISTANCE_KM} km`
+                  : `El plan terminó — meta de ${GOAL_DISTANCE_KM} km`}
+            </p>
           </div>
-        </ProgressRing>
-        <div>
-          <p className="text-sm text-ink-500">Sesiones completadas</p>
-          <p className="text-xl font-bold text-ink-900">
-            {completedCount} / {totalPlanned}
+        </Card>
+
+        <Card padding="lg" className="flex flex-col justify-center lg:col-span-2">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <p className="flex items-center gap-2 text-sm font-semibold text-content">
+              <Target size={16} className="text-brand" aria-hidden />
+              Tu fondo más largo
+            </p>
+            <p className="text-sm font-bold tabular text-content">
+              {km.longestRun.toFixed(1)}
+              <span className="font-medium text-content-subtle"> / {GOAL_DISTANCE_KM} km</span>
+            </p>
+          </div>
+          <div className="h-3 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-ok to-act-flex"
+              style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }}
+            />
+          </div>
+          <p className="mt-2 text-xs text-content-subtle">
+            {longestRunPct >= 100
+              ? '¡Distancia de meta alcanzada!'
+              : `Te falta ${(GOAL_DISTANCE_KM - km.longestRun).toFixed(1)} km para la distancia de meta.`}
           </p>
-          <p className="text-sm text-ink-500 mt-2">Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km</p>
-        </div>
+        </Card>
       </div>
 
-      <div className="flex gap-3">
-        <StatCard label="Entrenos" value={String(workoutsDone)} icon="💪" caption="sesiones completadas" />
+      {/* Cifras */}
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+        <StatCard
+          label="Entrenos"
+          value={String(workoutsDone)}
+          Icon={Activity}
+          tone="bg-act-soft-strength text-act-strength"
+          caption="sesiones completadas"
+        />
         <StatCard
           label="Racha"
           value={String(streaks.current)}
           unit={streaks.current === 1 ? 'día' : 'días'}
-          icon="🔥"
+          Icon={Flame}
+          tone="bg-act-soft-run text-act-run"
           caption={`mejor: ${streaks.best} ${streaks.best === 1 ? 'día' : 'días'}`}
         />
-      </div>
-
-      <div className="flex gap-3">
         <StatCard
           label="Km acumulados"
           value={km.total.toFixed(1)}
           unit="km"
-          icon="📍"
+          Icon={MapPin}
+          tone="bg-act-soft-goal text-act-goal"
           caption={
             km.estimated > 0
-              ? `${km.registered.toFixed(1)} km registrados · ${km.estimated.toFixed(1)} km estimados del plan`
+              ? `${km.registered.toFixed(1)} km registrados · ${km.estimated.toFixed(1)} estimados`
               : 'todo registrado por ti'
           }
         />
-        <StatCard label="Km corriendo" value={km.running.toFixed(1)} unit="km" icon="🏃" caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`} />
-      </div>
+        <StatCard
+          label="Km corriendo"
+          value={km.running.toFixed(1)}
+          unit="km"
+          Icon={Footprints}
+          tone="bg-act-soft-run text-act-run"
+          caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`}
+        />
 
-      {(totals.durationMin > 0 || totals.calories > 0) && (
-        <div className="flex gap-3">
+        {totals.durationMin > 0 && (
           <StatCard
             label="Tiempo total"
             value={
@@ -251,107 +397,109 @@ export function Progress() {
                 : String(totals.durationMin)
             }
             unit="min"
-            icon="⏱️"
+            Icon={Timer}
+            tone="bg-act-soft-swim text-act-swim"
             caption="entrenando"
           />
+        )}
+        {totals.calories > 0 && (
           <StatCard
             label="Calorías"
             value={totals.calories.toLocaleString('es-CO')}
             unit="kcal"
-            icon="🔥"
+            Icon={Flame}
+            tone="bg-warn-soft text-warn"
             caption="quemadas (registradas)"
           />
-        </div>
-      )}
-
-      {runStats.count > 0 && (
-        <div className="flex gap-3">
+        )}
+        {runStats.count > 0 && (
           <StatCard
             label="Promedio por carrera"
             value={runStats.avgPerRun.toFixed(1)}
             unit="km"
-            icon="📏"
+            Icon={Ruler}
+            tone="bg-act-soft-run text-act-run"
             caption={`en ${runStats.count} ${runStats.count === 1 ? 'carrera' : 'carreras'}`}
           />
-          {weekDelta && (
-            <StatCard
-              label="Última semana"
-              value={weekDelta.last.toFixed(1)}
-              unit="km"
-              icon="📈"
-              caption={
-                weekDelta.delta === 0
-                  ? 'igual que la anterior'
-                  : `${weekDelta.delta > 0 ? '+' : ''}${weekDelta.delta.toFixed(1)} km vs. anterior`
-              }
-            />
-          )}
-        </div>
-      )}
-
-      <div className="rounded-3xl bg-card shadow-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
-          <p className="text-sm font-bold text-ink-900">
-            {km.longestRun.toFixed(1)} <span className="text-ink-400 font-medium">/ {GOAL_DISTANCE_KM} km</span>
-          </p>
-        </div>
-        <div className="h-3 rounded-full bg-ink-100 overflow-hidden">
-          <div className="h-full rounded-full bg-ok-500" style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }} />
-        </div>
+        )}
+        {weekDelta && (
+          <StatCard
+            label="Última semana"
+            value={weekDelta.last.toFixed(1)}
+            unit="km"
+            Icon={TrendingUp}
+            tone="bg-ok-soft text-ok"
+            caption={
+              weekDelta.delta === 0
+                ? 'igual que la anterior'
+                : `${weekDelta.delta > 0 ? '+' : ''}${weekDelta.delta.toFixed(1)} km vs. anterior`
+            }
+          />
+        )}
       </div>
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por semana</h2>
-        <WeeklyBars bars={kmPerWeek} />
-      </section>
+      {/* Gráficos */}
+      <div className="grid gap-5 lg:grid-cols-2 lg:gap-6">
+        <Section title="Km por semana">
+          <WeeklyBars bars={kmPerWeek} />
+        </Section>
 
-      {byActivity.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Por actividad</h2>
-          <BreakdownBars rows={byActivity} />
-        </section>
-      )}
+        <Section title="Cumplimiento por semana">
+          <WeeklyBars bars={completionPerWeek} max={100} />
+        </Section>
 
-      {kmByType.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por tipo</h2>
-          <BreakdownBars rows={kmByType} />
-        </section>
-      )}
+        {byActivity.length > 0 && (
+          <Section title="Por actividad">
+            <BreakdownBars rows={byActivity} />
+          </Section>
+        )}
 
-      {feelings.total > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Sensaciones</h2>
-          <BreakdownBars rows={feelings.rows} />
-        </section>
-      )}
+        {kmByType.length > 0 && (
+          <Section title="Km por tipo">
+            <BreakdownBars rows={kmByType} suffix=" km" />
+          </Section>
+        )}
 
-      {runDistanceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Distancia por carrera</h2>
-          <TrendLine points={runDistanceTrend} unit="km por carrera" />
-        </section>
-      )}
+        {feelings.total > 0 && (
+          <Section title="Sensaciones">
+            <BreakdownBars rows={feelings.rows} />
+          </Section>
+        )}
 
-      {paceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Ritmo por carrera</h2>
-          <TrendLine points={paceTrend} unit="min/km (más bajo es más rápido)" color="#10b981" decimals={1} />
-        </section>
-      )}
+        {runDistanceTrend.length >= 2 && (
+          <Section title="Distancia por carrera">
+            <TrendLine
+              points={runDistanceTrend}
+              unit="km por carrera"
+              title="Distancia de cada carrera completada"
+              color="rgb(var(--act-run))"
+            />
+          </Section>
+        )}
 
-      {hrTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">FC media en carrera</h2>
-          <TrendLine points={hrTrend} unit="pulsaciones por minuto" color="#0ea5e9" decimals={0} />
-        </section>
-      )}
+        {paceTrend.length >= 2 && (
+          <Section title="Ritmo por carrera">
+            <TrendLine
+              points={paceTrend}
+              unit="min/km (más bajo es más rápido)"
+              title="Ritmo medio de cada carrera"
+              color="rgb(var(--ok))"
+            />
+          </Section>
+        )}
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Cumplimiento por semana</h2>
-        <WeeklyBars bars={completionPerWeek} max={100} />
-      </section>
+        {hrTrend.length >= 2 && (
+          <Section title="FC media en carrera">
+            <TrendLine
+              points={hrTrend}
+              unit="pulsaciones por minuto"
+              title="Frecuencia cardíaca media por carrera"
+              color="rgb(var(--act-swim))"
+              decimals={0}
+            />
+          </Section>
+        )}
+      </div>
     </div>
   )
 }

@@ -69,6 +69,20 @@ export function kmByCategory(sessions: Session[], log: Record<string, LogEntry>)
 }
 
 /**
+ * Cumplimiento sobre las sesiones que ya tocaban: completadas / planeadas hasta hoy.
+ * Lo usan la página de Progreso y el anillo de la barra lateral.
+ */
+export function completionRate(
+  plan: DayPlan[],
+  log: Record<string, LogEntry>,
+  todayIso: string,
+): { done: number; planned: number; pct: number } {
+  const due = plan.filter((d) => d.date <= todayIso).flatMap((d) => d.sessions)
+  const done = due.filter((s) => log[s.id]?.completed).length
+  return { done, planned: due.length, pct: due.length ? Math.round((done / due.length) * 100) : 0 }
+}
+
+/**
  * Racha de días con al menos una sesión (no descanso) completada.
  * Los días de solo descanso no rompen la racha; el día de hoy sin completar tampoco.
  */

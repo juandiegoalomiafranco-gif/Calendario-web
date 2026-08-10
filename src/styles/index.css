@@ -1,24 +1,84 @@
+@import '@fontsource-variable/inter/wght.css';
+@import './tokens.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-html, body {
+html,
+body {
   min-height: 100%;
 }
 
 html {
-  /* Matches bg-ink-50 so the iOS overscroll / status-bar area never flashes white */
-  background-color: #0b0b0d;
+  /* Igual a --bg para que el rebote de scroll de iOS nunca destelle en blanco */
+  background-color: rgb(var(--bg));
 }
 
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
-  color: #f7f7f8;
+  background-color: rgb(var(--bg));
+  color: rgb(var(--text));
+  font-synthesis-weight: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Las cifras de estadísticas no deben bailar al cambiar de valor */
+.tabular {
+  font-variant-numeric: tabular-nums;
 }
 
 .app-shell {
   min-height: 100vh;
-  /* dvh tracks the iOS standalone dynamic viewport; the vh line above is the fallback */
+  /* dvh sigue el viewport dinámico de iOS en standalone; el vh de arriba es el respaldo */
   min-height: 100dvh;
+}
+
+/* Trama diagonal de las celdas sin sesión en la rejilla del calendario */
+.hatched {
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgb(var(--line) / 0.5) 0,
+    rgb(var(--line) / 0.5) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+/* Foco visible y consistente en todo lo interactivo */
+@layer base {
+  :focus-visible {
+    outline: 2px solid rgb(var(--brand));
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+/* Barras de scroll discretas en los paneles del calendario */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line-strong)) transparent;
+}
+.scroll-slim::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-slim::-webkit-scrollbar-thumb {
+  background-color: rgb(var(--line-strong));
+  border-radius: 999px;
+}
+.scroll-slim::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
