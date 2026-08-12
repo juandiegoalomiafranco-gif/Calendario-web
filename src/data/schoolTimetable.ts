@@ -1,9 +1,15 @@
-import type { SchoolClass, TimetableSlot } from './schoolTypes'
+import type { PeriodDef, SchoolClass, SchoolSetup, TimetableSlot } from './schoolTypes'
 
-// Horario de Grade 11 — Colegio Colombo Británico, Cali. Ciclo de 6 días.
-// Códigos → materias confirmados por Juan Diego.
+/**
+ * Semilla del horario — Grade 11, Colegio Colombo Británico (Cali), ciclo de 6 días.
+ *
+ * Esto es sólo el punto de partida: en el primer arranque se copia a la configuración
+ * del usuario (`SchoolConfig.setup`) y a partir de ahí Juan Diego edita materias y
+ * horario desde la app, sin tocar el código. Al empezar un año electivo nuevo basta
+ * con editarlo desde «Colegio → Materias».
+ */
 
-export const PERIODS: { period: string; start: string; end: string; kind: 'class' | 'break' }[] = [
+export const DEFAULT_PERIODS: PeriodDef[] = [
   { period: 'Adv', start: '8:00', end: '8:10', kind: 'class' },
   { period: 'P1', start: '8:10', end: '9:05', kind: 'class' },
   { period: 'P2', start: '9:10', end: '10:05', kind: 'class' },
@@ -15,27 +21,26 @@ export const PERIODS: { period: string; start: string; end: string; kind: 'class
   { period: 'P6', start: '14:10', end: '15:05', kind: 'class' },
 ]
 
-export const CLASSES: Record<string, SchoolClass> = {
-  ADV9: { code: 'ADV9', name: 'Advisory', teacher: 'FL', color: 'bg-ink-300', text: 'text-ink-900' },
-  ESSSL2: { code: 'ESSSL2', name: 'SAS', teacher: 'NMR', color: 'bg-cyan-500', text: 'text-white' },
-  'MAA&ASL1': { code: 'MAA&ASL1', name: 'Matemáticas', teacher: 'TG', color: 'bg-sky-500', text: 'text-white' },
-  ECOHLSL2: { code: 'ECOHLSL2', name: 'Economía', teacher: 'RP', color: 'bg-emerald-500', text: 'text-white' },
-  ENGAHL1: { code: 'ENGAHL1', name: 'Inglés', teacher: 'SM', color: 'bg-violet-500', text: 'text-white' },
-  BMHL2: { code: 'BMHL2', name: 'Business', teacher: 'JDS', color: 'bg-amber-500', text: 'text-ink-900' },
-  ESPASL2: { code: 'ESPASL2', name: 'Español', teacher: 'RV', color: 'bg-rose-500', text: 'text-white' },
-  ICFES5: { code: 'ICFES5', name: 'ICFES', teacher: 'NMR/LP/SMI', color: 'bg-fuchsia-500', text: 'text-white' },
-  TOK2: { code: 'TOK2', name: 'TOK', teacher: 'PALL', color: 'bg-indigo-500', text: 'text-white' },
-  CIESOC6: { code: 'CIESOC6', name: 'Ciencias Sociales', teacher: 'AMM', color: 'bg-teal-500', text: 'text-white' },
-  SH7: { code: 'SH7', name: 'Study Hall', teacher: 'LNC', color: 'bg-ink-300', text: 'text-ink-900' },
+export const DEFAULT_CLASSES: Record<string, SchoolClass> = {
+  ADV9: { code: 'ADV9', name: 'Advisory', teacher: 'FL', color: 'slate' },
+  ESSSL2: { code: 'ESSSL2', name: 'SAS', teacher: 'NMR', color: 'cyan' },
+  'MAA&ASL1': { code: 'MAA&ASL1', name: 'Matemáticas', teacher: 'TG', color: 'blue' },
+  ECOHLSL2: { code: 'ECOHLSL2', name: 'Economía', teacher: 'RP', color: 'green' },
+  ENGAHL1: { code: 'ENGAHL1', name: 'Inglés', teacher: 'SM', color: 'violet' },
+  BMHL2: { code: 'BMHL2', name: 'Business', teacher: 'JDS', color: 'amber' },
+  ESPASL2: { code: 'ESPASL2', name: 'Español', teacher: 'RV', color: 'rose' },
+  ICFES5: { code: 'ICFES5', name: 'ICFES', teacher: 'NMR/LP/SMI', color: 'fuchsia' },
+  TOK2: { code: 'TOK2', name: 'TOK', teacher: 'PALL', color: 'indigo' },
+  CIESOC6: { code: 'CIESOC6', name: 'Ciencias Sociales', teacher: 'AMM', color: 'teal' },
+  SH7: { code: 'SH7', name: 'Study Hall', teacher: 'LNC', color: 'slate' },
 }
 
 function slot(period: string, classCode: string, room: string): TimetableSlot {
-  const p = PERIODS.find((x) => x.period === period)!
-  return { period, start: p.start, end: p.end, classCode, room }
+  return { period, classCode, room }
 }
 
-// TIMETABLE[díaDeCiclo 1..6] = clases de ese día (Adv + P1..P6).
-export const TIMETABLE: Record<number, TimetableSlot[]> = {
+/** DEFAULT_TIMETABLE[díaDeCiclo 1..6] = clases de ese día (Adv + P1..P6). */
+export const DEFAULT_TIMETABLE: Record<number, TimetableSlot[]> = {
   1: [
     slot('Adv', 'ADV9', 'R24'),
     slot('P1', 'ESSSL2', 'Lab2'),
@@ -90,4 +95,10 @@ export const TIMETABLE: Record<number, TimetableSlot[]> = {
     slot('P5', 'TOK2', 'R3'),
     slot('P6', 'ESSSL2', 'Lab3'),
   ],
+}
+
+export const DEFAULT_SETUP: SchoolSetup = {
+  periods: DEFAULT_PERIODS,
+  classes: DEFAULT_CLASSES,
+  timetable: DEFAULT_TIMETABLE,
 }

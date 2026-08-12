@@ -4,22 +4,36 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap"
-      rel="stylesheet"
+    <meta name="theme-color" content="#f4f5f7" />
+    <meta
+      name="description"
+      content="MyLife — colegio, tareas, entrenamiento, dieta, finanzas y eventos de Juan Diego en un solo sitio."
     />
-    <meta name="theme-color" content="#f6f6f8" />
-    <meta name="description" content="Calendario de entrenamiento de Juan Diego: running, natación y funcional, con FC como guía." />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-    <meta name="apple-mobile-web-app-title" content="Mi Calendario" />
-    <title>Mi Calendario de Entrenamiento</title>
+    <meta name="apple-mobile-web-app-title" content="MyLife" />
+    <title>MyLife</title>
+    <script>
+      // Aplica el tema antes del primer pintado para que no haya destello al recargar.
+      // Debe mantenerse en sintonía con src/hooks/useTheme.ts.
+      (function () {
+        try {
+          var stored = localStorage.getItem('mivida:theme:v1') || 'system'
+          var dark =
+            stored === 'dark' ||
+            (stored === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+          var meta = document.querySelector('meta[name="theme-color"]')
+          if (meta) meta.setAttribute('content', dark ? '#0d0e11' : '#f4f5f7')
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
   </head>
-  <body class="bg-ink-50">
+  <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

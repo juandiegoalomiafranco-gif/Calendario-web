@@ -61,23 +61,23 @@ export function PinSettings() {
   }
 
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
+    <div className="rounded-3xl bg-surface shadow-card p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold text-ink-900">PIN de entrada</p>
-          <p className="text-xs text-ink-500">
+          <p className="text-sm font-semibold text-content">PIN de entrada</p>
+          <p className="text-xs text-content-muted">
             {enabled ? 'Activado — se pide al abrir la app' : 'Bloqueo local para proteger tus datos'}
           </p>
         </div>
         {!step &&
           (enabled ? (
-            <button onClick={remove} className="text-sm font-medium text-brand-600">
+            <button onClick={remove} className="text-sm font-medium text-accent">
               Quitar
             </button>
           ) : (
             <button
               onClick={startCreate}
-              className="rounded-full bg-brand-500 text-white text-sm font-semibold px-4 py-2 active:bg-brand-600"
+              className="rounded-full bg-primary text-primary-on text-sm font-semibold px-4 py-2 active:bg-primary"
             >
               Activar
             </button>
@@ -85,17 +85,17 @@ export function PinSettings() {
       </div>
 
       {enabled && !step && (
-        <button onClick={startCreate} className="self-start text-sm font-medium text-ink-500 underline">
+        <button onClick={startCreate} className="self-start text-sm font-medium text-content-muted underline">
           Cambiar PIN
         </button>
       )}
 
       {step && (
         <div className="flex flex-col items-center gap-5 pt-1">
-          <p className="text-sm text-ink-500">
+          <p className="text-sm text-content-muted">
             {step === 'create' ? 'Escribe un PIN de 4 dígitos' : 'Confírmalo'}
           </p>
-          {error && <p className="text-sm font-medium text-brand-600">{error}</p>}
+          {error && <p className="text-sm font-medium text-accent">{error}</p>}
           <PinPad
             value={entry}
             onChange={(v) => {
@@ -105,14 +105,14 @@ export function PinSettings() {
             length={PIN_LENGTH}
             error={!!error}
           />
-          <button onClick={cancel} className="text-sm text-ink-500 underline">
+          <button onClick={cancel} className="text-sm text-content-muted underline">
             Cancelar
           </button>
         </div>
       )}
 
-      {flash && <p className="text-sm font-medium text-ok-600">{flash}</p>}
-      <p className="text-[11px] text-ink-400">
+      {flash && <p className="text-sm font-medium text-ok">{flash}</p>}
+      <p className="text-[11px] text-content-subtle">
         El PIN es un bloqueo local del dispositivo; no cifra los datos en la nube.
       </p>
     </div>

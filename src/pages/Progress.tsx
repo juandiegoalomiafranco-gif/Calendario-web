@@ -1,30 +1,33 @@
 import { useMemo } from 'react'
+import { Activity, Dumbbell, FaceGrinning, FaceNeutral, FaceSlightlyFrowning, FaceSlightlySmiling, Flame, Footprints, Goal, MapPin, Moon, Ruler, Shuffle, Target, Timer, TrendingUp, Volleyball, WavesLadder, type LucideIcon } from 'lucide-react'
 import { PLAN, GOAL_DATE, GOAL_DISTANCE_KM, todayISO } from '../data/plan'
 import { StatCard } from '../components/StatCard'
 import { ProgressRing } from '../components/ProgressRing'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
 import { BreakdownBars } from '../components/charts/BreakdownBars'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Card, CardHeader } from '../components/ui/Card'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { chunkIntoWeeks } from '../lib/weeks'
 import { computeStreaks, isRunning, kmByCategory, kmForEntry, sessionCategory, type Category } from '../lib/stats'
 import type { LogEntry } from '../data/types'
 
-const CATEGORY_META: Record<Category, { emoji: string; label: string; colorClass: string }> = {
-  running: { emoji: '🏃', label: 'Running', colorClass: 'bg-brand-500' },
-  natacion: { emoji: '🏊', label: 'Natación', colorClass: 'bg-sky-500' },
-  funcional: { emoji: '🏋️', label: 'Funcional', colorClass: 'bg-ink-700' },
-  futbol: { emoji: '⚽', label: 'Fútbol', colorClass: 'bg-ok-500' },
-  voley: { emoji: '🏐', label: 'Vóley', colorClass: 'bg-amber-400' },
-  flex: { emoji: '🎲', label: 'Flex (sin detalle)', colorClass: 'bg-ink-400' },
-  descanso: { emoji: '😴', label: 'Descanso', colorClass: 'bg-ink-300' },
+const CATEGORY_META: Record<Category, { Icon: LucideIcon; label: string; colorClass: string; toneClass: string }> = {
+  running: { Icon: Footprints, label: 'Running', colorClass: 'bg-cat-orange', toneClass: 'bg-cat-soft-orange text-cat-orange' },
+  natacion: { Icon: WavesLadder, label: 'Natación', colorClass: 'bg-cat-cyan', toneClass: 'bg-cat-soft-cyan text-cat-cyan' },
+  funcional: { Icon: Dumbbell, label: 'Funcional', colorClass: 'bg-cat-violet', toneClass: 'bg-cat-soft-violet text-cat-violet' },
+  futbol: { Icon: Goal, label: 'Fútbol', colorClass: 'bg-cat-green', toneClass: 'bg-cat-soft-green text-cat-green' },
+  voley: { Icon: Volleyball, label: 'Vóley', colorClass: 'bg-cat-amber', toneClass: 'bg-cat-soft-amber text-cat-amber' },
+  flex: { Icon: Shuffle, label: 'Flex (sin detalle)', colorClass: 'bg-cat-slate', toneClass: 'bg-cat-soft-slate text-cat-slate' },
+  descanso: { Icon: Moon, label: 'Descanso', colorClass: 'bg-cat-slate', toneClass: 'bg-cat-soft-slate text-cat-slate' },
 }
 
-const FEELING_META: { id: NonNullable<LogEntry['feeling']>; emoji: string; label: string; colorClass: string }[] = [
-  { id: 'genial', emoji: '😄', label: 'Genial', colorClass: 'bg-ok-500' },
-  { id: 'bien', emoji: '🙂', label: 'Bien', colorClass: 'bg-sky-500' },
-  { id: 'regular', emoji: '😐', label: 'Regular', colorClass: 'bg-amber-400' },
-  { id: 'cargado', emoji: '😖', label: 'Cargado', colorClass: 'bg-brand-600' },
+const FEELING_META: { id: NonNullable<LogEntry['feeling']>; Icon: LucideIcon; label: string; colorClass: string; toneClass: string }[] = [
+  { id: 'genial', Icon: FaceGrinning, label: 'Genial', colorClass: 'bg-cat-green', toneClass: 'bg-cat-soft-green text-cat-green' },
+  { id: 'bien', Icon: FaceSlightlySmiling, label: 'Bien', colorClass: 'bg-cat-blue', toneClass: 'bg-cat-soft-blue text-cat-blue' },
+  { id: 'regular', Icon: FaceNeutral, label: 'Regular', colorClass: 'bg-cat-amber', toneClass: 'bg-cat-soft-amber text-cat-amber' },
+  { id: 'cargado', Icon: FaceSlightlyFrowning, label: 'Cargado', colorClass: 'bg-cat-rose', toneClass: 'bg-cat-soft-rose text-cat-rose' },
 ]
 
 function shortDate(iso: string): string {
@@ -131,7 +134,7 @@ export function Progress() {
       const entry = log[s.id]
       if (entry?.completed && entry.feeling) counts.set(entry.feeling, (counts.get(entry.feeling) ?? 0) + 1)
     }
-    const rows = FEELING_META.map((f) => ({ key: f.id, emoji: f.emoji, label: f.label, colorClass: f.colorClass, count: counts.get(f.id) ?? 0 }))
+    const rows = FEELING_META.map((f) => ({ key: f.id, Icon: f.Icon, label: f.label, colorClass: f.colorClass, toneClass: f.toneClass, count: counts.get(f.id) ?? 0 }))
     return { rows, total: rows.reduce((a, r) => a + r.count, 0) }
   }, [allSessions, log])
 
@@ -195,163 +198,207 @@ export function Progress() {
   const longestRunPct = Math.min(100, (km.longestRun / GOAL_DISTANCE_KM) * 100)
 
   return (
-    <div className="flex flex-col gap-5">
-      <header>
-        <h1 className="text-3xl font-bold text-ink-900 font-display">Progreso</h1>
-      </header>
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        eyebrow="Entreno"
+        title="Progreso"
+        description={`Faltan ${daysRemaining} días para el intento de ${GOAL_DISTANCE_KM} km.`}
+      />
 
-      <div className="rounded-4xl bg-card shadow-card p-5 flex items-center gap-5">
-        <ProgressRing value={completionPct} size={104} strokeWidth={12}>
-          <div className="text-center">
-            <p className="text-2xl font-bold text-ink-900">{completionPct}%</p>
+      {/* Resumen: anillo de cumplimiento + fondo más largo */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
+        <Card padding="lg" className="flex items-center gap-5 lg:col-span-2">
+          <ProgressRing value={completionPct} size={104} strokeWidth={12}>
+            <div className="text-center">
+              <p className="text-2xl font-extrabold tabular text-content">{completionPct}%</p>
+            </div>
+          </ProgressRing>
+          <div className="min-w-0">
+            <p className="text-sm text-content-muted">Sesiones completadas</p>
+            <p className="text-2xl font-extrabold tabular text-content">
+              {completedCount} / {totalPlanned}
+            </p>
+            <p className="mt-2 text-sm text-content-muted">
+              {workoutsDone} {workoutsDone === 1 ? 'entreno hecho' : 'entrenos hechos'} en todo el
+              plan
+            </p>
           </div>
-        </ProgressRing>
-        <div>
-          <p className="text-sm text-ink-500">Sesiones completadas</p>
-          <p className="text-xl font-bold text-ink-900">
-            {completedCount} / {totalPlanned}
+        </Card>
+
+        <Card padding="lg">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="flex items-center gap-1.5 text-sm font-semibold text-content">
+              <Target size={15} aria-hidden /> Tu fondo más largo
+            </p>
+          </div>
+          <p className="text-2xl font-extrabold tabular text-content">
+            {km.longestRun.toFixed(1)}{' '}
+            <span className="text-base font-medium text-content-subtle">
+              / {GOAL_DISTANCE_KM} km
+            </span>
           </p>
-          <p className="text-sm text-ink-500 mt-2">Faltan {daysRemaining} días para el intento de {GOAL_DISTANCE_KM} km</p>
-        </div>
+          <div className="mt-3 h-3 overflow-hidden rounded-full bg-surface-2">
+            <div
+              className="h-full rounded-full bg-ok"
+              style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }}
+            />
+          </div>
+        </Card>
       </div>
 
-      <div className="flex gap-3">
-        <StatCard label="Entrenos" value={String(workoutsDone)} icon="💪" caption="sesiones completadas" />
+      {/* Indicadores */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <StatCard
+          label="Entrenos"
+          value={String(workoutsDone)}
+          Icon={Activity}
+          tone="bg-cat-soft-violet text-cat-violet"
+          caption="sesiones completadas"
+        />
         <StatCard
           label="Racha"
           value={String(streaks.current)}
           unit={streaks.current === 1 ? 'día' : 'días'}
-          icon="🔥"
+          Icon={Flame}
+          tone="bg-cat-soft-orange text-cat-orange"
           caption={`mejor: ${streaks.best} ${streaks.best === 1 ? 'día' : 'días'}`}
         />
-      </div>
-
-      <div className="flex gap-3">
         <StatCard
           label="Km acumulados"
           value={km.total.toFixed(1)}
           unit="km"
-          icon="📍"
+          Icon={MapPin}
+          tone="bg-cat-soft-rose text-cat-rose"
           caption={
             km.estimated > 0
-              ? `${km.registered.toFixed(1)} km registrados · ${km.estimated.toFixed(1)} km estimados del plan`
+              ? `${km.registered.toFixed(1)} registrados · ${km.estimated.toFixed(1)} del plan`
               : 'todo registrado por ti'
           }
         />
-        <StatCard label="Km corriendo" value={km.running.toFixed(1)} unit="km" icon="🏃" caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`} />
-      </div>
+        <StatCard
+          label="Km corriendo"
+          value={km.running.toFixed(1)}
+          unit="km"
+          Icon={Footprints}
+          tone="bg-cat-soft-orange text-cat-orange"
+          caption={`meta: ${GOAL_DISTANCE_KM} km seguidos`}
+        />
 
-      {(totals.durationMin > 0 || totals.calories > 0) && (
-        <div className="flex gap-3">
-          <StatCard
-            label="Tiempo total"
-            value={
-              totals.durationMin >= 60
-                ? `${Math.floor(totals.durationMin / 60)}h ${totals.durationMin % 60}`
-                : String(totals.durationMin)
-            }
-            unit="min"
-            icon="⏱️"
-            caption="entrenando"
-          />
-          <StatCard
-            label="Calorías"
-            value={totals.calories.toLocaleString('es-CO')}
-            unit="kcal"
-            icon="🔥"
-            caption="quemadas (registradas)"
-          />
-        </div>
-      )}
+        {(totals.durationMin > 0 || totals.calories > 0) && (
+          <>
+            <StatCard
+              label="Tiempo total"
+              value={
+                totals.durationMin >= 60
+                  ? `${Math.floor(totals.durationMin / 60)}h ${totals.durationMin % 60}`
+                  : String(totals.durationMin)
+              }
+              unit="min"
+              Icon={Timer}
+              tone="bg-cat-soft-cyan text-cat-cyan"
+              caption="entrenando"
+            />
+            <StatCard
+              label="Calorías"
+              value={totals.calories.toLocaleString('es-CO')}
+              unit="kcal"
+              Icon={Flame}
+              tone="bg-cat-soft-orange text-cat-orange"
+              caption="quemadas (registradas)"
+            />
+          </>
+        )}
 
-      {runStats.count > 0 && (
-        <div className="flex gap-3">
+        {runStats.count > 0 && (
           <StatCard
             label="Promedio por carrera"
             value={runStats.avgPerRun.toFixed(1)}
             unit="km"
-            icon="📏"
+            Icon={Ruler}
+            tone="bg-cat-soft-cyan text-cat-cyan"
             caption={`en ${runStats.count} ${runStats.count === 1 ? 'carrera' : 'carreras'}`}
           />
-          {weekDelta && (
-            <StatCard
-              label="Última semana"
-              value={weekDelta.last.toFixed(1)}
-              unit="km"
-              icon="📈"
-              caption={
-                weekDelta.delta === 0
-                  ? 'igual que la anterior'
-                  : `${weekDelta.delta > 0 ? '+' : ''}${weekDelta.delta.toFixed(1)} km vs. anterior`
-              }
-            />
-          )}
-        </div>
-      )}
-
-      <div className="rounded-3xl bg-card shadow-card p-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-sm font-semibold text-ink-900">🎯 Tu fondo más largo</p>
-          <p className="text-sm font-bold text-ink-900">
-            {km.longestRun.toFixed(1)} <span className="text-ink-400 font-medium">/ {GOAL_DISTANCE_KM} km</span>
-          </p>
-        </div>
-        <div className="h-3 rounded-full bg-ink-100 overflow-hidden">
-          <div className="h-full rounded-full bg-ok-500" style={{ width: `${longestRunPct}%`, transition: 'width 0.3s ease' }} />
-        </div>
+        )}
+        {runStats.count > 0 && weekDelta && (
+          <StatCard
+            label="Última semana"
+            value={weekDelta.last.toFixed(1)}
+            unit="km"
+            Icon={TrendingUp}
+            tone="bg-ok-soft text-ok"
+            caption={
+              weekDelta.delta === 0
+                ? 'igual que la anterior'
+                : `${weekDelta.delta > 0 ? '+' : ''}${weekDelta.delta.toFixed(1)} km vs. anterior`
+            }
+          />
+        )}
       </div>
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por semana</h2>
-        <WeeklyBars bars={kmPerWeek} />
-      </section>
+      {/* Gráficas — dos columnas en escritorio */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
+        <Card>
+          <CardHeader title="Km por semana" />
+          <WeeklyBars bars={kmPerWeek} />
+        </Card>
 
-      {byActivity.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Por actividad</h2>
-          <BreakdownBars rows={byActivity} />
-        </section>
-      )}
+        <Card>
+          <CardHeader title="Cumplimiento por semana" />
+          <WeeklyBars bars={completionPerWeek} max={100} />
+        </Card>
 
-      {kmByType.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Km por tipo</h2>
-          <BreakdownBars rows={kmByType} />
-        </section>
-      )}
+        {byActivity.length > 0 && (
+          <Card>
+            <CardHeader title="Por actividad" />
+            <BreakdownBars rows={byActivity} />
+          </Card>
+        )}
 
-      {feelings.total > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Sensaciones</h2>
-          <BreakdownBars rows={feelings.rows} />
-        </section>
-      )}
+        {kmByType.length > 0 && (
+          <Card>
+            <CardHeader title="Km por tipo" />
+            <BreakdownBars rows={kmByType} />
+          </Card>
+        )}
 
-      {runDistanceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Distancia por carrera</h2>
-          <TrendLine points={runDistanceTrend} unit="km por carrera" />
-        </section>
-      )}
+        {feelings.total > 0 && (
+          <Card>
+            <CardHeader title="Sensaciones" />
+            <BreakdownBars rows={feelings.rows} />
+          </Card>
+        )}
 
-      {paceTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Ritmo por carrera</h2>
-          <TrendLine points={paceTrend} unit="min/km (más bajo es más rápido)" color="#10b981" decimals={1} />
-        </section>
-      )}
+        {runDistanceTrend.length >= 2 && (
+          <Card>
+            <CardHeader title="Distancia por carrera" />
+            <TrendLine points={runDistanceTrend} unit="km por carrera" />
+          </Card>
+        )}
 
-      {hrTrend.length >= 2 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">FC media en carrera</h2>
-          <TrendLine points={hrTrend} unit="pulsaciones por minuto" color="#0ea5e9" decimals={0} />
-        </section>
-      )}
+        {paceTrend.length >= 2 && (
+          <Card>
+            <CardHeader title="Ritmo por carrera" />
+            <TrendLine
+              points={paceTrend}
+              unit="min/km (más bajo es más rápido)"
+              color="rgb(var(--cat-green))"
+              decimals={1}
+            />
+          </Card>
+        )}
 
-      <section>
-        <h2 className="text-lg font-semibold text-ink-900 mb-3">Cumplimiento por semana</h2>
-        <WeeklyBars bars={completionPerWeek} max={100} />
-      </section>
+        {hrTrend.length >= 2 && (
+          <Card>
+            <CardHeader title="FC media en carrera" />
+            <TrendLine
+              points={hrTrend}
+              unit="pulsaciones por minuto"
+              color="rgb(var(--cat-blue))"
+              decimals={0}
+            />
+          </Card>
+        )}
+      </div>
     </div>
   )
 }

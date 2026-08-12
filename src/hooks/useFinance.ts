@@ -1,4 +1,6 @@
 import { useCallback } from 'react'
+import { Banknote, CreditCard, Landmark, TrendingUp, type LucideIcon } from 'lucide-react'
+import { COLORS, type ColorStyles } from '../data/palette'
 import { createCollection, newId } from '../lib/cloudStore'
 import { todayISO } from '../data/plan'
 
@@ -38,11 +40,14 @@ export interface FinanceCategory {
   kind: TxKind
 }
 
-export const ACCOUNT_KIND_META: Record<AccountKind, { label: string; emoji: string }> = {
-  efectivo: { label: 'Efectivo', emoji: '💵' },
-  ahorros: { label: 'Ahorros', emoji: '🏦' },
-  inversion: { label: 'Inversión / CDT', emoji: '📈' },
-  externa: { label: 'Externa (tarjeta papá)', emoji: '💳' },
+export const ACCOUNT_KIND_META: Record<
+  AccountKind,
+  { label: string; Icon: LucideIcon; color: ColorStyles }
+> = {
+  efectivo: { label: 'Efectivo', Icon: Banknote, color: COLORS.green },
+  ahorros: { label: 'Ahorros', Icon: Landmark, color: COLORS.blue },
+  inversion: { label: 'Inversión / CDT', Icon: TrendingUp, color: COLORS.violet },
+  externa: { label: 'Externa (tarjeta papá)', Icon: CreditCard, color: COLORS.amber },
 }
 
 interface AccountRow {

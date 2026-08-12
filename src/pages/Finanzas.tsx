@@ -1,14 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ArrowLeftRight, Plus, Repeat, Wallet, X } from 'lucide-react'
 import { todayISO } from '../data/plan'
 import { formatCOP, lastMonths, monthKey, monthLabel } from '../lib/finance'
-import {
-  ACCOUNT_KIND_META,
-  useFinance,
-  type AccountKind,
-  type TxKind,
-} from '../hooks/useFinance'
+import { ACCOUNT_KIND_META, useFinance, type AccountKind, type TxKind } from '../hooks/useFinance'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Card, CardHeader } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { DateInput, Field, Select, TextInput } from '../components/ui/Field'
+import { cx } from '../lib/cx'
 
 const KINDS: AccountKind[] = ['efectivo', 'ahorros', 'inversion', 'externa']
 const DEFAULT_CATS: { name: string; kind: TxKind }[] = [
@@ -30,6 +31,13 @@ function toNum(v: string): number {
 
 type Panel = 'account' | 'movement' | 'transfer' | 'monthly' | null
 
+const PANELS = [
+  { id: 'movement' as const, label: 'Movimiento', Icon: Plus },
+  { id: 'transfer' as const, label: 'Transferir', Icon: ArrowLeftRight },
+  { id: 'account' as const, label: 'Cuenta', Icon: Wallet },
+  { id: 'monthly' as const, label: 'Mesada / interés', Icon: Repeat },
+]
+
 export function Finanzas() {
   const fin = useFinance()
   const { accounts, transactions, transfers, categories } = fin
@@ -44,23 +52,46 @@ export function Finanzas() {
   }, [categories.length, fin])
 
   const thisMonth = monthKey(iso)
-  const patrimonio = useMemo(() => accounts.filter((a) => a.kind !== 'externa').reduce((s, a) => s + a.balance, 0), [accounts])
-  const monthGasto = useMemo(() => transactions.filter((t) => t.kind === 'gasto' && monthKey(t.date) === thisMonth).reduce((s, t) => s + t.amount, 0), [transactions, thisMonth])
-  const monthIngreso = useMemo(() => transactions.filter((t) => t.kind === 'ingreso' && monthKey(t.date) === thisMonth).reduce((s, t) => s + t.amount, 0), [transactions, thisMonth])
+  const patrimonio = useMemo(
+    () => accounts.filter((a) => a.kind !== 'externa').reduce((s, a) => s + a.balance, 0),
+    [accounts],
+  )
+  const monthGasto = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.kind === 'gasto' && monthKey(t.date) === thisMonth)
+        .reduce((s, t) => s + t.amount, 0),
+    [transactions, thisMonth],
+  )
+  const monthIngreso = useMemo(
+    () =>
+      transactions
+        .filter((t) => t.kind === 'ingreso' && monthKey(t.date) === thisMonth)
+        .reduce((s, t) => s + t.amount, 0),
+    [transactions, thisMonth],
+  )
 
   const months = useMemo(() => lastMonths(iso, 6), [iso])
   const gastoPorMes = useMemo(
     () =>
       months.map((m) => {
-        const v = transactions.filter((t) => t.kind === 'gasto' && monthKey(t.date) === m).reduce((s, t) => s + t.amount, 0)
-        return { label: monthLabel(m), value: v, display: v >= 1000 ? `${Math.round(v / 1000)}k` : String(v) }
+        const v = transactions
+          .filter((t) => t.kind === 'gasto' && monthKey(t.date) === m)
+          .reduce((s, t) => s + t.amount, 0)
+        return {
+          label: monthLabel(m),
+          value: v,
+          display: v >= 1000 ? `${Math.round(v / 1000)}k` : String(v),
+        }
       }),
     [months, transactions],
   )
 
   const gastoPorCategoria = useMemo(() => {
     const map = new Map<string, number>()
-    for (const t of transactions) if (t.kind === 'gasto' && monthKey(t.date) === thisMonth) map.set(t.category ?? 'Sin categoría', (map.get(t.category ?? 'Sin categoría') ?? 0) + t.amount)
+    for (const t of transactions)
+      if (t.kind === 'gasto' && monthKey(t.date) === thisMonth)
+        map.set(t.category ?? 'Sin categoría', (map.get(t.category ?? 'Sin categoría') ?? 0) + t.amount)
     return [...map.entries()].sort((a, b) => b[1] - a[1])
   }, [transactions, thisMonth])
   const maxCat = Math.max(...gastoPorCategoria.map(([, v]) => v), 1)
@@ -68,154 +99,245 @@ export function Finanzas() {
   const ahorroTrend = useMemo(() => {
     let acc = 0
     return months.map((m) => {
-      const net = transactions.filter((t) => monthKey(t.date) === m).reduce((s, t) => s + (t.kind === 'ingreso' ? t.amount : -t.amount), 0)
+      const net = transactions
+        .filter((t) => monthKey(t.date) === m)
+        .reduce((s, t) => s + (t.kind === 'ingreso' ? t.amount : -t.amount), 0)
       acc += net
       return { label: monthLabel(m), value: Math.round(acc / 1000) }
     })
   }, [months, transactions])
 
   const recent = useMemo(
-    () =>
-      [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12),
+    () => [...transactions].sort((a, b) => b.date.localeCompare(a.date)).slice(0, 12),
     [transactions],
   )
 
+  const hasCharts =
+    gastoPorMes.some((m) => m.value > 0) || ahorroTrend.some((p) => p.value !== 0)
+
   return (
-    <div className="flex flex-col gap-5">
-      <header>
-        <h1 className="text-3xl font-bold text-ink-900 font-display">Finanzas</h1>
-        <p className="text-sm text-ink-500 mt-1">En pesos colombianos (COP).</p>
-      </header>
-
-      <div className="rounded-4xl bg-gradient-to-br from-ink-800 to-ink-900 text-white p-5 shadow-card">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">Patrimonio</p>
-        <p className="text-3xl font-bold font-display mt-0.5">{formatCOP(patrimonio)}</p>
-        <div className="flex gap-5 mt-3">
-          <div>
-            <p className="text-sm font-semibold text-ok-300">{formatCOP(monthIngreso)}</p>
-            <p className="text-[11px] text-white/60">ingresos del mes</p>
-          </div>
-          <div>
-            <p className="text-sm font-semibold text-brand-300">{formatCOP(monthGasto)}</p>
-            <p className="text-[11px] text-white/60">gastos del mes</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Acciones */}
-      <div className="grid grid-cols-2 gap-2">
-        <ActionBtn label="+ Movimiento" active={panel === 'movement'} onClick={() => setPanel(panel === 'movement' ? null : 'movement')} />
-        <ActionBtn label="⇄ Transferir" active={panel === 'transfer'} onClick={() => setPanel(panel === 'transfer' ? null : 'transfer')} />
-        <ActionBtn label="+ Cuenta" active={panel === 'account'} onClick={() => setPanel(panel === 'account' ? null : 'account')} />
-        <ActionBtn label="📅 Mesada/interés" active={panel === 'monthly'} onClick={() => setPanel(panel === 'monthly' ? null : 'monthly')} />
-      </div>
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        title="Finanzas"
+        description="En pesos colombianos (COP)."
+        actions={PANELS.map(({ id, label, Icon }) => (
+          <Button
+            key={id}
+            variant={panel === id ? 'primary' : 'outline'}
+            onClick={() => setPanel(panel === id ? null : id)}
+          >
+            <Icon size={16} aria-hidden />
+            {label}
+          </Button>
+        ))}
+      />
 
       {panel === 'account' && <AccountForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'movement' && <MovementForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'transfer' && <TransferForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'monthly' && <MonthlyForm fin={fin} onDone={() => setPanel(null)} />}
 
-      {/* Cuentas */}
-      <section className="flex flex-col gap-2">
-        <h2 className="text-lg font-semibold text-ink-900">Cuentas</h2>
-        {accounts.map((a) => (
-          <div key={a.id} className="rounded-2xl bg-card shadow-card p-3 flex items-center gap-3">
-            <span className="text-xl">{ACCOUNT_KIND_META[a.kind].emoji}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-ink-900">{a.name}</p>
-              <p className="text-xs text-ink-500">
-                {ACCOUNT_KIND_META[a.kind].label}
-                {a.interestPct ? ` · ${a.interestPct}%/mes` : ''}
-              </p>
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
+        <div className="rounded-3xl bg-gradient-to-br from-primary-hover to-primary p-5 text-white shadow-card lg:col-span-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
+            Patrimonio
+          </p>
+          <p className="mt-0.5 text-3xl font-extrabold tabular tracking-tight lg:text-4xl">
+            {formatCOP(patrimonio)}
+          </p>
+          <div className="mt-4 flex gap-6">
+            <div>
+              <p className="text-lg font-bold tabular text-ok">{formatCOP(monthIngreso)}</p>
+              <p className="text-[11px] text-white/60">ingresos del mes</p>
             </div>
-            <p className="text-sm font-bold text-ink-900">{formatCOP(a.balance)}</p>
-            <button onClick={() => fin.removeAccount(a.id)} className="text-xs text-ink-300 active:text-brand-600">✕</button>
+            <div>
+              <p className="text-lg font-bold tabular text-danger">{formatCOP(monthGasto)}</p>
+              <p className="text-[11px] text-white/60">gastos del mes</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold tabular text-white">
+                {formatCOP(monthIngreso - monthGasto)}
+              </p>
+              <p className="text-[11px] text-white/60">neto del mes</p>
+            </div>
           </div>
-        ))}
-        {accounts.length === 0 && <p className="text-sm text-ink-500">Crea tu primera cuenta con "+ Cuenta".</p>}
-      </section>
+        </div>
 
-      {/* Gráficas */}
-      {gastoPorMes.some((m) => m.value > 0) && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Gasto por mes</h2>
-          <WeeklyBars bars={gastoPorMes} />
-        </section>
+        <Card>
+          <CardHeader
+            title="Cuentas"
+            action={
+              <span className="text-xs text-content-subtle">
+                {accounts.length} {accounts.length === 1 ? 'cuenta' : 'cuentas'}
+              </span>
+            }
+          />
+          {accounts.length > 0 ? (
+            <div className="flex flex-col gap-2">
+              {accounts.map((a) => {
+                const meta = ACCOUNT_KIND_META[a.kind]
+                return (
+                  <div key={a.id} className="flex items-center gap-3">
+                    <span
+                      className={cx(
+                        'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+                        meta.color.soft,
+                      )}
+                    >
+                      <meta.Icon size={17} strokeWidth={2} aria-hidden />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-content">{a.name}</p>
+                      <p className="truncate text-xs text-content-muted">
+                        {meta.label}
+                        {a.interestPct ? ` · ${a.interestPct}%/mes` : ''}
+                      </p>
+                    </div>
+                    <p className="shrink-0 text-sm font-bold tabular text-content">
+                      {formatCOP(a.balance)}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => fin.removeAccount(a.id)}
+                      aria-label={`Borrar ${a.name}`}
+                      className="shrink-0 text-content-subtle transition-colors hover:text-danger"
+                    >
+                      <X size={14} aria-hidden />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          ) : (
+            <p className="text-sm text-content-muted">Crea tu primera cuenta con «Cuenta».</p>
+          )}
+        </Card>
+      </div>
+
+      {hasCharts && (
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
+          {gastoPorMes.some((m) => m.value > 0) && (
+            <Card>
+              <CardHeader title="Gasto por mes" />
+              <WeeklyBars bars={gastoPorMes} />
+            </Card>
+          )}
+          {ahorroTrend.some((p) => p.value !== 0) && (
+            <Card>
+              <CardHeader title="Evolución (neto acumulado)" />
+              <TrendLine points={ahorroTrend} unit="miles de COP" decimals={0} />
+            </Card>
+          )}
+        </div>
       )}
 
-      {gastoPorCategoria.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Gasto por categoría (este mes)</h2>
-          <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-            {gastoPorCategoria.map(([cat, val]) => (
-              <div key={cat}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span className="font-medium text-ink-800">{cat}</span>
-                  <span className="font-semibold text-ink-900">{formatCOP(val)}</span>
-                </div>
-                <div className="h-2 rounded-full bg-ink-100 overflow-hidden">
-                  <div className="h-full rounded-full bg-brand-500" style={{ width: `${(val / maxCat) * 100}%` }} />
-                </div>
+      {(gastoPorCategoria.length > 0 || recent.length > 0) && (
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
+          {gastoPorCategoria.length > 0 && (
+            <Card>
+              <CardHeader title="Gasto por categoría" action={<span className="text-xs text-content-subtle">este mes</span>} />
+              <div className="flex flex-col gap-3">
+                {gastoPorCategoria.map(([cat, val]) => (
+                  <div key={cat}>
+                    <div className="mb-1 flex justify-between gap-3 text-sm">
+                      <span className="truncate font-medium text-content">{cat}</span>
+                      <span className="shrink-0 font-semibold tabular text-content">
+                        {formatCOP(val)}
+                      </span>
+                    </div>
+                    <div className="h-2 overflow-hidden rounded-full bg-surface-2">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{ width: `${(val / maxCat) * 100}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            </Card>
+          )}
 
-      {ahorroTrend.some((p) => p.value !== 0) && (
-        <section>
-          <h2 className="text-lg font-semibold text-ink-900 mb-3">Evolución (neto acumulado)</h2>
-          <TrendLine points={ahorroTrend} unit="miles de COP" decimals={0} />
-        </section>
-      )}
-
-      {/* Movimientos recientes */}
-      {recent.length > 0 && (
-        <section className="flex flex-col gap-2">
-          <h2 className="text-lg font-semibold text-ink-900">Movimientos recientes</h2>
-          {recent.map((t) => {
-            const acc = accounts.find((a) => a.id === t.accountId)
-            return (
-              <div key={t.id} className="rounded-2xl bg-card shadow-card p-3 flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-ink-900 truncate">
-                    {t.description || t.category || (t.kind === 'gasto' ? 'Gasto' : 'Ingreso')}
-                  </p>
-                  <p className="text-xs text-ink-500">
-                    {t.date}
-                    {acc ? ` · ${acc.name}` : ''}
-                    {t.sourceDetail ? ` · ${t.sourceDetail}` : ''}
-                  </p>
-                </div>
-                <p className={`text-sm font-bold ${t.kind === 'ingreso' ? 'text-ok-600' : 'text-brand-600'}`}>
-                  {t.kind === 'ingreso' ? '+' : '−'}{formatCOP(t.amount)}
+          {recent.length > 0 && (
+            <Card>
+              <CardHeader title="Movimientos recientes" />
+              <div className="flex flex-col">
+                {recent.map((t) => {
+                  const acc = accounts.find((a) => a.id === t.accountId)
+                  return (
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 border-b border-line py-2 last:border-0"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-content">
+                          {t.description || t.category || (t.kind === 'gasto' ? 'Gasto' : 'Ingreso')}
+                        </p>
+                        <p className="truncate text-xs text-content-muted">
+                          {t.date}
+                          {acc ? ` · ${acc.name}` : ''}
+                          {t.sourceDetail ? ` · ${t.sourceDetail}` : ''}
+                        </p>
+                      </div>
+                      <p
+                        className={cx(
+                          'shrink-0 text-sm font-bold tabular',
+                          t.kind === 'ingreso' ? 'text-ok' : 'text-danger',
+                        )}
+                      >
+                        {t.kind === 'ingreso' ? '+' : '−'}
+                        {formatCOP(t.amount)}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => fin.removeTransaction(t.id)}
+                        aria-label="Borrar movimiento"
+                        className="shrink-0 text-content-subtle transition-colors hover:text-danger"
+                      >
+                        <X size={14} aria-hidden />
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+              {transfers.length > 0 && (
+                <p className="mt-3 text-xs text-content-subtle">
+                  {transfers.length} transferencia(s) registrada(s).
                 </p>
-                <button onClick={() => fin.removeTransaction(t.id)} className="text-xs text-ink-300 active:text-brand-600">✕</button>
-              </div>
-            )
-          })}
-        </section>
-      )}
-
-      {transfers.length > 0 && (
-        <p className="text-xs text-ink-400">{transfers.length} transferencia(s) registrada(s).</p>
+              )}
+            </Card>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-function ActionBtn({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className={`rounded-2xl py-2.5 text-sm font-semibold shadow-card ${active ? 'bg-brand-500 text-white' : 'bg-card text-ink-700'}`}>
-      {label}
-    </button>
-  )
-}
-
 type Fin = ReturnType<typeof useFinance>
 
-function inputCls() {
-  return 'rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900'
+/** Envoltorio común de los formularios de finanzas. */
+function FormCard({
+  title,
+  hint,
+  submit,
+  onSubmit,
+  children,
+}: {
+  title: string
+  hint?: string
+  submit: string
+  onSubmit: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <Card padding="lg">
+      <CardHeader title={title} />
+      {hint && <p className="mb-3 text-sm text-content-muted">{hint}</p>}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">{children}</div>
+      <Button variant="primary" size="lg" onClick={onSubmit} className="mt-4">
+        {submit}
+      </Button>
+    </Card>
+  )
 }
 
 function AccountForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
@@ -223,29 +345,55 @@ function AccountForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [kind, setKind] = useState<AccountKind>('efectivo')
   const [balance, setBalance] = useState('')
   const [interest, setInterest] = useState('')
+
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre (Personal, CDT Bancolombia…)" className={inputCls()} />
-      <select value={kind} onChange={(e) => setKind(e.target.value as AccountKind)} className={inputCls()}>
-        {KINDS.map((k) => (
-          <option key={k} value={k}>{ACCOUNT_KIND_META[k].label}</option>
-        ))}
-      </select>
-      <div className="flex gap-2">
-        <input value={balance} onChange={(e) => setBalance(e.target.value)} inputMode="numeric" placeholder="Saldo inicial" className={`${inputCls()} flex-1`} />
-        <input value={interest} onChange={(e) => setInterest(e.target.value)} inputMode="decimal" placeholder="% mensual" className={`${inputCls()} w-28`} />
-      </div>
-      <button
-        onClick={() => {
-          if (!name.trim()) return
-          fin.addAccount({ name: name.trim(), kind, balance: toNum(balance), interestPct: interest ? parseFloat(interest.replace(',', '.')) : undefined })
-          onDone()
-        }}
-        className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600"
-      >
-        Crear cuenta
-      </button>
-    </div>
+    <FormCard
+      title="Nueva cuenta"
+      submit="Crear cuenta"
+      onSubmit={() => {
+        if (!name.trim()) return
+        fin.addAccount({
+          name: name.trim(),
+          kind,
+          balance: toNum(balance),
+          interestPct: interest ? parseFloat(interest.replace(',', '.')) : undefined,
+        })
+        onDone()
+      }}
+    >
+      <Field label="Nombre">
+        <TextInput
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Personal, CDT Bancolombia…"
+        />
+      </Field>
+      <Field label="Tipo">
+        <Select value={kind} onChange={(e) => setKind(e.target.value as AccountKind)}>
+          {KINDS.map((k) => (
+            <option key={k} value={k}>
+              {ACCOUNT_KIND_META[k].label}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Saldo inicial">
+        <TextInput
+          value={balance}
+          onChange={(e) => setBalance(e.target.value)}
+          inputMode="numeric"
+          placeholder="0"
+        />
+      </Field>
+      <Field label="Interés mensual (%)">
+        <TextInput
+          value={interest}
+          onChange={(e) => setInterest(e.target.value)}
+          inputMode="decimal"
+          placeholder="0"
+        />
+      </Field>
+    </FormCard>
   )
 }
 
@@ -258,45 +406,103 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(todayISO())
   const cats = fin.categories.filter((c) => c.kind === kind)
+
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-      <div className="flex gap-2">
-        {(['gasto', 'ingreso'] as TxKind[]).map((k) => (
-          <button key={k} onClick={() => setKind(k)} className={`flex-1 rounded-full py-1.5 text-sm font-semibold capitalize ${kind === k ? (k === 'gasto' ? 'bg-brand-500 text-white' : 'bg-ok-500 text-white') : 'bg-ink-100 text-ink-500'}`}>
-            {k}
-          </button>
-        ))}
+    <Card padding="lg">
+      <CardHeader
+        title="Nuevo movimiento"
+        action={
+          <div className="inline-flex items-center gap-1 rounded-full bg-surface-2 p-1">
+            {(['gasto', 'ingreso'] as TxKind[]).map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setKind(k)}
+                aria-pressed={kind === k}
+                className={cx(
+                  'h-8 rounded-full px-3.5 text-[13px] font-semibold capitalize transition-colors',
+                  kind === k
+                    ? k === 'gasto'
+                      ? 'bg-danger-soft text-danger'
+                      : 'bg-ok-soft text-ok'
+                    : 'text-content-muted hover:text-content',
+                )}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        }
+      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <Field label="Monto (COP)">
+          <TextInput
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            inputMode="numeric"
+            placeholder="0"
+          />
+        </Field>
+        <Field label="Cuenta">
+          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+            <option value="">Sin cuenta</option>
+            {fin.accounts.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Categoría">
+          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
+            <option value="">Sin categoría</option>
+            {cats.map((c) => (
+              <option key={c.id} value={c.name}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
+        </Field>
+        <Field label="Origen">
+          <TextInput
+            value={source}
+            onChange={(e) => setSource(e.target.value)}
+            placeholder="Opcional"
+          />
+        </Field>
+        <Field label="Descripción">
+          <TextInput
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Opcional"
+          />
+        </Field>
+        <Field label="Fecha">
+          <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
+        </Field>
       </div>
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="numeric" placeholder="Monto (COP)" className={inputCls()} />
-      <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputCls()}>
-        <option value="">Sin cuenta</option>
-        {fin.accounts.map((a) => (
-          <option key={a.id} value={a.id}>{a.name}</option>
-        ))}
-      </select>
-      <div className="flex gap-2">
-        <select value={category} onChange={(e) => setCategory(e.target.value)} className={`${inputCls()} flex-1`}>
-          <option value="">Categoría…</option>
-          {cats.map((c) => (
-            <option key={c.id} value={c.name}>{c.name}</option>
-          ))}
-        </select>
-        <input value={source} onChange={(e) => setSource(e.target.value)} placeholder="Origen" className={`${inputCls()} flex-1`} />
-      </div>
-      <input value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Descripción (opcional)" className={inputCls()} />
-      <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls()} />
-      <button
+      <Button
+        variant="primary"
+        size="lg"
+        className="mt-4"
         onClick={() => {
           const amt = toNum(amount)
           if (amt <= 0) return
-          fin.addTransaction({ date, amount: amt, kind, accountId: accountId || undefined, category: category || undefined, sourceDetail: source || undefined, description: description || undefined })
+          fin.addTransaction({
+            date,
+            amount: amt,
+            kind,
+            accountId: accountId || undefined,
+            category: category || undefined,
+            sourceDetail: source || undefined,
+            description: description || undefined,
+          })
           onDone()
         }}
-        className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600"
       >
         Guardar movimiento
-      </button>
-    </div>
+      </Button>
+    </Card>
   )
 }
 
@@ -304,60 +510,81 @@ function TransferForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [from, setFrom] = useState(fin.accounts[0]?.id ?? '')
   const [to, setTo] = useState(fin.accounts[1]?.id ?? '')
   const [amount, setAmount] = useState('')
+
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-      <select value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls()}>
-        <option value="">Desde…</option>
-        {fin.accounts.map((a) => (
-          <option key={a.id} value={a.id}>{a.name}</option>
-        ))}
-      </select>
-      <select value={to} onChange={(e) => setTo(e.target.value)} className={inputCls()}>
-        <option value="">Hacia…</option>
-        {fin.accounts.map((a) => (
-          <option key={a.id} value={a.id}>{a.name}</option>
-        ))}
-      </select>
-      <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="numeric" placeholder="Monto (COP)" className={inputCls()} />
-      <button
-        onClick={() => {
-          const amt = toNum(amount)
-          if (amt <= 0 || !from || !to || from === to) return
-          fin.addTransfer({ date: todayISO(), fromAccountId: from, toAccountId: to, amount: amt })
-          onDone()
-        }}
-        className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600"
-      >
-        Transferir
-      </button>
-    </div>
+    <FormCard
+      title="Transferir entre cuentas"
+      submit="Transferir"
+      onSubmit={() => {
+        const amt = toNum(amount)
+        if (amt <= 0 || !from || !to || from === to) return
+        fin.addTransfer({ date: todayISO(), fromAccountId: from, toAccountId: to, amount: amt })
+        onDone()
+      }}
+    >
+      <Field label="Desde">
+        <Select value={from} onChange={(e) => setFrom(e.target.value)}>
+          <option value="">Elige cuenta…</option>
+          {fin.accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Hacia">
+        <Select value={to} onChange={(e) => setTo(e.target.value)}>
+          <option value="">Elige cuenta…</option>
+          {fin.accounts.map((a) => (
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
+          ))}
+        </Select>
+      </Field>
+      <Field label="Monto (COP)">
+        <TextInput
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          inputMode="numeric"
+          placeholder="0"
+        />
+      </Field>
+    </FormCard>
   )
 }
 
 function MonthlyForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [mesada, setMesada] = useState('50000')
   const [personal, setPersonal] = useState(fin.accounts[0]?.id ?? '')
+
   return (
-    <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-      <p className="text-sm text-ink-600">Añade la mesada a una cuenta y el interés mensual de cada cuenta de ahorro/CDT. Reversible (borra los movimientos para deshacer).</p>
-      <div className="flex gap-2">
-        <input value={mesada} onChange={(e) => setMesada(e.target.value)} inputMode="numeric" placeholder="Mesada" className={`${inputCls()} flex-1`} />
-        <select value={personal} onChange={(e) => setPersonal(e.target.value)} className={`${inputCls()} flex-1`}>
-          <option value="">Cuenta mesada…</option>
+    <FormCard
+      title="Mesada e intereses"
+      hint="Añade la mesada a una cuenta y el interés mensual de cada cuenta de ahorro o CDT. Es reversible: borra los movimientos para deshacer."
+      submit="Aplicar mesada + intereses"
+      onSubmit={() => {
+        fin.applyMonthly(toNum(mesada), personal || undefined)
+        onDone()
+      }}
+    >
+      <Field label="Mesada (COP)">
+        <TextInput
+          value={mesada}
+          onChange={(e) => setMesada(e.target.value)}
+          inputMode="numeric"
+        />
+      </Field>
+      <Field label="Cuenta de la mesada">
+        <Select value={personal} onChange={(e) => setPersonal(e.target.value)}>
+          <option value="">Elige cuenta…</option>
           {fin.accounts.map((a) => (
-            <option key={a.id} value={a.id}>{a.name}</option>
+            <option key={a.id} value={a.id}>
+              {a.name}
+            </option>
           ))}
-        </select>
-      </div>
-      <button
-        onClick={() => {
-          fin.applyMonthly(toNum(mesada), personal || undefined)
-          onDone()
-        }}
-        className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600"
-      >
-        Aplicar mesada + intereses
-      </button>
-    </div>
+        </Select>
+      </Field>
+    </FormCard>
   )
 }

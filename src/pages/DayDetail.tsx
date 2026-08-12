@@ -1,17 +1,25 @@
 import { useEffect, useRef } from 'react'
+import { ArrowLeft, Goal, PartyPopper, Volleyball, WavesLadder, type LucideIcon } from 'lucide-react'
 import { useParams, Link } from 'react-router-dom'
 import { getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
 import { SESSION_META } from '../data/sessionMeta'
 import { useTrainingLog } from '../hooks/useTrainingLog'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Card } from '../components/ui/Card'
+import { Field, NumberInput, Select, TextArea } from '../components/ui/Field'
 import { formatPace, isDistanceSession, parsePlannedDistance } from '../lib/stats'
+import { formatFull } from '../lib/dates'
+import { cx } from '../lib/cx'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
 
-const FLEX_ACTIVITIES: { id: FlexActivity; emoji: string; label: string }[] = [
-  { id: 'futbol', emoji: '⚽', label: 'Fútbol' },
-  { id: 'voley', emoji: '🏐', label: 'Vóley' },
-  { id: 'natacion', emoji: '🏊', label: 'Natación' },
+const FLEX_ACTIVITIES: { id: FlexActivity; Icon: LucideIcon; label: string }[] = [
+  { id: 'futbol', Icon: Goal, label: 'Fútbol' },
+  { id: 'voley', Icon: Volleyball, label: 'Vóley' },
+  { id: 'natacion', Icon: WavesLadder, label: 'Natación' },
 ]
+
+const SLOT_LABEL = { AM: 'Mañana', PM: 'Tarde', ALL: 'Todo el día' } as const
 
 function SessionDetailCard({ session }: { session: Session }) {
   const meta = SESSION_META[session.type]
@@ -29,34 +37,42 @@ function SessionDetailCard({ session }: { session: Session }) {
   const patch = (p: Partial<LogEntry>) => setEntry(session.id, { ...entry, ...p })
 
   return (
-    <div ref={ref} className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3 scroll-mt-4">
+    <Card ref={ref} className="flex scroll-mt-4 flex-col gap-3">
       <div className="flex items-start gap-3">
-        <div className={`shrink-0 w-11 h-11 rounded-2xl ${meta.bg} ${meta.text} flex items-center justify-center text-xl`}>
-          {meta.emoji}
+        <div
+          className={cx(
+            'grid h-11 w-11 shrink-0 place-items-center rounded-2xl',
+            meta.color.soft,
+          )}
+        >
+          <meta.Icon size={19} strokeWidth={2} aria-hidden />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-400">
-            {session.slot === 'AM' ? 'Mañana' : session.slot === 'PM' ? 'Tarde' : 'Todo el día'}
+          <span className="text-[11px] font-bold uppercase tracking-wide text-content-subtle">
+            {SLOT_LABEL[session.slot]}
           </span>
-          <h3 className="text-lg font-semibold text-ink-900">{session.title}</h3>
+          <h3 className="text-lg font-bold tracking-tight text-content">{session.title}</h3>
         </div>
       </div>
 
       {(session.distanceKm || session.pace || session.hrTarget) && (
-        <div className="grid grid-cols-1 gap-1.5 text-sm text-ink-600 bg-ink-100 rounded-2xl p-3">
+        <div className="grid grid-cols-1 gap-1.5 rounded-2xl bg-surface-2 p-3 text-sm text-content-muted sm:grid-cols-3">
           {session.distanceKm && (
             <p>
-              <span className="font-semibold text-ink-900">Distancia:</span> {session.distanceKm} km
+              <span className="block text-xs font-semibold text-content">Distancia</span>
+              {session.distanceKm} km
             </p>
           )}
           {session.pace && (
             <p>
-              <span className="font-semibold text-ink-900">Ritmo:</span> {session.pace}
+              <span className="block text-xs font-semibold text-content">Ritmo</span>
+              {session.pace}
             </p>
           )}
           {session.hrTarget && (
             <p>
-              <span className="font-semibold text-ink-900">FC objetivo:</span> {session.hrTarget}
+              <span className="block text-xs font-semibold text-content">FC objetivo</span>
+              {session.hrTarget}
             </p>
           )}
         </div>
@@ -64,8 +80,8 @@ function SessionDetailCard({ session }: { session: Session }) {
 
       {session.structure && (
         <div>
-          <p className="text-sm font-semibold text-ink-900 mb-1">Estructura</p>
-          <ul className="text-sm text-ink-600 list-disc list-inside space-y-0.5">
+          <p className="mb-1 text-sm font-semibold text-content">Estructura</p>
+          <ul className="list-inside list-disc space-y-0.5 text-sm text-content-muted">
             {session.structure.map((line, i) => (
               <li key={i}>{line}</li>
             ))}
@@ -75,10 +91,13 @@ function SessionDetailCard({ session }: { session: Session }) {
 
       {session.flexOptions && (
         <div>
-          <p className="text-sm font-semibold text-ink-900 mb-1">Opciones</p>
+          <p className="mb-1 text-sm font-semibold text-content">Opciones</p>
           <div className="flex flex-wrap gap-1.5">
             {session.flexOptions.map((opt) => (
-              <span key={opt} className="text-xs font-medium bg-ink-100 text-ink-700 rounded-full px-2.5 py-1">
+              <span
+                key={opt}
+                className="rounded-full bg-surface-2 px-2.5 py-1 text-xs font-medium text-content"
+              >
                 {opt}
               </span>
             ))}
@@ -87,18 +106,18 @@ function SessionDetailCard({ session }: { session: Session }) {
       )}
 
       <div>
-        <p className="text-sm font-semibold text-ink-900 mb-0.5">Por qué</p>
-        <p className="text-sm text-ink-600">{session.why}</p>
+        <p className="mb-0.5 text-sm font-semibold text-content">Por qué</p>
+        <p className="text-sm text-content-muted">{session.why}</p>
       </div>
 
       {session.selfRegulation && (
-        <div className="bg-brand-50 rounded-2xl p-3">
-          <p className="text-sm font-semibold text-brand-700 mb-0.5">Auto-regulación</p>
-          <p className="text-sm text-brand-600">{session.selfRegulation}</p>
+        <div className="rounded-2xl bg-accent-soft p-3">
+          <p className="mb-0.5 text-sm font-semibold text-accent">Auto-regulación</p>
+          <p className="text-sm text-accent">{session.selfRegulation}</p>
         </div>
       )}
 
-      <hr className="border-ink-100" />
+      <hr className="border-line" />
 
       <div className="flex flex-col gap-3">
         <label className="flex items-center gap-2">
@@ -106,14 +125,14 @@ function SessionDetailCard({ session }: { session: Session }) {
             type="checkbox"
             checked={entry.completed}
             onChange={() => toggleCompleted(session.id)}
-            className="w-5 h-5 rounded accent-ok-500"
+            className="h-5 w-5 rounded accent-ok"
           />
-          <span className="text-sm font-medium text-ink-900">Marcar como completada</span>
+          <span className="text-sm font-medium text-content">Marcar como completada</span>
         </label>
 
         {entry.completed && session.type === 'flex' && (
-          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-2">
-            <p className="text-sm font-semibold text-brand-600">¿Qué hiciste?</p>
+          <div className="flex flex-col gap-2 rounded-2xl bg-accent-soft p-3">
+            <p className="text-sm font-semibold text-accent">¿Qué hiciste?</p>
             <div className="grid grid-cols-3 gap-1.5">
               {FLEX_ACTIVITIES.map((a) => {
                 const selected = entry.activity === a.id
@@ -122,11 +141,15 @@ function SessionDetailCard({ session }: { session: Session }) {
                     key={a.id}
                     type="button"
                     onClick={() => patch({ activity: a.id })}
-                    className={`min-h-[44px] rounded-xl text-sm font-medium flex items-center justify-center gap-1 transition-colors ${
-                      selected ? 'bg-brand-500 text-white' : 'bg-ink-100 text-ink-700 border border-ink-200'
-                    }`}
+                    aria-pressed={selected}
+                    className={cx(
+                      'flex min-h-[44px] items-center justify-center gap-1 rounded-xl text-sm font-medium transition-colors',
+                      selected
+                        ? 'bg-primary text-primary-on'
+                        : 'border border-line bg-surface text-content hover:bg-surface-2',
+                    )}
                   >
-                    <span aria-hidden>{a.emoji}</span> {a.label}
+                    <a.Icon size={15} aria-hidden /> {a.label}
                   </button>
                 )
               })}
@@ -135,22 +158,21 @@ function SessionDetailCard({ session }: { session: Session }) {
         )}
 
         {entry.completed && isDistanceSession(session.type) && (
-          <div className="bg-brand-50 rounded-2xl p-3 flex flex-col gap-1.5">
-            <label className="flex flex-col gap-1.5">
-              <span className="text-sm font-semibold text-brand-600">¿Cuántos km hiciste?</span>
-              <input
-                type="number"
+          <div className="flex flex-col gap-1.5 rounded-2xl bg-accent-soft p-3">
+            <Field label="¿Cuántos km hiciste?">
+              <NumberInput
                 step="0.1"
                 min="0"
-                inputMode="decimal"
                 value={entry.distanceKm ?? ''}
-                onChange={(e) => patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })}
+                onChange={(e) =>
+                  patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })
+                }
                 placeholder={session.distanceKm ? `Plan: ${session.distanceKm} km` : '0.0'}
-                className="rounded-xl border border-brand-500/50 bg-ink-100 px-3 py-2.5 text-base font-semibold text-ink-900"
+                className="bg-surface"
               />
-            </label>
+            </Field>
             {entry.distanceKm == null && (
-              <p className="text-xs text-brand-700">
+              <p className="text-xs text-accent">
                 {parsePlannedDistance(session.distanceKm) > 0
                   ? `Sin dato, contaremos ~${parsePlannedDistance(session.distanceKm)} km del plan.`
                   : 'Sin dato, esta sesión suma 0 km en Progreso.'}
@@ -161,71 +183,66 @@ function SessionDetailCard({ session }: { session: Session }) {
 
         {entry.completed && (
           <div className="grid grid-cols-2 gap-3">
-            <label className="flex flex-col gap-1 text-xs text-ink-500">
-              Duración (min)
-              <input
-                type="number"
+            <Field label="Duración (min)">
+              <NumberInput
                 inputMode="numeric"
                 min="0"
                 value={entry.durationMin ?? ''}
-                onChange={(e) => patch({ durationMin: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                onChange={(e) =>
+                  patch({ durationMin: e.target.value ? Number(e.target.value) : undefined })
+                }
               />
-            </label>
-            <label className="flex flex-col gap-1 text-xs text-ink-500">
-              Calorías
-              <input
-                type="number"
+            </Field>
+            <Field label="Calorías">
+              <NumberInput
                 inputMode="numeric"
                 min="0"
                 value={entry.calories ?? ''}
-                onChange={(e) => patch({ calories: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                onChange={(e) =>
+                  patch({ calories: e.target.value ? Number(e.target.value) : undefined })
+                }
               />
-            </label>
+            </Field>
             {formatPace(entry.distanceKm, entry.durationMin) && (
-              <p className="col-span-2 -mt-1 text-xs text-ink-500">
-                <span className="font-semibold text-ink-900">Ritmo:</span>{' '}
+              <p className="col-span-2 -mt-1 text-xs text-content-muted">
+                <span className="font-semibold text-content">Ritmo:</span>{' '}
                 {formatPace(entry.distanceKm, entry.durationMin)}
               </p>
             )}
-            <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
-              FC media (ppm)
-              <input
-                type="number"
+            <Field label="FC media (ppm)" className="col-span-2 sm:col-span-1">
+              <NumberInput
                 inputMode="numeric"
                 value={entry.avgHr ?? ''}
-                onChange={(e) => patch({ avgHr: e.target.value ? Number(e.target.value) : undefined })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                onChange={(e) =>
+                  patch({ avgHr: e.target.value ? Number(e.target.value) : undefined })
+                }
               />
-            </label>
-            <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
-              Sensación
-              <select
+            </Field>
+            <Field label="Sensación" className="col-span-2 sm:col-span-1">
+              <Select
                 value={entry.feeling ?? ''}
-                onChange={(e) => patch({ feeling: (e.target.value || undefined) as LogEntry['feeling'] })}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
+                onChange={(e) =>
+                  patch({ feeling: (e.target.value || undefined) as LogEntry['feeling'] })
+                }
               >
                 <option value="">Sin especificar</option>
                 <option value="genial">Genial</option>
                 <option value="bien">Bien</option>
                 <option value="regular">Regular</option>
                 <option value="cargado">Cargado / con molestias</option>
-              </select>
-            </label>
-            <label className="col-span-2 flex flex-col gap-1 text-xs text-ink-500">
-              Notas
-              <textarea
+              </Select>
+            </Field>
+            <Field label="Notas" className="col-span-2">
+              <TextArea
                 value={entry.notes ?? ''}
                 onChange={(e) => patch({ notes: e.target.value })}
                 rows={2}
-                className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
               />
-            </label>
+            </Field>
           </div>
         )}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -236,42 +253,58 @@ export function DayDetail() {
   if (!day) {
     return (
       <div className="flex flex-col gap-4">
-        <p className="text-ink-500">No encontramos ese día en el plan.</p>
+        <p className="text-content-muted">No encontramos ese día en el plan.</p>
         <Link
           to="/semana"
-          className="inline-flex items-center gap-1.5 self-start -ml-2 min-h-[44px] px-3 rounded-full text-brand-600 font-semibold active:bg-brand-50"
+          className="inline-flex items-center gap-1.5 self-start rounded-full px-3 py-2 font-semibold text-accent transition-colors hover:bg-accent-soft"
         >
-          <span aria-hidden>←</span> Volver a la semana
+          <ArrowLeft size={16} aria-hidden />
+          Volver a la semana
         </Link>
       </div>
     )
   }
 
+  const holiday = holidayName(day.date)
+
   return (
-    <div className="flex flex-col gap-5">
-      <header>
-        <Link
-          to="/semana"
-          className="inline-flex items-center gap-1.5 -ml-2 min-h-[44px] px-2 rounded-full text-sm text-ink-500 font-medium active:bg-ink-100"
-        >
-          <span aria-hidden>←</span> Semana
-        </Link>
-        <p className="text-sm text-ink-500 capitalize mt-1">{day.weekday}</p>
-        <h1 className="text-2xl font-bold text-ink-900">{day.date}</h1>
-        {holidayName(day.date) && (
-          <span className="inline-flex items-center gap-1 mt-2 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-600">
-            🇨🇴 Festivo · {holidayName(day.date)}
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        eyebrow={
+          <Link
+            to="/semana"
+            className="inline-flex items-center gap-1.5 text-content-muted transition-colors hover:text-content"
+          >
+            <ArrowLeft size={15} aria-hidden />
+            Semana
+          </Link>
+        }
+        title={formatFull(day.date)}
+      >
+        {holiday && (
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+            <PartyPopper size={13} aria-hidden /> Festivo · {holiday}
           </span>
         )}
-      </header>
+      </PageHeader>
 
-      {day.note && <p className="text-sm text-brand-600 bg-brand-50 rounded-2xl p-3">{day.note}</p>}
+      {day.note && (
+        <p className="rounded-2xl bg-accent-soft p-3.5 text-sm leading-relaxed text-accent">
+          {day.note}
+        </p>
+      )}
 
-      <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 lg:gap-5">
         {day.sessions.map((s) => (
           <SessionDetailCard key={s.id} session={s} />
         ))}
       </div>
+
+      {day.sessions.length === 0 && (
+        <Card>
+          <p className="text-sm text-content-muted">Descanso — no hay sesiones este día.</p>
+        </Card>
+      )}
     </div>
   )
 }
