@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { ChevronDown, Droplets, FlaskConical, Zap } from 'lucide-react'
 import { getDayPlan, todayISO } from '../data/plan'
 import {
   GENERAL_RULES,
@@ -11,107 +12,135 @@ import {
 } from '../data/nutrition'
 import { scenarioForDay } from '../lib/nutrition'
 import { useNutritionDay } from '../hooks/useNutritionLog'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Card, CardHeader } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
+import { cx } from '../lib/cx'
 
 const CODES: ScenarioCode[] = ['E1', 'E2', 'E3', 'E4']
+type Tab = 'hoy' | 'escenarios' | 'reglas'
+
+const TABS: { value: Tab; label: string }[] = [
+  { value: 'hoy', label: 'Hoy' },
+  { value: 'escenarios', label: 'Escenarios' },
+  { value: 'reglas', label: 'Reglas' },
+]
 
 export function Comida() {
   const iso = todayISO()
   const day = getDayPlan(iso)
   const suggested = useMemo(() => scenarioForDay(day?.sessions ?? []), [day])
   const { mealsDone, scenarioOverride, toggleMeal, setOverride } = useNutritionDay(iso)
-  const [tab, setTab] = useState<'hoy' | 'escenarios' | 'reglas'>('hoy')
+  const [tab, setTab] = useState<Tab>('hoy')
 
   const activeCode = scenarioOverride ?? suggested
   const scenario = SCENARIOS[activeCode]
   const trainingToday = (day?.sessions ?? []).filter((s) => s.type !== 'rest')
 
   return (
-    <div className="flex flex-col gap-5">
-      <header>
-        <h1 className="text-3xl font-bold text-ink-900 font-display">Comida</h1>
-        <p className="text-sm text-ink-500 mt-1">La dieta se ajusta a la carga del día.</p>
-      </header>
-
-      <div className="flex gap-2">
-        {(['hoy', 'escenarios', 'reglas'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`rounded-full px-4 py-1.5 text-sm font-semibold capitalize ${
-              tab === t ? 'bg-ink-900 text-white' : 'bg-card text-ink-500 shadow-card'
-            }`}
-          >
-            {t === 'hoy' ? 'Hoy' : t}
-          </button>
-        ))}
-      </div>
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        title="Comida"
+        description="La dieta se ajusta a la carga del día."
+        actions={
+          <SegmentedControl
+            options={TABS}
+            value={tab}
+            onChange={setTab}
+            ariaLabel="Vista de comida"
+            variant="pill"
+          />
+        }
+      />
 
       {tab === 'hoy' && (
         <>
-          <div className={`rounded-4xl ${scenario.color} text-white p-5 shadow-card`}>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-              {scenarioOverride ? 'Elegido por ti' : 'Sugerido por tu entreno'}
-            </p>
-            <p className="text-2xl font-bold font-display leading-tight mt-0.5">
-              {scenario.code} · {scenario.name}
-            </p>
-            <p className="text-sm text-white/85 mt-1">{scenario.subtitle}</p>
-            <div className="flex gap-4 mt-3">
-              <div>
-                <p className="text-xl font-bold">{scenario.kcal}</p>
-                <p className="text-[11px] text-white/70">kcal aprox.</p>
-              </div>
-              <div>
-                <p className="text-xl font-bold">{scenario.carbsG} g</p>
-                <p className="text-[11px] text-white/70">carbohidratos</p>
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
+            <div
+              className={cx(
+                'rounded-3xl p-5 text-white shadow-card lg:col-span-2',
+                scenario.color,
+              )}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+                {scenarioOverride ? 'Elegido por ti' : 'Sugerido por tu entreno'}
+              </p>
+              <p className="mt-0.5 text-2xl font-extrabold leading-tight tracking-tight">
+                {scenario.code} · {scenario.name}
+              </p>
+              <p className="mt-1 text-sm text-white/85">{scenario.subtitle}</p>
+              <div className="mt-4 flex gap-6">
+                <div>
+                  <p className="text-2xl font-extrabold tabular">{scenario.kcal}</p>
+                  <p className="text-[11px] text-white/70">kcal aprox.</p>
+                </div>
+                <div>
+                  <p className="text-2xl font-extrabold tabular">{scenario.carbsG} g</p>
+                  <p className="text-[11px] text-white/70">carbohidratos</p>
+                </div>
               </div>
             </div>
+
+            <Card className="flex flex-col gap-3">
+              <div>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+                  Por qué este escenario
+                </p>
+                <p className="text-sm text-content">
+                  {trainingToday.length > 0
+                    ? `Hoy: ${trainingToday.map((s) => s.title).join(' · ')} → ${scenario.name}.`
+                    : `Hoy es descanso → ${scenario.name} (aquí vive el déficit).`}
+                </p>
+                <p className="mt-1 text-[11px] text-content-subtle">
+                  Sugerencia — confírmalo con Diego.
+                </p>
+              </div>
+
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+                  Cambiar escenario
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Button
+                    size="sm"
+                    variant={scenarioOverride ? 'outline' : 'primary'}
+                    onClick={() => setOverride(undefined)}
+                  >
+                    Auto
+                  </Button>
+                  {CODES.map((c) => (
+                    <Button
+                      key={c}
+                      size="sm"
+                      variant={scenarioOverride === c ? 'primary' : 'outline'}
+                      onClick={() => setOverride(c)}
+                    >
+                      {c}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            </Card>
           </div>
 
-          {/* Conexión entreno ↔ comida */}
-          <div className="rounded-3xl bg-card shadow-card p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-ink-400 mb-1">Por qué este escenario</p>
-            <p className="text-sm text-ink-700">
-              {trainingToday.length > 0
-                ? `Hoy: ${trainingToday.map((s) => s.title).join(' · ')} → ${scenario.name}.`
-                : `Hoy es descanso → ${scenario.name} (aquí vive el déficit).`}
-            </p>
-            <p className="text-[11px] text-ink-400 mt-1">Sugerencia — confírmalo con Diego.</p>
-          </div>
-
-          {/* Selector de escenario */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => setOverride(undefined)}
-              className={`flex-1 rounded-2xl py-2 text-xs font-semibold ${
-                !scenarioOverride ? 'bg-brand-500 text-white' : 'bg-card text-ink-600 shadow-card'
-              }`}
-            >
-              Auto
-            </button>
-            {CODES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setOverride(c)}
-                className={`flex-1 rounded-2xl py-2 text-xs font-semibold ${
-                  scenarioOverride === c ? 'bg-brand-500 text-white' : 'bg-card text-ink-600 shadow-card'
-                }`}
-              >
-                {c}
-              </button>
+          <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 lg:gap-5">
+            {scenario.meals.map((meal) => (
+              <MealCard
+                key={meal.id}
+                meal={meal}
+                done={mealsDone.includes(meal.id)}
+                onToggle={() => toggleMeal(meal.id)}
+              />
             ))}
           </div>
-
-          {scenario.meals.map((meal) => (
-            <MealCard key={meal.id} meal={meal} done={mealsDone.includes(meal.id)} onToggle={() => toggleMeal(meal.id)} />
-          ))}
 
           <RulesCard scenario={scenario} />
         </>
       )}
 
       {tab === 'escenarios' && (
-        <div className="flex flex-col gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-2 lg:gap-5">
           {SCENARIO_LIST.map((s) => (
             <ScenarioBlock key={s.code} scenario={s} />
           ))}
@@ -119,65 +148,88 @@ export function Comida() {
       )}
 
       {tab === 'reglas' && (
-        <div className="flex flex-col gap-4">
-          <div className="rounded-3xl bg-card shadow-card p-4">
-            <h2 className="text-sm font-semibold text-ink-900 mb-2">Reglas generales</h2>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
+          <Card>
+            <CardHeader title="Reglas generales" />
             <ul className="flex flex-col gap-2">
               {GENERAL_RULES.map((r, i) => (
-                <li key={i} className="text-sm text-ink-600 flex gap-2">
-                  <span className="text-brand-500">•</span>
+                <li key={i} className="flex gap-2 text-sm text-content-muted">
+                  <span className="text-accent" aria-hidden>
+                    •
+                  </span>
                   {r}
                 </li>
               ))}
             </ul>
-          </div>
-          <div className="rounded-3xl bg-card shadow-card p-4">
-            <h2 className="text-sm font-semibold text-ink-900 mb-2">Medidas caseras</h2>
+          </Card>
+          <Card>
+            <CardHeader title="Medidas caseras" />
             <div className="flex flex-col gap-2">
               {HOME_MEASURES.map((m) => (
-                <div key={m.medida} className="flex justify-between gap-3 text-sm">
-                  <span className="font-medium text-ink-800">{m.medida}</span>
-                  <span className="text-ink-500 text-right">{m.equivale}</span>
+                <div
+                  key={m.medida}
+                  className="flex justify-between gap-3 border-b border-line pb-2 text-sm last:border-0 last:pb-0"
+                >
+                  <span className="font-medium text-content">{m.medida}</span>
+                  <span className="text-right text-content-muted">{m.equivale}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         </div>
       )}
     </div>
   )
 }
 
-function MealCard({ meal, done, onToggle }: { meal: DietMeal; done?: boolean; onToggle?: () => void }) {
+function MealCard({
+  meal,
+  done,
+  onToggle,
+}: {
+  meal: DietMeal
+  done?: boolean
+  onToggle?: () => void
+}) {
   const [open, setOpen] = useState<string | null>(null)
   return (
-    <section className={`rounded-3xl bg-card shadow-card p-4 ${done ? 'opacity-70' : ''}`}>
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-semibold text-ink-900">{meal.franja}</h3>
-        {onToggle && (
-          <button
-            onClick={onToggle}
-            className={`rounded-full px-3 py-1 text-xs font-semibold ${
-              done ? 'bg-ok-100 text-ok-700' : 'bg-ink-100 text-ink-500'
-            }`}
-          >
-            {done ? '✓ Hecha' : 'Marcar'}
-          </button>
-        )}
-      </div>
+    <Card className={cx('h-full', done && 'opacity-70')}>
+      <CardHeader
+        title={meal.franja}
+        action={
+          onToggle && (
+            <Button
+              size="sm"
+              variant={done ? 'secondary' : 'outline'}
+              onClick={onToggle}
+              className={done ? 'bg-ok-soft text-ok' : undefined}
+            >
+              {done ? 'Hecha' : 'Marcar'}
+            </Button>
+          )
+        }
+      />
       <div className="flex flex-col gap-2">
         {meal.foods.map((food, i) => {
           const key = `${meal.id}-${i}`
           const isOpen = open === key
+          const hasSubs = food.sustitutos.length > 0
           return (
-            <div key={key} className="border-b border-ink-100 last:border-0 pb-2 last:pb-0">
-              <button className="w-full text-left flex justify-between gap-2" onClick={() => setOpen(isOpen ? null : key)}>
-                <span className="text-sm font-medium text-ink-900">{food.alimento}</span>
-                <span className="text-sm text-ink-500 shrink-0">{food.cantidad}</span>
+            <div key={key} className="border-b border-line pb-2 last:border-0 last:pb-0">
+              <button
+                type="button"
+                className="flex w-full gap-2 text-left"
+                onClick={() => setOpen(isOpen ? null : key)}
+                aria-expanded={hasSubs ? isOpen : undefined}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-content">{food.alimento}</span>
+                  <span className="block text-xs text-content-subtle">{food.medida}</span>
+                </span>
+                <span className="shrink-0 text-sm tabular text-content-muted">{food.cantidad}</span>
               </button>
-              <p className="text-xs text-ink-400">{food.medida}</p>
-              {isOpen && food.sustitutos.length > 0 && (
-                <p className="text-xs text-ink-500 mt-1">
+              {isOpen && hasSubs && (
+                <p className="mt-1 text-xs text-content-muted">
                   <span className="font-semibold">Sustitutos: </span>
                   {food.sustitutos.join(' · ')}
                 </p>
@@ -186,16 +238,25 @@ function MealCard({ meal, done, onToggle }: { meal: DietMeal; done?: boolean; on
           )
         })}
       </div>
-    </section>
+    </Card>
   )
 }
 
 function RulesCard({ scenario }: { scenario: DietScenario }) {
   return (
-    <div className="rounded-3xl bg-ink-100 p-4 flex flex-col gap-2">
-      <p className="text-sm text-ink-700">💧 {scenario.hydration}</p>
-      <p className="text-sm text-ink-700">⚡ {scenario.atomix}</p>
-      <p className="text-sm text-ink-700">🧪 {scenario.creatina}</p>
+    <div className="grid grid-cols-1 gap-3 rounded-3xl bg-surface-2 p-4 sm:grid-cols-3">
+      <p className="flex items-start gap-2 text-sm text-content">
+        <Droplets size={15} className="mt-0.5 shrink-0 text-cat-blue" aria-hidden />
+        {scenario.hydration}
+      </p>
+      <p className="flex items-start gap-2 text-sm text-content">
+        <Zap size={15} className="mt-0.5 shrink-0 text-cat-amber" aria-hidden />
+        {scenario.atomix}
+      </p>
+      <p className="flex items-start gap-2 text-sm text-content">
+        <FlaskConical size={15} className="mt-0.5 shrink-0 text-cat-violet" aria-hidden />
+        {scenario.creatina}
+      </p>
     </div>
   )
 }
@@ -203,35 +264,48 @@ function RulesCard({ scenario }: { scenario: DietScenario }) {
 function ScenarioBlock({ scenario }: { scenario: DietScenario }) {
   const [open, setOpen] = useState(false)
   return (
-    <div className="rounded-3xl bg-card shadow-card overflow-hidden">
-      <button onClick={() => setOpen((v) => !v)} className={`w-full text-left ${scenario.color} text-white p-4`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-base font-bold font-display">
+    <div className="overflow-hidden rounded-3xl border border-line bg-surface shadow-card">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className={cx('w-full p-4 text-left text-white', scenario.color)}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-base font-bold">
               {scenario.code} · {scenario.name}
             </p>
             <p className="text-xs text-white/80">
               {scenario.kcal} kcal · {scenario.carbsG} g carb · {scenario.triggerRule}
             </p>
           </div>
-          <span>{open ? '▾' : '▸'}</span>
+          <ChevronDown
+            size={18}
+            className={cx('shrink-0 transition-transform', open && 'rotate-180')}
+            aria-hidden
+          />
         </div>
       </button>
       {open && (
-        <div className="p-4 flex flex-col gap-3">
-          {scenario.meals.map((meal) => (
-            <div key={meal.id}>
-              <p className="text-xs font-semibold uppercase tracking-wide text-ink-400 mb-1">{meal.franja}</p>
-              <div className="flex flex-col gap-1">
-                {meal.foods.map((food, i) => (
-                  <div key={i} className="flex justify-between gap-2 text-sm">
-                    <span className="text-ink-800">{food.alimento}</span>
-                    <span className="text-ink-500 shrink-0">{food.cantidad}</span>
-                  </div>
-                ))}
+        <div className="flex flex-col gap-4 p-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {scenario.meals.map((meal) => (
+              <div key={meal.id}>
+                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-content-subtle">
+                  {meal.franja}
+                </p>
+                <div className="flex flex-col gap-1">
+                  {meal.foods.map((food, i) => (
+                    <div key={i} className="flex justify-between gap-2 text-sm">
+                      <span className="text-content">{food.alimento}</span>
+                      <span className="shrink-0 tabular text-content-muted">{food.cantidad}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
           <RulesCard scenario={scenario} />
         </div>
       )}

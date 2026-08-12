@@ -1,5 +1,5 @@
-import { Route, Routes } from 'react-router-dom'
-import { Layout } from './components/Layout'
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AppShell } from './components/layout/AppShell'
 import { ScrollToTop } from './components/ScrollToTop'
 import { PinGate } from './components/PinGate'
 import { Today } from './pages/Today'
@@ -9,6 +9,8 @@ import { Progress } from './pages/Progress'
 import { Settings } from './pages/Settings'
 import { Colegio } from './pages/Colegio'
 import { ClassDetail } from './pages/ClassDetail'
+import { Clases } from './pages/Clases'
+import { Materias } from './pages/Materias'
 import { Entreno } from './pages/Entreno'
 import { Strength } from './pages/Strength'
 import { GymNotes } from './pages/GymNotes'
@@ -22,12 +24,14 @@ import { Mas } from './pages/Mas'
 export default function App() {
   return (
     <PinGate>
-      <Layout>
+      <AppShell>
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/colegio" element={<Colegio />} />
           <Route path="/colegio/clase/:code" element={<ClassDetail />} />
+          <Route path="/clases" element={<Clases />} />
+          <Route path="/materias" element={<Materias />} />
           <Route path="/entreno" element={<Entreno />} />
           <Route path="/entreno/fuerza" element={<Strength />} />
           <Route path="/entreno/notas" element={<GymNotes />} />
@@ -42,8 +46,10 @@ export default function App() {
           <Route path="/dia/:date/:sessionId" element={<DayDetail />} />
           <Route path="/progreso" element={<Progress />} />
           <Route path="/ajustes" element={<Settings />} />
+          {/* Cualquier otra ruta vuelve al inicio en vez de dejar la pantalla en blanco */}
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </Layout>
+      </AppShell>
     </PinGate>
   )
 }

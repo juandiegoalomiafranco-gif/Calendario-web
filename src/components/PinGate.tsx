@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react'
+import { Lock } from 'lucide-react'
 import { PinPad } from './PinPad'
 import {
   PIN_LENGTH,
@@ -64,18 +65,18 @@ export function PinGate({ children }: { children: ReactNode }) {
     mode === 'locked' ? 'Ingresa tu PIN' : mode === 'create' ? 'Crea tu PIN' : 'Confírmalo'
   const subtitle =
     mode === 'locked'
-      ? 'Desbloquea Mi Vida'
+      ? 'Desbloquea MyLife'
       : mode === 'create'
         ? 'Un código de 4 dígitos para proteger tus datos'
         : 'Escríbelo de nuevo'
 
   return (
-    <div className="min-h-[100svh] bg-ink-50 flex flex-col items-center justify-center px-6 gap-10">
+    <div className="min-h-[100svh] bg-bg flex flex-col items-center justify-center px-6 gap-10">
       <div className="text-center">
-        <p className="text-4xl mb-2">🔒</p>
-        <h1 className="text-2xl font-bold text-ink-900 font-display">{title}</h1>
-        <p className="text-sm text-ink-500 mt-1">{subtitle}</p>
-        {error && <p className="text-sm font-medium text-brand-600 mt-2">{error}</p>}
+        <Lock size={34} className="mb-2 text-content-subtle" aria-hidden />
+        <h1 className="text-2xl font-bold text-content ">{title}</h1>
+        <p className="text-sm text-content-muted mt-1">{subtitle}</p>
+        {error && <p className="text-sm font-medium text-accent mt-2">{error}</p>}
       </div>
 
       <PinPad
@@ -95,7 +96,7 @@ export function PinGate({ children }: { children: ReactNode }) {
             markSetupSeen()
             setMode('open')
           }}
-          className="text-sm text-ink-500 underline"
+          className="text-sm text-content-muted underline"
         >
           Configurar luego
         </button>

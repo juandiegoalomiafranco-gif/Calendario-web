@@ -51,7 +51,7 @@ const E1: DietScenario = {
   hydration: 'Agua: 2,5-3 L en el día.',
   atomix: 'Atomix SOLO después del gym si sudó mucho o hizo calor (5-10 g en 500 ml). En sesión normal, agua simple.',
   creatina: 'Creatina 3-5 g en el batido post-entreno.',
-  color: 'bg-brand-500',
+  color: 'bg-primary',
   meals: [
     {
       id: 'E1-desayuno',
@@ -124,7 +124,7 @@ const E2: DietScenario = {
   hydration: 'Agua: 3 L en el día (mayor gasto por doble sesión).',
   atomix: 'Atomix DESPUÉS de la doble sesión (5-10 g en 500 ml). Es día de doble carga.',
   creatina: 'Creatina 3-5 g en el batido post-entreno.',
-  color: 'bg-sky-500',
+  color: 'bg-cat-blue',
   meals: [
     {
       id: 'E2-desayuno',
@@ -198,7 +198,7 @@ const E3: DietScenario = {
   hydration: 'Agua: la más alta de la semana, sumando lo que bebe en carrera. Grasa un poco más baja hoy para dar espacio a los carbohidratos.',
   atomix: 'Atomix ANTES, DURANTE y DESPUÉS de la carrera. Es EL día clave de electrolitos (previene calambres y caída de rendimiento).',
   creatina: 'Creatina 3-5 g en el batido post-carrera.',
-  color: 'bg-emerald-500',
+  color: 'bg-cat-green',
   meals: [
     {
       id: 'E3-pre-carrera',
@@ -274,7 +274,7 @@ const E4: DietScenario = {
   hydration: 'Agua: 2,5 L simple en el día.',
   atomix: 'Sin Atomix hoy (no hay entreno). Solo agua.',
   creatina: 'Creatina 3-5 g con cualquier comida (recuerda: también se toma en descanso).',
-  color: 'bg-ink-500',
+  color: 'bg-cat-slate',
   meals: [
     {
       id: 'E4-desayuno',

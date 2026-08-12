@@ -1,4 +1,6 @@
 import { useCallback } from 'react'
+import { Bandage, NotebookPen, Star, type LucideIcon } from 'lucide-react'
+import { COLORS, type ColorStyles } from '../data/palette'
 import { createCollection, newId } from '../lib/cloudStore'
 
 export type NoteCategory = 'importante' | 'lesion' | 'general'
@@ -12,10 +14,13 @@ export interface TrainingNote {
   date: string
 }
 
-export const NOTE_CATEGORY_META: Record<NoteCategory, { label: string; color: string; dot: string; emoji: string }> = {
-  importante: { label: 'Importante', color: 'bg-brand-600 text-white', dot: 'bg-brand-600', emoji: '⭐' },
-  lesion: { label: 'Lesión / molestia', color: 'bg-rose-500 text-white', dot: 'bg-rose-500', emoji: '🩹' },
-  general: { label: 'General', color: 'bg-ink-200 text-ink-800', dot: 'bg-ink-400', emoji: '📝' },
+export const NOTE_CATEGORY_META: Record<
+  NoteCategory,
+  { label: string; Icon: LucideIcon; color: ColorStyles }
+> = {
+  importante: { label: 'Importante', Icon: Star, color: COLORS.amber },
+  lesion: { label: 'Lesión / molestia', Icon: Bandage, color: COLORS.rose },
+  general: { label: 'General', Icon: NotebookPen, color: COLORS.slate },
 }
 
 interface NoteRow {

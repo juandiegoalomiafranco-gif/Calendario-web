@@ -1,58 +1,77 @@
 import type { Config } from 'tailwindcss'
 
+/** Color semántico apoyado en una variable de tokens.css, con opacidad de Tailwind. */
+const token = (name: string) => `rgb(var(--${name}) / <alpha-value>)`
+
+/** Las 11 categorías de color que comparten materias, eventos y actividades. */
+const CATEGORIES = [
+  'violet',
+  'blue',
+  'cyan',
+  'teal',
+  'green',
+  'amber',
+  'orange',
+  'rose',
+  'fuchsia',
+  'indigo',
+  'slate',
+] as const
+
+const cat = Object.fromEntries(CATEGORIES.map((c) => [c, token(`cat-${c}`)]))
+const catSoft = Object.fromEntries(CATEGORIES.map((c) => [c, token(`cat-${c}-soft`)]))
+
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: ['class', '[data-theme="dark"]'],
   theme: {
     extend: {
       colors: {
-        brand: {
-          50: '#fff3ec',
-          100: '#ffe6d5',
-          200: '#ffc9aa',
-          300: '#ffa374',
-          400: '#ff7a3c',
-          500: '#fb5a17',
-          600: '#ec3f0d',
-          700: '#c42b0c',
-          800: '#9c2412',
-          900: '#7e2112',
+        bg: token('bg'),
+        surface: {
+          DEFAULT: token('surface'),
+          2: token('surface-2'),
+          3: token('surface-3'),
         },
-        ok: {
-          50: '#eefdf3',
-          100: '#d6fae1',
-          200: '#b0f3c7',
-          300: '#78e8a5',
-          400: '#3ed57e',
-          500: '#18ba60',
-          600: '#0f954c',
-          700: '#0f753f',
-          800: '#115c35',
-          900: '#0f4c2e',
+        line: {
+          DEFAULT: token('line'),
+          strong: token('line-strong'),
         },
-        // Tema claro: ink-50 es el fondo casi blanco e ink-900 el texto casi negro.
-        ink: {
-          50: '#f6f6f8',
-          100: '#eeeff2',
-          200: '#e3e4e9',
-          300: '#c9ccd4',
-          400: '#9a9ea9',
-          500: '#71757f',
-          600: '#565a64',
-          700: '#3a3d45',
-          800: '#23262d',
-          900: '#101216',
+        content: {
+          DEFAULT: token('text'),
+          muted: token('text-muted'),
+          subtle: token('text-subtle'),
         },
-        card: '#ffffff',
+        primary: {
+          DEFAULT: token('primary'),
+          hover: token('primary-hover'),
+          soft: token('primary-soft'),
+          on: token('on-primary'),
+        },
+        accent: {
+          DEFAULT: token('accent'),
+          strong: token('accent-strong'),
+          soft: token('accent-soft'),
+        },
+        ok: { DEFAULT: token('ok'), soft: token('ok-soft') },
+        warn: { DEFAULT: token('warn'), soft: token('warn-soft') },
+        danger: { DEFAULT: token('danger'), soft: token('danger-soft') },
+        cat,
+        'cat-soft': catSoft,
       },
       fontFamily: {
-        sans: ['"Inter"', 'system-ui', '-apple-system', 'sans-serif'],
-        display: ['"Fraunces"', 'Georgia', 'ui-serif', 'serif'],
+        sans: ['"Plus Jakarta Sans Variable"', 'system-ui', '-apple-system', 'sans-serif'],
       },
       borderRadius: {
         '4xl': '2rem',
       },
       boxShadow: {
-        card: '0 1px 2px rgba(16, 18, 22, 0.04), 0 10px 30px -12px rgba(16, 18, 22, 0.12)',
+        sm: 'var(--shadow-sm)',
+        card: 'var(--shadow-card)',
+        lg: 'var(--shadow-lg)',
+      },
+      transitionTimingFunction: {
+        out: 'cubic-bezier(0.16, 1, 0.3, 1)',
       },
     },
   },

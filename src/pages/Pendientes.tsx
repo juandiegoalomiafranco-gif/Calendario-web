@@ -1,123 +1,202 @@
 import { useMemo, useState } from 'react'
-import { CLASSES } from '../data/schoolTimetable'
-import { URGENCY_META, type Urgency } from '../data/schoolTypes'
-import { useTasks } from '../hooks/useSchool'
+import { ListChecks, PartyPopper, Plus, Trash2 } from 'lucide-react'
+import { useSchoolSetup, useTasks } from '../hooks/useSchool'
+import {
+  TASK_KIND_META,
+  TASK_KIND_ORDER,
+  URGENCY_META,
+  URGENCY_ORDER,
+  type SchoolTask,
+} from '../data/schoolTypes'
+import { classList } from '../lib/school'
+import { todayIso } from '../lib/dates'
+import { cx } from '../lib/cx'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
+import { AddItemSheet } from '../components/school/AddItemSheet'
+import { TaskItem } from '../components/tasks/TaskItem'
+import { sortByPressure } from '../components/panels/UrgentTasksCard'
 
-const URGENCIES: Urgency[] = ['urgente', 'normal', 'puede_esperar']
-const CLASS_LIST = Object.values(CLASSES)
+type Filter = 'abiertos' | 'hoy' | 'semana' | 'hechos'
 
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'abiertos', label: 'Abiertos' },
+  { value: 'hoy', label: 'Hoy' },
+  { value: 'semana', label: 'Semana' },
+  { value: 'hechos', label: 'Hechos' },
+]
+
+/** Todos los pendientes: tareas, exámenes, quices y entregas de cualquier materia. */
 export function Pendientes() {
-  const { tasks, addTask, toggleTask, removeTask } = useTasks()
-  const [showForm, setShowForm] = useState(false)
-  const [title, setTitle] = useState('')
-  const [detail, setDetail] = useState('')
-  const [dueDate, setDueDate] = useState('')
-  const [urgency, setUrgency] = useState<Urgency>('normal')
-  const [classCode, setClassCode] = useState('')
-  const [filterUrgency, setFilterUrgency] = useState<Urgency | 'todas'>('todas')
-  const [showDone, setShowDone] = useState(false)
+  const today = todayIso()
+  const { tasks, toggleTask, removeTask } = useTasks()
+  const { setup } = useSchoolSetup()
+  const [filter, setFilter] = useState<Filter>('abiertos')
+  const [classFilter, setClassFilter] = useState<string>('')
+  const [adding, setAdding] = useState(false)
+
+  const classes = classList(setup)
+  const weekLimit = useMemo(() => {
+    const d = new Date(`${today}T00:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + 7)
+    return d.toISOString().slice(0, 10)
+  }, [today])
 
   const shown = useMemo(() => {
-    return tasks
-      .filter((t) => (showDone ? true : !t.done))
-      .filter((t) => (filterUrgency === 'todas' ? true : t.urgency === filterUrgency))
-      .sort((a, b) => {
-        if (a.done !== b.done) return a.done ? 1 : -1
-        return (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999')
-      })
-  }, [tasks, showDone, filterUrgency])
+    let list = tasks
+    if (classFilter) list = list.filter((t) => t.classCode === classFilter)
+    switch (filter) {
+      case 'abiertos':
+        list = list.filter((t) => !t.done)
+        break
+      case 'hoy':
+        list = list.filter((t) => !t.done && t.dueDate === today)
+        break
+      case 'semana':
+        list = list.filter((t) => !t.done && t.dueDate && t.dueDate <= weekLimit)
+        break
+      case 'hechos':
+        list = list.filter((t) => t.done)
+        break
+    }
+    return sortByPressure(list, today)
+  }, [tasks, filter, classFilter, today, weekLimit])
 
-  function save() {
-    if (!title.trim()) return
-    addTask({
-      title: title.trim(),
-      detail: detail.trim() || undefined,
-      dueDate: dueDate || undefined,
-      urgency,
-      classCode: classCode || undefined,
-    })
-    setTitle('')
-    setDetail('')
-    setDueDate('')
-    setUrgency('normal')
-    setClassCode('')
-    setShowForm(false)
-  }
+  /** Cuántos abiertos hay de cada tipo, para el resumen de arriba. */
+  const byKind = useMemo(() => {
+    const m = new Map<SchoolTask['kind'], number>()
+    for (const t of tasks) {
+      if (t.done) continue
+      m.set(t.kind, (m.get(t.kind) ?? 0) + 1)
+    }
+    return m
+  }, [tasks])
+
+  const overdue = tasks.filter((t) => !t.done && t.dueDate && t.dueDate < today).length
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex items-start justify-between">
-        <h1 className="text-3xl font-bold text-ink-900 font-display">Pendientes</h1>
-        <button onClick={() => setShowForm((v) => !v)} className="rounded-full bg-brand-500 text-white text-sm font-semibold px-4 py-2 active:bg-brand-600">
-          {showForm ? 'Cerrar' : '+ Tarea'}
-        </button>
-      </header>
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        eyebrow={overdue > 0 ? `${overdue} vencidos` : 'Todo bajo control'}
+        title="Pendientes"
+        actions={
+          <>
+            <SegmentedControl
+              options={FILTERS}
+              value={filter}
+              onChange={setFilter}
+              ariaLabel="Filtrar pendientes"
+            />
+            <Button variant="primary" size="sm" onClick={() => setAdding(true)}>
+              <Plus size={15} aria-hidden />
+              Añadir
+            </Button>
+          </>
+        }
+      />
 
-      {showForm && (
-        <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="¿Qué hay que hacer?" className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900" />
-          <textarea value={detail} onChange={(e) => setDetail(e.target.value)} rows={2} placeholder="Detalle (opcional)" className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900" />
-          <div className="flex gap-2">
-            <label className="flex-1 flex flex-col gap-1 text-xs text-ink-500">
-              Fecha
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} className="rounded-lg border border-ink-200 bg-ink-100 px-2.5 py-1.5 text-sm text-ink-900" />
-            </label>
-            <label className="flex-1 flex flex-col gap-1 text-xs text-ink-500">
-              Clase (opcional)
-              <select value={classCode} onChange={(e) => setClassCode(e.target.value)} className="rounded-lg border border-ink-200 bg-ink-100 px-2.5 py-1.5 text-sm text-ink-900">
-                <option value="">—</option>
-                {CLASS_LIST.map((c) => (
-                  <option key={c.code} value={c.code}>{c.name}</option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <div className="flex gap-2">
-            {URGENCIES.map((u) => (
-              <button key={u} onClick={() => setUrgency(u)} className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${urgency === u ? URGENCY_META[u].color : 'bg-ink-100 text-ink-500'}`}>
-                {URGENCY_META[u].label}
-              </button>
-            ))}
-          </div>
-          <button onClick={save} className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600">Guardar</button>
+      {/* Resumen por tipo */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {TASK_KIND_ORDER.map((k) => {
+          const meta = TASK_KIND_META[k]
+          return (
+            <Card key={k} className="flex items-center gap-3">
+              <span className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', meta.color.soft)}>
+                <meta.Icon size={17} strokeWidth={2} aria-hidden />
+              </span>
+              <div className="min-w-0">
+                <p className="text-xl font-extrabold tabular leading-none text-content">
+                  {byKind.get(k) ?? 0}
+                </p>
+                <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>
+              </div>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Filtro por materia */}
+      {classes.length > 0 && (
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <button
+            type="button"
+            onClick={() => setClassFilter('')}
+            aria-pressed={classFilter === ''}
+            className={cx(
+              'h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors',
+              classFilter === '' ? 'bg-primary text-primary-on' : 'bg-surface-2 text-content-muted',
+            )}
+          >
+            Todas
+          </button>
+          {classes.map((c) => (
+            <button
+              key={c.code}
+              type="button"
+              onClick={() => setClassFilter(classFilter === c.code ? '' : c.code)}
+              aria-pressed={classFilter === c.code}
+              className={cx(
+                'h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors',
+                classFilter === c.code
+                  ? 'bg-primary text-primary-on'
+                  : 'bg-surface-2 text-content-muted',
+              )}
+            >
+              {c.name}
+            </button>
+          ))}
         </div>
       )}
 
-      <div className="flex gap-2 flex-wrap items-center">
-        {(['todas', ...URGENCIES] as const).map((u) => (
-          <button key={u} onClick={() => setFilterUrgency(u)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${filterUrgency === u ? 'bg-ink-900 text-white' : 'bg-card text-ink-500 shadow-card'}`}>
-            {u === 'todas' ? 'Todas' : URGENCY_META[u].label}
-          </button>
+      {shown.length === 0 ? (
+        <Card className="flex flex-col items-center gap-2 py-12 text-center">
+          {filter === 'hechos' ? (
+            <ListChecks size={24} className="text-content-subtle" aria-hidden />
+          ) : (
+            <PartyPopper size={24} className="text-content-subtle" aria-hidden />
+          )}
+          <p className="text-sm text-content-muted">
+            {filter === 'hechos' ? 'Aún no has completado nada.' : 'No tienes nada pendiente aquí.'}
+          </p>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 gap-2.5 lg:grid-cols-2 xl:grid-cols-3">
+          {shown.map((t) => (
+            <div key={t.id} className="flex items-start gap-2">
+              <div className="min-w-0 flex-1">
+                <TaskItem task={t} onToggle={toggleTask} />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeTask(t.id)}
+                aria-label={`Eliminar ${t.title}`}
+                className="mt-3 shrink-0 text-content-subtle transition-colors hover:text-danger"
+              >
+                <Trash2 size={15} aria-hidden />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Leyenda de urgencias */}
+      <div className="flex flex-wrap items-center gap-3 text-xs text-content-muted">
+        {URGENCY_ORDER.map((u) => (
+          <span key={u} className="inline-flex items-center gap-1.5">
+            <span className={cx('h-2 w-2 rounded-full', URGENCY_META[u].color.dot)} />
+            {URGENCY_META[u].label}
+          </span>
         ))}
-        <button onClick={() => setShowDone((v) => !v)} className={`ml-auto rounded-full px-3 py-1.5 text-xs font-semibold ${showDone ? 'bg-ok-500 text-white' : 'bg-card text-ink-500 shadow-card'}`}>
-          {showDone ? 'Ocultar hechas' : 'Ver hechas'}
-        </button>
       </div>
 
-      <div className="flex flex-col gap-2">
-        {shown.map((t) => {
-          const cls = t.classCode ? CLASSES[t.classCode] : undefined
-          const u = URGENCY_META[t.urgency]
-          return (
-            <div key={t.id} className={`rounded-2xl bg-card shadow-card p-3 flex items-start gap-3 ${t.done ? 'opacity-60' : ''}`}>
-              <button onClick={() => toggleTask(t.id)} className={`shrink-0 mt-0.5 w-6 h-6 rounded-full border-2 flex items-center justify-center ${t.done ? 'bg-ok-500 border-ok-500 text-white' : 'border-ink-300'}`}>
-                {t.done && '✓'}
-              </button>
-              <div className="min-w-0 flex-1">
-                <p className={`text-sm font-medium text-ink-900 ${t.done ? 'line-through' : ''}`}>{t.title}</p>
-                {t.detail && <p className="text-xs text-ink-500">{t.detail}</p>}
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${u.color}`}>{u.label}</span>
-                  {cls && <span className="text-[11px] text-ink-500">{cls.name}</span>}
-                  {t.dueDate && <span className="text-[11px] text-ink-400">· {t.dueDate}</span>}
-                </div>
-              </div>
-              <button onClick={() => removeTask(t.id)} className="text-xs text-ink-300 active:text-brand-600">✕</button>
-            </div>
-          )
-        })}
-        {shown.length === 0 && <p className="text-sm text-ink-500">Nada por aquí. 🎉</p>}
-      </div>
+      <AddItemSheet
+        open={adding}
+        onClose={() => setAdding(false)}
+        classCode={classFilter || undefined}
+        date={today}
+      />
     </div>
   )
 }

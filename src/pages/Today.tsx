@@ -1,194 +1,173 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { PLAN, PRINCIPLES, GOAL_DATE, GOAL_DISTANCE_KM, todayISO, getDayPlan } from '../data/plan'
-import { SessionCard } from '../components/SessionCard'
-import { PrincipleCard } from '../components/PrincipleCard'
-import { useTrainingLog } from '../hooks/useTrainingLog'
+import {
+  CalendarDays,
+  Flame,
+  ListChecks,
+  PartyPopper,
+  Search,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
+import { PLAN, PRINCIPLES, getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
-import { cycleInfoFor } from '../lib/cycle'
-import { CLASSES, TIMETABLE } from '../data/schoolTimetable'
-import { useSchoolConfig, useTasks } from '../hooks/useSchool'
-import { URGENCY_META } from '../data/schoolTypes'
-import { scenarioForDay } from '../lib/nutrition'
-import { SCENARIOS } from '../data/nutrition'
-import { useNutritionDay } from '../hooks/useNutritionLog'
+import { PrincipleCard } from '../components/PrincipleCard'
+import { PageHeader } from '../components/layout/PageHeader'
+import { SchoolTodayCard } from '../components/panels/SchoolTodayCard'
+import { TrainingTodayCard } from '../components/panels/TrainingTodayCard'
+import { DietTodayCard } from '../components/panels/DietTodayCard'
+import { FinanceCard } from '../components/panels/FinanceCard'
+import { ImportantEventsCard } from '../components/panels/ImportantEventsCard'
+import { UrgentTasksCard } from '../components/panels/UrgentTasksCard'
+import { useTasks } from '../hooks/useSchool'
+import { useNowAndNext } from '../hooks/useSchoolDay'
+import { useTrainingLog } from '../hooks/useTrainingLog'
+import { useCalendarEvents } from '../hooks/useCalendarEvents'
+import { formatDayMonth, formatFull, todayIso } from '../lib/dates'
+import { cx } from '../lib/cx'
 
-const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
-
-function weekdayOf(iso: string): string {
-  return WEEKDAYS[new Date(`${iso}T00:00:00Z`).getUTCDay()]
+interface KpiProps {
+  Icon: LucideIcon
+  label: string
+  value: string
+  caption: string
+  tone: string
+  to: string
 }
 
-function daysUntil(dateIso: string): number {
-  const today = new Date(`${todayISO()}T00:00:00Z`)
-  const target = new Date(`${dateIso}T00:00:00Z`)
-  return Math.round((target.getTime() - today.getTime()) / 86_400_000)
+/** Indicador compacto de la fila superior. */
+function Kpi({ Icon, label, value, caption, tone, to }: KpiProps) {
+  return (
+    <Link
+      to={to}
+      className="flex items-center gap-3 rounded-3xl border border-line bg-surface p-4 shadow-card transition-shadow hover:shadow-lg"
+    >
+      <span className={cx('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', tone)}>
+        <Icon size={19} strokeWidth={2} aria-hidden />
+      </span>
+      <span className="min-w-0">
+        <span className="block truncate text-xs font-semibold text-content-muted">{label}</span>
+        <span className="block truncate text-xl font-extrabold leading-tight tracking-tight text-content">
+          {value}
+        </span>
+        <span className="block truncate text-[11px] text-content-subtle">{caption}</span>
+      </span>
+    </Link>
+  )
 }
 
 export function Today() {
-  const iso = todayISO()
+  const iso = todayIso()
   const day = getDayPlan(iso)
-  const { getEntry, toggleCompleted } = useTrainingLog()
-  const { config } = useSchoolConfig()
+  const holiday = holidayName(iso)
   const { tasks } = useTasks()
-  const { scenarioOverride } = useNutritionDay(iso)
-  const scenario = SCENARIOS[scenarioOverride ?? scenarioForDay(day?.sessions ?? [])]
+  const { log } = useTrainingLog()
+  const { events } = useCalendarEvents()
+  const { current, next, cycle } = useNowAndNext(iso, true)
 
   const principle = useMemo(() => {
     const idx = PLAN.findIndex((d) => d.date === iso)
     return PRINCIPLES[(idx >= 0 ? idx : 0) % PRINCIPLES.length]
   }, [iso])
 
-  const cycle = useMemo(() => cycleInfoFor(iso, config), [iso, config])
-  const classesToday = cycle.cycleDay ? TIMETABLE[cycle.cycleDay] ?? [] : []
-  const remaining = daysUntil(GOAL_DATE)
-  const holiday = holidayName(iso)
-
-  const dueTasks = useMemo(
-    () =>
-      tasks
-        .filter((t) => !t.done)
-        .sort((a, b) => (a.dueDate ?? '9999').localeCompare(b.dueDate ?? '9999'))
-        .slice(0, 3),
-    [tasks],
-  )
+  const openTasks = tasks.filter((t) => !t.done).length
+  const dueToday = tasks.filter((t) => !t.done && t.dueDate === iso).length
+  const sessions = day?.sessions ?? []
+  const trainingTotal = sessions.filter((s) => s.type !== 'rest').length
+  const trainingDone = sessions.filter((s) => s.type !== 'rest' && log[s.id]?.completed).length
+  const nextEvent = events
+    .filter((e) => e.date >= iso)
+    .sort((a, b) => a.date.localeCompare(b.date))[0]
 
   return (
-    <div className="flex flex-col gap-4">
-      <header className="flex items-end justify-between">
-        <div>
-          <p className="text-sm text-ink-500 capitalize">{weekdayOf(iso)}</p>
-          <h1 className="text-3xl font-bold text-ink-900 font-display">Hoy</h1>
-        </div>
-        {remaining >= 0 && (
-          <div className="text-right">
-            <p className="text-2xl font-bold text-brand-600 leading-none">
-              {remaining}
-              <span className="text-sm font-semibold"> d</span>
-            </p>
-            <p className="text-[11px] text-ink-400">para el {GOAL_DISTANCE_KM}K</p>
-          </div>
-        )}
-      </header>
-
-      {holiday && (
-        <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium bg-brand-50 text-brand-600 self-start">
-          🇨🇴 Festivo · {holiday}
-        </span>
-      )}
-
-      {/* Colegio de hoy */}
-      <Link
-        to="/colegio"
-        className="rounded-3xl bg-card shadow-card p-4 active:scale-[0.98] transition-transform"
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        eyebrow={formatFull(iso)}
+        title="Inicio"
+        actions={
+          <Link
+            to="/pendientes"
+            className="hidden items-center gap-2 rounded-full border border-line bg-surface px-4 py-2.5 text-sm text-content-subtle transition-colors hover:text-content lg:inline-flex"
+          >
+            <Search size={16} aria-hidden />
+            Buscar tarea, clase o evento…
+          </Link>
+        }
       >
-        <div className="flex items-center justify-between">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">Colegio</h2>
-          <span className="text-ink-400" aria-hidden>
-            ›
+        {holiday && (
+          <span className="inline-flex items-center gap-1.5 self-start rounded-full bg-accent-soft px-2.5 py-1 text-xs font-semibold text-accent">
+            <PartyPopper size={13} aria-hidden />
+            Festivo · {holiday}
           </span>
-        </div>
-        {cycle.schoolDay && cycle.cycleDay ? (
-          <>
-            <p className="text-xl font-bold text-ink-900 font-display mt-1">Día {cycle.cycleDay}</p>
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {classesToday
-                .filter((s) => s.period !== 'Adv')
-                .map((s) => {
-                  const cls = CLASSES[s.classCode]
-                  return (
-                    <span
-                      key={`${s.period}-${s.classCode}`}
-                      className={`text-[11px] font-medium rounded-full px-2 py-0.5 ${cls.color} ${cls.text}`}
-                    >
-                      {cls.name}
-                    </span>
-                  )
-                })}
-            </div>
-          </>
-        ) : (
-          <p className="text-base font-semibold text-ink-700 mt-1">
-            {holiday ? 'Festivo — sin clases' : 'Sin colegio hoy'}
-          </p>
         )}
-      </Link>
+      </PageHeader>
 
-      {/* Entrenamiento de hoy */}
-      <section className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-        <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">Entrenamiento</h2>
-        {day && day.sessions.length > 0 ? (
-          day.sessions.map((s) => {
-            const done = getEntry(s.id)?.completed
-            return (
-              <div key={s.id} className="flex flex-col gap-2">
-                <SessionCard session={s} date={day.date} completed={done} />
-                <button
-                  onClick={() => toggleCompleted(s.id)}
-                  className={`self-start rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
-                    done ? 'bg-ok-100 text-ok-700' : 'bg-brand-500 text-white active:bg-brand-600'
-                  }`}
-                >
-                  {done ? '✓ Hecho' : 'Completar'}
-                </button>
-              </div>
-            )
-          })
-        ) : (
-          <p className="text-ink-500 text-sm">Descanso — no hay entreno para hoy.</p>
-        )}
-        {day?.note && <p className="text-sm text-ink-500 bg-ink-100 rounded-2xl p-3">{day.note}</p>}
-      </section>
-
-      {/* Comida de hoy */}
-      <Link to="/comida" className="rounded-3xl bg-card shadow-card p-4 flex items-center gap-3 active:scale-[0.98] transition-transform">
-        <span className={`shrink-0 w-11 h-11 rounded-2xl ${scenario.color} text-white flex items-center justify-center text-base font-bold`}>
-          {scenario.code}
-        </span>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">Comida</h2>
-          <p className="text-base font-semibold text-ink-900">{scenario.name}</p>
-          <p className="text-xs text-ink-500">{scenario.kcal} kcal · {scenario.carbsG} g carb</p>
-        </div>
-        <span className="text-ink-400" aria-hidden>›</span>
-      </Link>
-
-      {/* Pendientes que vencen */}
-      {dueTasks.length > 0 && (
-        <Link
+      {/* Fila de indicadores */}
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+        <Kpi
+          Icon={CalendarDays}
+          label="Colegio"
+          value={cycle.cycleDay ? `Día ${cycle.cycleDay}` : 'Sin clases'}
+          caption={
+            current
+              ? `Ahora: ${current.cls.name}`
+              : next
+                ? `Sigue: ${next.cls.name}`
+                : cycle.cycleDay
+                  ? 'Las clases ya terminaron'
+                  : holiday
+                    ? 'Festivo'
+                    : 'Sin clases hoy'
+          }
+          tone="bg-cat-soft-blue text-cat-blue"
           to="/colegio"
-          className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-2 active:scale-[0.98] transition-transform"
-        >
-          <div className="flex items-center justify-between">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-400">Pendientes</h2>
-            <span className="text-ink-400" aria-hidden>
-              ›
-            </span>
-          </div>
-          {dueTasks.map((t) => {
-            const cls = t.classCode ? CLASSES[t.classCode] : undefined
-            const u = URGENCY_META[t.urgency]
-            return (
-              <div key={t.id} className="flex items-center gap-2.5">
-                <span className={`w-1.5 h-1.5 rounded-full ${u.dot}`} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-ink-900 truncate">{t.title}</p>
-                  <p className="text-xs text-ink-500">
-                    {cls ? cls.name : 'General'}
-                    {t.dueDate ? ` · ${t.dueDate}` : ''}
-                  </p>
-                </div>
-                <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${u.color}`}>
-                  {u.label}
-                </span>
-              </div>
-            )
-          })}
-        </Link>
-      )}
+        />
+        <Kpi
+          Icon={ListChecks}
+          label="Pendientes"
+          value={String(openTasks)}
+          caption={dueToday > 0 ? `${dueToday} vencen hoy` : 'sin vencimientos hoy'}
+          tone="bg-cat-soft-rose text-cat-rose"
+          to="/pendientes"
+        />
+        <Kpi
+          Icon={Flame}
+          label="Entreno"
+          value={trainingTotal === 0 ? 'Descanso' : `${trainingDone}/${trainingTotal}`}
+          caption={trainingTotal === 0 ? 'día libre' : 'sesiones hechas'}
+          tone="bg-cat-soft-orange text-cat-orange"
+          to="/entreno"
+        />
+        <Kpi
+          Icon={Sparkles}
+          label="Próximo evento"
+          value={nextEvent ? nextEvent.title : 'Ninguno'}
+          caption={nextEvent ? formatDayMonth(nextEvent.date) : 'añade uno en el calendario'}
+          tone="bg-cat-soft-violet text-cat-violet"
+          to="/calendario"
+        />
+      </div>
 
-      {/* Principio del día */}
-      <PrincipleCard text={principle} />
+      {/* Bento: lo grande a la izquierda, lo que se consulta rápido a la derecha */}
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-6 lg:gap-5">
+        <SchoolTodayCard className="lg:col-span-4 lg:row-span-2" />
+        <UrgentTasksCard className="lg:col-span-2" limit={4} title="Pendientes" />
+        <ImportantEventsCard className="lg:col-span-2" limit={3} />
+
+        <TrainingTodayCard className="lg:col-span-2" />
+        <DietTodayCard className="lg:col-span-2" />
+        <FinanceCard className="lg:col-span-2" />
+
+        <div className="lg:col-span-6">
+          <PrincipleCard text={principle} />
+        </div>
+      </div>
+
+      {day?.note && (
+        <p className="rounded-2xl bg-surface-2 p-3.5 text-sm leading-relaxed text-content-muted">
+          {day.note}
+        </p>
+      )}
     </div>
   )
 }

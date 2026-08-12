@@ -1,12 +1,26 @@
 import { useState } from 'react'
+import { Plus, X } from 'lucide-react'
 import { todayISO } from '../data/plan'
 import { NOTE_CATEGORY_META, useTrainingNotes, type NoteCategory } from '../hooks/useTrainingNotes'
+import { PageHeader } from '../components/layout/PageHeader'
+import { Card, CardHeader } from '../components/ui/Card'
+import { Button } from '../components/ui/Button'
+import { Field, TextArea, TextInput } from '../components/ui/Field'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
+import { formatDayMonth } from '../lib/dates'
+import { cx } from '../lib/cx'
 
 const CATEGORIES: NoteCategory[] = ['importante', 'lesion', 'general']
+type Filter = NoteCategory | 'todas'
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'todas', label: 'Todas' },
+  ...CATEGORIES.map((c) => ({ value: c as Filter, label: NOTE_CATEGORY_META[c].label })),
+]
 
 export function GymNotes() {
   const { notes, addNote, removeNote } = useTrainingNotes()
-  const [filter, setFilter] = useState<NoteCategory | 'todas'>('todas')
+  const [filter, setFilter] = useState<Filter>('todas')
   const [showForm, setShowForm] = useState(false)
   const [category, setCategory] = useState<NoteCategory>('general')
   const [title, setTitle] = useState('')
@@ -24,86 +38,133 @@ export function GymNotes() {
   }
 
   return (
-    <div className="flex flex-col gap-5">
-      <header className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold text-ink-900 font-display">Notas de gym</h1>
-          <p className="text-sm text-ink-500 mt-1">Molestias, lesiones y cosas para tener en cuenta.</p>
-        </div>
-        <button onClick={() => setShowForm((v) => !v)} className="rounded-full bg-brand-500 text-white text-sm font-semibold px-4 py-2 active:bg-brand-600">
-          {showForm ? 'Cerrar' : '+ Nota'}
-        </button>
-      </header>
+    <div className="flex flex-col gap-4 lg:gap-6">
+      <PageHeader
+        eyebrow="Entreno"
+        title="Notas de gym"
+        description="Molestias, lesiones y cosas para tener en cuenta."
+        actions={
+          <>
+            <SegmentedControl
+              options={FILTERS}
+              value={filter}
+              onChange={setFilter}
+              ariaLabel="Filtrar notas"
+              variant="pill"
+            />
+            <Button variant="primary" onClick={() => setShowForm((v) => !v)}>
+              {showForm ? (
+                <>
+                  <X size={16} aria-hidden />
+                  Cerrar
+                </>
+              ) : (
+                <>
+                  <Plus size={16} aria-hidden />
+                  Nota
+                </>
+              )}
+            </Button>
+          </>
+        }
+      />
 
       {showForm && (
-        <div className="rounded-3xl bg-card shadow-card p-4 flex flex-col gap-3">
-          <div className="flex gap-2">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c}
-                onClick={() => setCategory(c)}
-                className={`flex-1 rounded-full px-2 py-1.5 text-xs font-semibold ${
-                  category === c ? NOTE_CATEGORY_META[c].color : 'bg-ink-100 text-ink-500'
-                }`}
-              >
-                {NOTE_CATEGORY_META[c].emoji} {NOTE_CATEGORY_META[c].label}
-              </button>
-            ))}
+        <Card padding="lg">
+          <CardHeader title="Nueva nota" />
+          <div className="flex flex-col gap-3">
+            <Field label="Categoría">
+              <div className="flex flex-wrap gap-2">
+                {CATEGORIES.map((c) => {
+                  const meta = NOTE_CATEGORY_META[c]
+                  const active = category === c
+                  return (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setCategory(c)}
+                      aria-pressed={active}
+                      className={cx(
+                        'inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-semibold transition-colors',
+                        active ? meta.color.solid : 'bg-surface-2 text-content-muted hover:text-content',
+                      )}
+                    >
+                      <meta.Icon size={14} aria-hidden />
+                      {meta.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </Field>
+
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+              <Field label="Título">
+                <TextInput
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Molestia rodilla derecha…"
+                />
+              </Field>
+              <Field label="Detalle">
+                <TextArea
+                  value={body}
+                  onChange={(e) => setBody(e.target.value)}
+                  rows={3}
+                  placeholder="Qué pasó, desde cuándo, qué lo alivia…"
+                />
+              </Field>
+            </div>
+
+            <Button variant="primary" size="lg" onClick={save} className="self-start">
+              Guardar nota
+            </Button>
           </div>
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Título (p. ej. molestia rodilla derecha)"
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
-          />
-          <textarea
-            value={body}
-            onChange={(e) => setBody(e.target.value)}
-            rows={3}
-            placeholder="Detalle…"
-            className="rounded-xl border border-ink-200 bg-ink-100 px-3 py-2 text-sm text-ink-900"
-          />
-          <button onClick={save} className="rounded-full bg-brand-500 text-white font-semibold py-2.5 active:bg-brand-600">
-            Guardar nota
-          </button>
-        </div>
+        </Card>
       )}
 
-      <div className="flex gap-2">
-        {(['todas', ...CATEGORIES] as const).map((c) => (
-          <button
-            key={c}
-            onClick={() => setFilter(c)}
-            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-              filter === c ? 'bg-ink-900 text-white' : 'bg-card text-ink-500 shadow-card'
-            }`}
-          >
-            {c === 'todas' ? 'Todas' : NOTE_CATEGORY_META[c].label}
-          </button>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-2.5">
-        {shown.map((n) => {
-          const meta = NOTE_CATEGORY_META[n.category]
-          return (
-            <div key={n.id} className="rounded-2xl bg-card shadow-card p-3.5 flex flex-col gap-1.5">
-              <div className="flex items-center gap-2">
-                <span className={`text-[10px] font-semibold rounded-full px-2 py-0.5 ${meta.color}`}>
-                  {meta.emoji} {meta.label}
-                </span>
-                <span className="text-xs text-ink-400">{n.date}</span>
-                <button onClick={() => removeNote(n.id)} className="ml-auto text-xs text-ink-300 active:text-brand-600">
-                  ✕
-                </button>
-              </div>
-              {n.title && <p className="text-sm font-semibold text-ink-900">{n.title}</p>}
-              {n.body && <p className="text-sm text-ink-600 whitespace-pre-wrap">{n.body}</p>}
-            </div>
-          )
-        })}
-        {shown.length === 0 && <p className="text-sm text-ink-500">Sin notas todavía.</p>}
-      </div>
+      {shown.length > 0 ? (
+        <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 lg:gap-5">
+          {shown.map((n) => {
+            const meta = NOTE_CATEGORY_META[n.category]
+            return (
+              <Card key={n.id} className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cx(
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold',
+                      meta.color.soft,
+                    )}
+                  >
+                    <meta.Icon size={12} aria-hidden />
+                    {meta.label}
+                  </span>
+                  <span className="text-xs text-content-subtle">{formatDayMonth(n.date)}</span>
+                  <button
+                    type="button"
+                    onClick={() => removeNote(n.id)}
+                    aria-label="Borrar nota"
+                    className="ml-auto text-content-subtle transition-colors hover:text-danger"
+                  >
+                    <X size={14} aria-hidden />
+                  </button>
+                </div>
+                {n.title && <p className="text-[15px] font-bold text-content">{n.title}</p>}
+                {n.body && (
+                  <p className="whitespace-pre-wrap text-sm leading-relaxed text-content-muted">
+                    {n.body}
+                  </p>
+                )}
+              </Card>
+            )
+          })}
+        </div>
+      ) : (
+        <Card>
+          <p className="text-sm text-content-muted">
+            {filter === 'todas' ? 'Sin notas todavía.' : 'Ninguna nota en esta categoría.'}
+          </p>
+        </Card>
+      )}
     </div>
   )
 }

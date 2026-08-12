@@ -21,7 +21,7 @@ export function PinPad({ value, onChange, length = 4, error }: PinPadProps) {
           <span
             key={i}
             className={`w-3.5 h-3.5 rounded-full transition-colors ${
-              error ? 'bg-brand-600' : i < value.length ? 'bg-ink-900' : 'bg-ink-200'
+              error ? 'bg-primary' : i < value.length ? 'bg-primary' : 'bg-surface-3'
             }`}
           />
         ))}
@@ -33,7 +33,7 @@ export function PinPad({ value, onChange, length = 4, error }: PinPadProps) {
             key={d}
             type="button"
             onClick={() => push(d)}
-            className="w-16 h-16 rounded-full bg-card shadow-card text-2xl font-semibold text-ink-900 active:scale-95 transition-transform"
+            className="w-16 h-16 rounded-full bg-surface shadow-card text-2xl font-semibold text-content active:scale-95 transition-transform"
           >
             {d}
           </button>
@@ -42,7 +42,7 @@ export function PinPad({ value, onChange, length = 4, error }: PinPadProps) {
         <button
           type="button"
           onClick={() => push('0')}
-          className="w-16 h-16 rounded-full bg-card shadow-card text-2xl font-semibold text-ink-900 active:scale-95 transition-transform"
+          className="w-16 h-16 rounded-full bg-surface shadow-card text-2xl font-semibold text-content active:scale-95 transition-transform"
         >
           0
         </button>
@@ -50,7 +50,7 @@ export function PinPad({ value, onChange, length = 4, error }: PinPadProps) {
           type="button"
           onClick={back}
           aria-label="Borrar"
-          className="w-16 h-16 rounded-full text-2xl text-ink-500 active:scale-95 transition-transform"
+          className="w-16 h-16 rounded-full text-2xl text-content-muted active:scale-95 transition-transform"
         >
           ⌫
         </button>

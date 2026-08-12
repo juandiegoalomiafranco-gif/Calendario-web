@@ -264,7 +264,7 @@ const RAW_PLAN: DayPlan[] = [
         id: '2026-08-05-goal',
         slot: 'AM',
         type: 'running-goal',
-        title: '🎯 Intento de 21 km',
+        title: 'Intento de 21 km',
         summary: 'Meta: 21 km',
         distanceKm: '21',
         pace: 'Esfuerzo conversacional — sin meta de tiempo fija',

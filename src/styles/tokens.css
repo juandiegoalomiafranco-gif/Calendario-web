@@ -1,0 +1,143 @@
+/*
+ * MyLife — tokens de diseño.
+ *
+ * Referencias visuales: el marco y la paleta neutra vienen del dashboard "Panze"
+ * (fondo muy claro, tarjetas blancas, activo en grafito casi negro); los acentos
+ * de datos, del dashboard verde salvia.
+ *
+ * Cada color se declara como canales RGB separados por espacios para que Tailwind
+ * pueda aplicarle opacidad: rgb(var(--surface) / 0.5).
+ *
+ * El tema claro vive en :root y el oscuro en [data-theme="dark"] sobre <html>.
+ * `useTheme` escribe ese atributo; el script inline de index.html lo aplica antes
+ * del primer pintado para que no haya destello al recargar.
+ */
+
+:root {
+  /* Superficies */
+  --bg: 244 245 247;
+  --surface: 255 255 255;
+  --surface-2: 246 247 249;
+  --surface-3: 237 239 242;
+  --line: 232 234 238;
+  --line-strong: 214 218 224;
+
+  /* Texto */
+  --text: 16 18 22;
+  --text-muted: 104 110 120;
+  --text-subtle: 148 154 164;
+
+  /* Principal: grafito casi negro (pastilla activa y botones) */
+  --primary: 22 24 29;
+  --primary-hover: 42 45 52;
+  --primary-soft: 237 239 242;
+  --on-primary: 255 255 255;
+
+  /* Acento de datos: verde salvia */
+  --accent: 109 138 116;
+  --accent-strong: 79 105 86;
+  --accent-soft: 226 235 228;
+
+  /* Estados */
+  --ok: 22 150 87;
+  --ok-soft: 219 246 230;
+  --warn: 201 132 12;
+  --warn-soft: 253 240 214;
+  --danger: 205 51 51;
+  --danger-soft: 253 228 228;
+
+  /* Paleta de categorías — materias, tipos de evento, actividades */
+  --cat-violet: 124 92 245;
+  --cat-blue: 32 128 230;
+  --cat-cyan: 8 154 186;
+  --cat-teal: 13 148 136;
+  --cat-green: 22 150 87;
+  --cat-amber: 201 132 12;
+  --cat-orange: 214 108 34;
+  --cat-rose: 216 62 104;
+  --cat-fuchsia: 176 62 186;
+  --cat-indigo: 79 82 221;
+  --cat-slate: 108 116 132;
+
+  /* Fondos pastel de las categorías (tarjetas tipo "My Tasks") */
+  --cat-violet-soft: 240 237 254;
+  --cat-blue-soft: 230 240 253;
+  --cat-cyan-soft: 226 244 249;
+  --cat-teal-soft: 224 244 242;
+  --cat-green-soft: 224 245 233;
+  --cat-amber-soft: 253 243 221;
+  --cat-orange-soft: 253 238 227;
+  --cat-rose-soft: 253 231 238;
+  --cat-fuchsia-soft: 250 232 251;
+  --cat-indigo-soft: 234 235 253;
+  --cat-slate-soft: 238 240 243;
+
+  /* Sombras: suaves y muy difusas, como las tarjetas de la referencia */
+  --shadow-sm: 0 1px 2px rgb(16 18 22 / 0.04);
+  --shadow-card: 0 1px 2px rgb(16 18 22 / 0.04), 0 12px 32px -14px rgb(16 18 22 / 0.16);
+  --shadow-lg: 0 2px 4px rgb(16 18 22 / 0.04), 0 24px 56px -18px rgb(16 18 22 / 0.22);
+
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --bg: 13 14 17;
+  --surface: 24 26 30;
+  --surface-2: 33 35 41;
+  --surface-3: 44 47 54;
+  --line: 44 47 54;
+  --line-strong: 63 67 76;
+
+  --text: 246 247 249;
+  --text-muted: 160 166 176;
+  --text-subtle: 120 127 138;
+
+  /* En oscuro lo "activo" se invierte: pastilla clara sobre fondo oscuro */
+  --primary: 246 247 249;
+  --primary-hover: 226 229 234;
+  --primary-soft: 44 47 54;
+  --on-primary: 16 18 22;
+
+  --accent: 142 176 150;
+  --accent-strong: 168 197 175;
+  --accent-soft: 32 44 36;
+
+  --ok: 62 205 130;
+  --ok-soft: 18 56 38;
+  --warn: 240 179 47;
+  --warn-soft: 60 46 14;
+  --danger: 244 106 106;
+  --danger-soft: 63 26 26;
+
+  /* Categorías aclaradas para mantener contraste sobre fondo oscuro */
+  --cat-violet: 165 141 255;
+  --cat-blue: 106 168 246;
+  --cat-cyan: 76 194 220;
+  --cat-teal: 74 195 183;
+  --cat-green: 74 205 140;
+  --cat-amber: 240 179 47;
+  --cat-orange: 244 152 88;
+  --cat-rose: 244 121 158;
+  --cat-fuchsia: 216 130 224;
+  --cat-indigo: 137 140 249;
+  --cat-slate: 154 162 178;
+
+  --cat-violet-soft: 40 34 66;
+  --cat-blue-soft: 24 40 62;
+  --cat-cyan-soft: 20 44 52;
+  --cat-teal-soft: 18 45 45;
+  --cat-green-soft: 18 48 34;
+  --cat-amber-soft: 55 42 14;
+  --cat-orange-soft: 56 37 22;
+  --cat-rose-soft: 56 27 38;
+  --cat-fuchsia-soft: 50 29 53;
+  --cat-indigo-soft: 33 34 63;
+  --cat-slate-soft: 39 42 49;
+
+  /* En oscuro las sombras casi no se ven: los bordes separan los planos */
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 2px 18px -6px rgb(0 0 0 / 0.6);
+  --shadow-lg: 0 10px 44px -12px rgb(0 0 0 / 0.7);
+
+  color-scheme: dark;
+}
