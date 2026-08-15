@@ -230,6 +230,57 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
   content:"";position:absolute;top:-9px;left:50%;transform:translateX(-50%) rotate(-2deg);
   width:52px;height:19px;background:rgba(20,20,20,.82);
 }
+/* el panel de play sí reproduce algo, así que se ve y se comporta como botón */
+.shot-play{
+  display:block;width:100%;border:0;text-align:center;font:inherit;
+  transition:transform .25s var(--ease),box-shadow .25s var(--ease);
+}
+.shot-play:hover{transform:rotate(2deg) scale(1.04);box-shadow:0 14px 26px -12px rgba(0,0,0,.7)}
+.shot-play:active{transform:rotate(2deg) scale(.99)}
+.play-lab{
+  display:block;margin-top:7px;
+  font-family:var(--f-type);font-weight:700;font-size:9.5px;
+  letter-spacing:.16em;text-transform:uppercase;color:var(--red);
+}
+
+/* ═══ Teaser de la saga ═════════════════════════════════════════════ */
+.teaser{
+  position:fixed;inset:0;z-index:80;display:none;
+  background:#111;color:var(--bone);
+  place-items:center;text-align:center;padding:24px;
+}
+.teaser.on{display:grid}
+.teaser-in{max-width:min(92vw,900px)}
+.tz-meta{
+  font-family:var(--f-type);font-weight:700;font-size:11px;letter-spacing:.24em;
+  text-transform:uppercase;color:var(--red);min-height:1.4em;margin:0 0 18px;
+}
+.tz-main{
+  font-family:var(--f-display);line-height:1;letter-spacing:-.01em;
+  font-size:clamp(1.9rem,6.4vw,4.6rem);margin:0;text-wrap:balance;
+}
+.tz-year{
+  font-family:var(--f-type);font-size:12px;letter-spacing:.2em;
+  color:rgba(239,235,227,.5);margin:16px 0 0;min-height:1.4em;
+}
+.teaser.step .tz-main{animation:tzin .34s var(--ease) both}
+@keyframes tzin{
+  0%  {opacity:0;transform:translateY(14px) scaleY(1.06);
+       text-shadow:9px 0 var(--g-mag),-9px 0 var(--g-blue)}
+  55% {opacity:1;text-shadow:4px 0 var(--g-mag),-4px 0 var(--g-blue)}
+  100%{opacity:1;transform:none;text-shadow:0 0 transparent,0 0 transparent}
+}
+.tz-bar{position:fixed;left:0;bottom:0;height:2px;width:0;background:var(--red)}
+.tz-skip{
+  position:fixed;top:18px;right:18px;
+  font-family:var(--f-type);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;
+  color:rgba(239,235,227,.6);border:1px solid rgba(239,235,227,.28);padding:9px 16px;
+  transition:color .25s var(--ease),border-color .25s var(--ease);
+}
+.tz-skip:hover{color:var(--bone);border-color:var(--bone)}
+.tz-list{display:none;font-family:var(--f-type);font-size:14px;line-height:1.9;text-align:left}
+.tz-list li{list-style:none}
+
 .stamp{
   display:inline-block;margin-top:20px;
   border:2px solid var(--red);color:var(--red);
@@ -414,7 +465,7 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
                 <circle cx="50" cy="47" r="6" fill="#E62429"/>
               </svg>
             </div>
-            <div class="shot">
+            <button type="button" class="shot shot-play" id="playBtn" aria-label="Reproducir el teaser de la saga">
               <svg class="img" viewBox="0 0 100 100" aria-hidden="true">
                 <rect width="100" height="100" fill="#E62429"/>
                 <g fill="#FBF9F5">
@@ -429,7 +480,8 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
                 </g>
                 <path d="M42 38 62 50 42 62Z" fill="#FBF9F5"/>
               </svg>
-            </div>
+              <span class="play-lab">Reproducir</span>
+            </button>
           </div>
           <p class="field"><u>Inicio</u>: cuando ella diga.</p>
           <span class="stamp">#MISIÓNMAJO</span>
@@ -558,6 +610,17 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
     </section>
 
   </main>
+  <div class="teaser" id="teaser" role="dialog" aria-modal="true" aria-label="Teaser de la saga" hidden>
+    <button type="button" class="tz-skip" id="tzSkip">Saltar</button>
+    <div class="teaser-in">
+      <p class="tz-meta" id="tzMeta"></p>
+      <p class="tz-main" id="tzMain"></p>
+      <p class="tz-year" id="tzYear"></p>
+      <ul class="tz-list" id="tzList"></ul>
+    </div>
+    <i class="tz-bar" id="tzBar" aria-hidden="true"></i>
+  </div>
+
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 </div>
 
@@ -777,6 +840,85 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
     noBtn.style.cursor = 'not-allowed';
   }
 
+  /* ═══ Teaser de la saga ═══════════════════════════════════════════
+     Una secuencia de títulos hecha solo con código: las 23 películas
+     pasando por fases, con la aberración cromática de la referencia.
+     Sin archivos externos y sin material con derechos.
+     El fondo se mantiene fijo y solo cambia el texto: nada de destellos
+     a pantalla completa, que a ~5 Hz serían un riesgo fotosensible.   */
+  const teaser = $('#teaser'), tzMain = $('#tzMain'), tzMeta = $('#tzMeta'),
+        tzYear = $('#tzYear'), tzBar = $('#tzBar'), playBtn = $('#playBtn');
+  let tzTimers = [], tzOpen = false;
+
+  function tzSteps(){
+    const steps = [];
+    steps.push({ meta:'Expediente · Saga del Infinito', main:'23 PELÍCULAS', year:'2008 — 2019', ms:1400 });
+    SAGA.forEach(ph=>{
+      steps.push({ meta:'Fase ' + ph.n, main:'FASE ' + ph.n, year:ph.rango, ms:850 });
+      ph.pelis.forEach(p=> steps.push({ meta:'Fase ' + ph.n, main:p[0].toUpperCase(), year:String(p[1]), ms:215 }));
+    });
+    steps.push({ meta:'Duración total', main:'50 HORAS', year:'Once años de historia', ms:1100 });
+    steps.push({ meta:'Acompañante requerida', main:CONFIG.invitada, year:'Una sola', ms:1600 });
+    steps.push({ meta:'', main:'¿VAMOS?', year:'', ms:1900 });
+    return steps;
+  }
+
+  function closeTeaser(){
+    if (!tzOpen) return;
+    tzOpen = false;
+    tzTimers.forEach(clearTimeout); tzTimers = [];
+    teaser.classList.remove('on'); teaser.hidden = true;
+    tzBar.style.transition = 'none'; tzBar.style.width = '0';
+    playBtn.focus({ preventScroll:true });
+  }
+
+  function openTeaser(){
+    if (tzOpen) return;
+    tzOpen = true;
+    teaser.hidden = false; teaser.classList.add('on');
+    $('#tzSkip').focus({ preventScroll:true });
+
+    const steps = tzSteps();
+
+    if (reduce){
+      // sin secuencia rápida: la misma información, quieta y legible
+      tzMeta.textContent = 'Saga del Infinito · 2008 — 2019';
+      tzMain.textContent = '23 PELÍCULAS';
+      tzYear.textContent = 'Once años de historia, ≈50 horas';
+      const ul = $('#tzList');
+      ul.style.display = 'block';
+      ul.innerHTML = SAGA.map(ph =>
+        '<li><b>Fase ' + ph.n + '</b> · ' + ph.rango + '</li>' +
+        ph.pelis.map(p => '<li>' + p[0] + ' <span style="opacity:.5">' + p[1] + '</span></li>').join('')
+      ).join('');
+      return;
+    }
+
+    const total = steps.reduce((a,s)=>a+s.ms, 0);
+    tzBar.style.transition = 'none'; tzBar.style.width = '0';
+    requestAnimationFrame(()=>{
+      tzBar.style.transition = 'width ' + total + 'ms linear';
+      tzBar.style.width = '100%';
+    });
+
+    let t = 0;
+    steps.forEach(s=>{
+      tzTimers.push(setTimeout(()=>{
+        tzMeta.textContent = s.meta;
+        tzMain.textContent = s.main;
+        tzYear.textContent = s.year;
+        teaser.classList.remove('step');
+        void teaser.offsetWidth;           // reinicia la animación de entrada
+        teaser.classList.add('step');
+      }, t));
+      t += s.ms;
+    });
+    tzTimers.push(setTimeout(closeTeaser, t + 250));
+  }
+
+  playBtn.addEventListener('click', openTeaser);
+  $('#tzSkip').addEventListener('click', closeTeaser);
+
   /* ═══ Sí ══════════════════════════════════════════════════════════ */
   $('#yesBtn').addEventListener('click', ()=>{
     state.accepted = true;
@@ -888,7 +1030,9 @@ button{font:inherit;color:inherit;background:none;border:0;margin:0;padding:0;cu
   }
 
   document.addEventListener('keydown', e=>{
-    if (e.key === 'Escape' && state.act > 1 && state.act < 5) go(state.act - 1);
+    if (e.key !== 'Escape') return;
+    if (tzOpen){ closeTeaser(); return; }   // el teaser se cierra antes de retroceder de acto
+    if (state.act > 1 && state.act < 5) go(state.act - 1);
   });
 })();
 </script>
