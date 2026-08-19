@@ -1,40 +1,66 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeftRight, Plus, Repeat, Wallet, X } from 'lucide-react'
+import { ArrowLeftRight, Plus, Repeat, Tags, Wallet, X } from 'lucide-react'
 import { todayISO } from '../data/plan'
 import { formatCOP, lastMonths, monthKey, monthLabel } from '../lib/finance'
-import { ACCOUNT_KIND_META, useFinance, type AccountKind, type TxKind } from '../hooks/useFinance'
+import {
+  ACCOUNT_KIND_META,
+  MONEY_SOURCE_META,
+  useFinance,
+  type AccountKind,
+  type MoneySource,
+  type TxKind,
+} from '../hooks/useFinance'
 import { WeeklyBars } from '../components/charts/WeeklyBars'
 import { TrendLine } from '../components/charts/TrendLine'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { Button } from '../components/ui/Button'
 import { DateInput, Field, Select, TextInput } from '../components/ui/Field'
 import { cx } from '../lib/cx'
 
 const KINDS: AccountKind[] = ['efectivo', 'ahorros', 'inversion', 'externa']
+const SOURCES: MoneySource[] = ['mia', 'papas']
+
 const DEFAULT_CATS: { name: string; kind: TxKind }[] = [
   { name: 'Comida', kind: 'gasto' },
+  { name: 'Salidas a comer', kind: 'gasto' },
   { name: 'Transporte', kind: 'gasto' },
   { name: 'Ocio', kind: 'gasto' },
   { name: 'Ropa', kind: 'gasto' },
+  { name: 'Colegio / útiles', kind: 'gasto' },
+  { name: 'Deporte', kind: 'gasto' },
+  { name: 'Salud', kind: 'gasto' },
+  { name: 'Regalos', kind: 'gasto' },
+  { name: 'Suscripciones', kind: 'gasto' },
   { name: 'Otros', kind: 'gasto' },
   { name: 'Mesada', kind: 'ingreso' },
   { name: 'Trabajo', kind: 'ingreso' },
   { name: 'Interés', kind: 'ingreso' },
+  { name: 'Regalo', kind: 'ingreso' },
 ]
-const SEED_FLAG = 'mivida:finance-cats-seeded:v1'
+const SEED_FLAG = 'mivida:finance-cats-seeded:v2'
+
+/** Cuentas con las que arranca la app; los saldos los pone él. */
+const DEFAULT_ACCOUNTS: { name: string; kind: AccountKind }[] = [
+  { name: 'Efectivo', kind: 'efectivo' },
+  { name: 'Cuenta de ahorros', kind: 'ahorros' },
+  { name: 'CDT / inversión', kind: 'inversion' },
+]
+const ACCOUNTS_SEED_FLAG = 'mivida:finance-accounts-seeded:v1'
 
 function toNum(v: string): number {
   const x = parseFloat(v.replace(/[.,\s]/g, ''))
   return Number.isNaN(x) ? 0 : x
 }
 
-type Panel = 'account' | 'movement' | 'transfer' | 'monthly' | null
+type Panel = 'account' | 'movement' | 'transfer' | 'monthly' | 'categories' | null
 
 const PANELS = [
   { id: 'movement' as const, label: 'Movimiento', Icon: Plus },
   { id: 'transfer' as const, label: 'Transferir', Icon: ArrowLeftRight },
   { id: 'account' as const, label: 'Cuenta', Icon: Wallet },
+  { id: 'categories' as const, label: 'Categorías', Icon: Tags },
   { id: 'monthly' as const, label: 'Mesada / interés', Icon: Repeat },
 ]
 
@@ -43,6 +69,8 @@ export function Finanzas() {
   const { accounts, transactions, transfers, categories } = fin
   const iso = todayISO()
   const [panel, setPanel] = useState<Panel>(null)
+  /** Con qué plata mirar el desglose: la mía, la de mis papás o todo junto. */
+  const [catSource, setCatSource] = useState<MoneySource | 'todo'>('todo')
 
   useEffect(() => {
     if (categories.length === 0 && !localStorage.getItem(SEED_FLAG)) {
@@ -51,22 +79,36 @@ export function Finanzas() {
     }
   }, [categories.length, fin])
 
+  useEffect(() => {
+    if (accounts.length === 0 && !localStorage.getItem(ACCOUNTS_SEED_FLAG)) {
+      localStorage.setItem(ACCOUNTS_SEED_FLAG, '1')
+      for (const a of DEFAULT_ACCOUNTS) fin.addAccount({ ...a, balance: 0 })
+    }
+  }, [accounts.length, fin])
+
   const thisMonth = monthKey(iso)
   const patrimonio = useMemo(
     () => accounts.filter((a) => a.kind !== 'externa').reduce((s, a) => s + a.balance, 0),
     [accounts],
   )
-  const monthGasto = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.kind === 'gasto' && monthKey(t.date) === thisMonth)
-        .reduce((s, t) => s + t.amount, 0),
-    [transactions, thisMonth],
-  )
+  const gastoDelMes = (source?: MoneySource) =>
+    transactions
+      .filter(
+        (t) =>
+          t.kind === 'gasto' &&
+          monthKey(t.date) === thisMonth &&
+          (source ? t.source === source : true),
+      )
+      .reduce((s, t) => s + t.amount, 0)
+
+  const monthGastoMio = useMemo(() => gastoDelMes('mia'), [transactions, thisMonth])
+  const monthGastoPapas = useMemo(() => gastoDelMes('papas'), [transactions, thisMonth])
   const monthIngreso = useMemo(
     () =>
       transactions
-        .filter((t) => t.kind === 'ingreso' && monthKey(t.date) === thisMonth)
+        .filter(
+          (t) => t.kind === 'ingreso' && monthKey(t.date) === thisMonth && t.source === 'mia',
+        )
         .reduce((s, t) => s + t.amount, 0),
     [transactions, thisMonth],
   )
@@ -89,18 +131,22 @@ export function Finanzas() {
 
   const gastoPorCategoria = useMemo(() => {
     const map = new Map<string, number>()
-    for (const t of transactions)
-      if (t.kind === 'gasto' && monthKey(t.date) === thisMonth)
-        map.set(t.category ?? 'Sin categoría', (map.get(t.category ?? 'Sin categoría') ?? 0) + t.amount)
+    for (const t of transactions) {
+      if (t.kind !== 'gasto' || monthKey(t.date) !== thisMonth) continue
+      if (catSource !== 'todo' && t.source !== catSource) continue
+      const key = t.category ?? 'Sin categoría'
+      map.set(key, (map.get(key) ?? 0) + t.amount)
+    }
     return [...map.entries()].sort((a, b) => b[1] - a[1])
-  }, [transactions, thisMonth])
+  }, [transactions, thisMonth, catSource])
   const maxCat = Math.max(...gastoPorCategoria.map(([, v]) => v), 1)
 
   const ahorroTrend = useMemo(() => {
     let acc = 0
     return months.map((m) => {
+      // Solo la plata propia: la de los papás no entra ni sale de tu patrimonio.
       const net = transactions
-        .filter((t) => monthKey(t.date) === m)
+        .filter((t) => monthKey(t.date) === m && t.source === 'mia')
         .reduce((s, t) => s + (t.kind === 'ingreso' ? t.amount : -t.amount), 0)
       acc += net
       return { label: monthLabel(m), value: Math.round(acc / 1000) }
@@ -136,29 +182,42 @@ export function Finanzas() {
       {panel === 'movement' && <MovementForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'transfer' && <TransferForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'monthly' && <MonthlyForm fin={fin} onDone={() => setPanel(null)} />}
+      {panel === 'categories' && <CategoriesPanel fin={fin} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
-        <div className="rounded-3xl bg-gradient-to-br from-primary-hover to-primary p-5 text-white shadow-card lg:col-span-2">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-white/70">
+        <div className="rounded-3xl bg-gradient-to-br from-hero-from to-hero-to p-5 text-hero-fg shadow-card lg:col-span-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-hero-fg/70">
             Patrimonio
           </p>
           <p className="mt-0.5 text-3xl font-extrabold tabular tracking-tight lg:text-4xl">
             {formatCOP(patrimonio)}
           </p>
-          <div className="mt-4 flex gap-6">
+          <p className="mt-0.5 text-[11px] text-hero-fg/55">
+            Solo tu plata. Lo que pagan tus papás se lleva aparte.
+          </p>
+
+          <div className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-4">
             <div>
-              <p className="text-lg font-bold tabular text-ok">{formatCOP(monthIngreso)}</p>
-              <p className="text-[11px] text-white/60">ingresos del mes</p>
+              <p className="text-lg font-bold tabular text-hero-ok">{formatCOP(monthIngreso)}</p>
+              <p className="text-[11px] text-hero-fg/65">entró este mes</p>
             </div>
             <div>
-              <p className="text-lg font-bold tabular text-danger">{formatCOP(monthGasto)}</p>
-              <p className="text-[11px] text-white/60">gastos del mes</p>
-            </div>
-            <div>
-              <p className="text-lg font-bold tabular text-white">
-                {formatCOP(monthIngreso - monthGasto)}
+              <p className="text-lg font-bold tabular text-hero-danger">
+                {formatCOP(monthGastoMio)}
               </p>
-              <p className="text-[11px] text-white/60">neto del mes</p>
+              <p className="text-[11px] text-hero-fg/65">gasté de mi plata</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold tabular text-hero-fg/90">
+                {formatCOP(monthGastoPapas)}
+              </p>
+              <p className="text-[11px] text-hero-fg/65">gasté de mis papás</p>
+            </div>
+            <div>
+              <p className="text-lg font-bold tabular text-hero-fg">
+                {formatCOP(monthIngreso - monthGastoMio)}
+              </p>
+              <p className="text-[11px] text-hero-fg/65">neto del mes</p>
             </div>
           </div>
         </div>
@@ -231,11 +290,25 @@ export function Finanzas() {
         </div>
       )}
 
-      {(gastoPorCategoria.length > 0 || recent.length > 0) && (
+      {(transactions.length > 0 || recent.length > 0) && (
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
-          {gastoPorCategoria.length > 0 && (
+          {transactions.length > 0 && (
             <Card>
-              <CardHeader title="Gasto por categoría" action={<span className="text-xs text-content-subtle">este mes</span>} />
+              <CardHeader
+                title="Gasto por categoría"
+                action={
+                  <SegmentedControl
+                    options={[
+                      { value: 'todo', label: 'Todo' },
+                      { value: 'mia', label: 'Mía' },
+                      { value: 'papas', label: 'Papás' },
+                    ]}
+                    value={catSource}
+                    onChange={(v) => setCatSource(v as MoneySource | 'todo')}
+                    ariaLabel="Con qué plata"
+                  />
+                }
+              />
               <div className="flex flex-col gap-3">
                 {gastoPorCategoria.map(([cat, val]) => (
                   <div key={cat}>
@@ -274,7 +347,7 @@ export function Finanzas() {
                         </p>
                         <p className="truncate text-xs text-content-muted">
                           {t.date}
-                          {acc ? ` · ${acc.name}` : ''}
+                          {t.source === 'papas' ? ' · Papás' : acc ? ` · ${acc.name}` : ''}
                           {t.sourceDetail ? ` · ${t.sourceDetail}` : ''}
                         </p>
                       </div>
@@ -399,13 +472,25 @@ function AccountForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
 
 function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [kind, setKind] = useState<TxKind>('gasto')
+  const [source, setSource] = useState<MoneySource>('mia')
   const [amount, setAmount] = useState('')
   const [accountId, setAccountId] = useState(fin.accounts[0]?.id ?? '')
   const [category, setCategory] = useState('')
-  const [source, setSource] = useState('')
+  const [newCategory, setNewCategory] = useState('')
+  const [addingCat, setAddingCat] = useState(false)
+  const [detail, setDetail] = useState('')
   const [description, setDescription] = useState('')
   const [date, setDate] = useState(todayISO())
   const cats = fin.categories.filter((c) => c.kind === kind)
+
+  function crearCategoria() {
+    const clean = newCategory.trim()
+    if (!clean) return
+    fin.addCategory(clean, kind)
+    setCategory(clean)
+    setNewCategory('')
+    setAddingCat(false)
+  }
 
   return (
     <Card padding="lg">
@@ -417,7 +502,11 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
               <button
                 key={k}
                 type="button"
-                onClick={() => setKind(k)}
+                onClick={() => {
+                  setKind(k)
+                  setCategory('')
+                  if (k === 'ingreso') setSource('mia')
+                }}
                 aria-pressed={kind === k}
                 className={cx(
                   'h-8 rounded-full px-3.5 text-[13px] font-semibold capitalize transition-colors',
@@ -434,6 +523,35 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
           </div>
         }
       />
+
+      {/* Lo primero: de quién es la plata. De eso depende si toca tus saldos. */}
+      {kind === 'gasto' && (
+        <div className="mb-3">
+          <p className="mb-1.5 text-xs font-semibold text-content-muted">¿Con qué plata?</p>
+          <div className="grid grid-cols-2 gap-2">
+            {SOURCES.map((sc) => (
+              <button
+                key={sc}
+                type="button"
+                onClick={() => setSource(sc)}
+                aria-pressed={source === sc}
+                className={cx(
+                  'flex min-h-[52px] flex-col items-center justify-center rounded-2xl text-[13px] font-bold transition-colors',
+                  source === sc
+                    ? 'bg-primary text-primary-on'
+                    : 'bg-surface-2 text-content-muted hover:text-content',
+                )}
+              >
+                {MONEY_SOURCE_META[sc].label}
+                <span className="text-[10px] font-medium opacity-70">
+                  {sc === 'mia' ? 'baja tu saldo' : 'no toca tu plata'}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <Field label="Monto (COP)">
           <TextInput
@@ -443,33 +561,69 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
             placeholder="0"
           />
         </Field>
-        <Field label="Cuenta">
-          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
-            <option value="">Sin cuenta</option>
-            {fin.accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-        </Field>
+
+        {source === 'mia' ? (
+          <Field label="Cuenta">
+            <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+              <option value="">Sin cuenta</option>
+              {fin.accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+        ) : (
+          <Field label="¿Cómo pagaron?" hint="Opcional: tarjeta de papá, efectivo, Nequi de mamá…">
+            <TextInput
+              value={detail}
+              onChange={(e) => setDetail(e.target.value)}
+              placeholder="Tarjeta de papá"
+            />
+          </Field>
+        )}
+
         <Field label="Categoría">
-          <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-            <option value="">Sin categoría</option>
-            {cats.map((c) => (
-              <option key={c.id} value={c.name}>
-                {c.name}
-              </option>
-            ))}
-          </Select>
+          {addingCat ? (
+            <div className="flex gap-1.5">
+              <TextInput
+                value={newCategory}
+                onChange={(e) => setNewCategory(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && crearCategoria()}
+                placeholder="Salidas a comer"
+                autoFocus
+              />
+              <Button variant="primary" onClick={crearCategoria}>
+                Crear
+              </Button>
+            </div>
+          ) : (
+            <div className="flex gap-1.5">
+              <Select
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                className="flex-1"
+              >
+                <option value="">Sin categoría</option>
+                {cats.map((c) => (
+                  <option key={c.id} value={c.name}>
+                    {c.name}
+                  </option>
+                ))}
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setAddingCat(true)}
+                aria-label="Crear categoría nueva"
+                title="Crear categoría nueva"
+              >
+                <Plus size={16} aria-hidden />
+              </Button>
+            </div>
+          )}
         </Field>
-        <Field label="Origen">
-          <TextInput
-            value={source}
-            onChange={(e) => setSource(e.target.value)}
-            placeholder="Opcional"
-          />
-        </Field>
+
         <Field label="Descripción">
           <TextInput
             value={description}
@@ -481,6 +635,7 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
           <DateInput value={date} onChange={(e) => setDate(e.target.value)} />
         </Field>
       </div>
+
       <Button
         variant="primary"
         size="lg"
@@ -492,9 +647,10 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
             date,
             amount: amt,
             kind,
-            accountId: accountId || undefined,
+            source: kind === 'ingreso' ? 'mia' : source,
+            accountId: source === 'mia' ? accountId || undefined : undefined,
             category: category || undefined,
-            sourceDetail: source || undefined,
+            sourceDetail: source === 'papas' ? detail || undefined : undefined,
             description: description || undefined,
           })
           onDone()
@@ -502,6 +658,82 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
       >
         Guardar movimiento
       </Button>
+    </Card>
+  )
+}
+
+/** Crear, renombrar y borrar las categorías de gasto y de ingreso. */
+function CategoriesPanel({ fin }: { fin: Fin }) {
+  const [kind, setKind] = useState<TxKind>('gasto')
+  const [nueva, setNueva] = useState('')
+  const cats = fin.categories.filter((c) => c.kind === kind)
+
+  return (
+    <Card padding="lg">
+      <CardHeader
+        title="Categorías"
+        action={
+          <SegmentedControl
+            options={[
+              { value: 'gasto', label: 'Gastos' },
+              { value: 'ingreso', label: 'Ingresos' },
+            ]}
+            value={kind}
+            onChange={(v) => setKind(v as TxKind)}
+            ariaLabel="Tipo de categoría"
+          />
+        }
+      />
+
+      <div className="mb-3 flex gap-1.5">
+        <TextInput
+          value={nueva}
+          onChange={(e) => setNueva(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key !== 'Enter') return
+            fin.addCategory(nueva, kind)
+            setNueva('')
+          }}
+          placeholder={kind === 'gasto' ? 'Salidas a comer' : 'Regalo'}
+        />
+        <Button
+          variant="primary"
+          onClick={() => {
+            fin.addCategory(nueva, kind)
+            setNueva('')
+          }}
+        >
+          Añadir
+        </Button>
+      </div>
+
+      <div className="flex flex-col">
+        {cats.map((c) => (
+          <div key={c.id} className="flex items-center gap-2 border-b border-line py-1.5 last:border-0">
+            <TextInput
+              value={c.name}
+              onChange={(e) => fin.renameCategory(c.id, e.target.value)}
+              aria-label={`Nombre de ${c.name}`}
+              className="flex-1 border-transparent bg-transparent px-1"
+            />
+            <button
+              type="button"
+              onClick={() => fin.removeCategory(c.id)}
+              aria-label={`Borrar ${c.name}`}
+              className="shrink-0 text-content-subtle transition-colors hover:text-danger"
+            >
+              <X size={14} aria-hidden />
+            </button>
+          </div>
+        ))}
+        {cats.length === 0 && (
+          <p className="text-sm text-content-muted">Todavía no hay categorías de este tipo.</p>
+        )}
+      </div>
+
+      <p className="mt-3 text-xs text-content-subtle">
+        Borrar una categoría no borra los movimientos que ya la usaban: siguen con su nombre.
+      </p>
     </Card>
   )
 }

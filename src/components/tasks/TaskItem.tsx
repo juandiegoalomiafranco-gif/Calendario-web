@@ -1,14 +1,19 @@
 import { Check } from 'lucide-react'
-import { TASK_KIND_META, URGENCY_META, type SchoolTask } from '../../data/schoolTypes'
+import {
+  PERSONAL_AREA_META,
+  TASK_KIND_META,
+  URGENCY_META,
+  type Task,
+} from '../../data/schoolTypes'
 import { colorOf } from '../../data/palette'
 import { useSchoolSetup } from '../../hooks/useSchool'
 import { relativeDay, todayIso } from '../../lib/dates'
 import { cx } from '../../lib/cx'
 
 interface TaskItemProps {
-  task: SchoolTask
+  task: Task
   onToggle: (id: string) => void
-  onOpen?: (task: SchoolTask) => void
+  onOpen?: (task: Task) => void
   /** Oculta la materia cuando la lista ya está dentro de una clase. */
   hideClass?: boolean
 }
@@ -19,6 +24,8 @@ interface TaskItemProps {
  */
 export function TaskItem({ task, onToggle, onOpen, hideClass }: TaskItemProps) {
   const { setup } = useSchoolSetup()
+  const personal = task.scope === 'personal'
+  const area = personal ? (PERSONAL_AREA_META[task.area ?? 'otro'] ?? PERSONAL_AREA_META.otro) : null
   const kind = TASK_KIND_META[task.kind] ?? TASK_KIND_META.tarea
   const urgency = URGENCY_META[task.urgency] ?? URGENCY_META.normal
   const cls = task.classCode ? setup.classes[task.classCode] : undefined
@@ -35,10 +42,22 @@ export function TaskItem({ task, onToggle, onOpen, hideClass }: TaskItemProps) {
     >
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
-            <kind.Icon size={12} strokeWidth={2.4} aria-hidden />
-            {kind.label}
-          </span>
+          {area ? (
+            <span
+              className={cx(
+                'inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide',
+                area.color.text,
+              )}
+            >
+              <area.Icon size={12} strokeWidth={2.4} aria-hidden />
+              {area.label}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-wide">
+              <kind.Icon size={12} strokeWidth={2.4} aria-hidden />
+              {kind.label}
+            </span>
+          )}
           {!hideClass && cls && clsColor && (
             <span className={cx('inline-flex items-center gap-1 text-[11px] font-semibold', clsColor.text)}>
               <span className={cx('h-1.5 w-1.5 rounded-full', clsColor.dot)} />
@@ -93,7 +112,7 @@ export function TaskItem({ task, onToggle, onOpen, hideClass }: TaskItemProps) {
         className={cx(
           'grid h-7 w-7 shrink-0 place-items-center rounded-full border transition-colors',
           task.done
-            ? 'border-transparent bg-ok text-white'
+            ? 'border-transparent bg-ok text-on-solid'
             : 'border-line-strong bg-surface/60 text-transparent hover:border-ok hover:text-ok',
         )}
       >

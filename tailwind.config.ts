@@ -53,6 +53,15 @@ export default {
           strong: token('accent-strong'),
           soft: token('accent-soft'),
         },
+        /** Texto sobre fondos saturados: blanco en claro, casi negro en oscuro. */
+        'on-solid': token('on-solid'),
+        hero: {
+          from: token('hero-from'),
+          to: token('hero-to'),
+          fg: token('hero-fg'),
+          ok: token('hero-ok'),
+          danger: token('hero-danger'),
+        },
         ok: { DEFAULT: token('ok'), soft: token('ok-soft') },
         warn: { DEFAULT: token('warn'), soft: token('warn-soft') },
         danger: { DEFAULT: token('danger'), soft: token('danger-soft') },

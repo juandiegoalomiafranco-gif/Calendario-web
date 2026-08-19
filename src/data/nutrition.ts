@@ -51,7 +51,7 @@ const E1: DietScenario = {
   hydration: 'Agua: 2,5-3 L en el día.',
   atomix: 'Atomix SOLO después del gym si sudó mucho o hizo calor (5-10 g en 500 ml). En sesión normal, agua simple.',
   creatina: 'Creatina 3-5 g en el batido post-entreno.',
-  color: 'bg-primary',
+  color: 'bg-cat-orange',
   meals: [
     {
       id: 'E1-desayuno',

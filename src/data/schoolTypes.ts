@@ -1,8 +1,15 @@
 import {
   BookOpen,
+  Brush,
   ClipboardCheck,
   FileText,
   GraduationCap,
+  HeartPulse,
+  House,
+  Landmark,
+  ShoppingCart,
+  Sparkles,
+  Users,
   type LucideIcon,
 } from 'lucide-react'
 import { COLORS, type ColorKey, type ColorStyles } from './palette'
@@ -87,21 +94,64 @@ export interface ClassNote {
   important: boolean
 }
 
-export interface SchoolTask {
+/** De dónde sale el pendiente: del colegio o de la vida en la casa. */
+export type TaskScope = 'colegio' | 'personal'
+
+/** Áreas de los pendientes personales, para no mezclarlo todo en una lista. */
+export type PersonalArea = 'casa' | 'familia' | 'salud' | 'compras' | 'papeleo' | 'amigos' | 'otro'
+
+/**
+ * Un pendiente, sea del colegio o de la casa. Los dos viven en la misma tabla para
+ * que el calendario, «Hoy» y Pendientes tengan un único origen de datos: lo que se
+ * programa desde una clase aparece solo en todas partes.
+ */
+export interface Task {
   id: string
+  scope: TaskScope
+  /** Solo en los del colegio. */
   classCode?: string
+  /** Solo en los personales. */
+  area?: PersonalArea
   title: string
   detail?: string
   dueDate?: string // YYYY-MM-DD
+  /** Grado de importancia. Aplica a los dos tipos. */
   urgency: Urgency
   kind: TaskKind
   done: boolean
 }
 
+/** Nombre anterior, mientras quede código que lo use. */
+export type SchoolTask = Task
+
+export const PERSONAL_AREA_META: Record<
+  PersonalArea,
+  { label: string; Icon: LucideIcon; color: ColorStyles }
+> = {
+  casa: { label: 'Casa', Icon: House, color: COLORS.amber },
+  familia: { label: 'Familia', Icon: Users, color: COLORS.rose },
+  salud: { label: 'Salud', Icon: HeartPulse, color: COLORS.teal },
+  compras: { label: 'Compras', Icon: ShoppingCart, color: COLORS.green },
+  papeleo: { label: 'Papeleo', Icon: Landmark, color: COLORS.blue },
+  amigos: { label: 'Amigos', Icon: Sparkles, color: COLORS.violet },
+  otro: { label: 'Otro', Icon: Brush, color: COLORS.slate },
+}
+
+export const PERSONAL_AREA_ORDER: PersonalArea[] = [
+  'casa',
+  'familia',
+  'salud',
+  'compras',
+  'papeleo',
+  'amigos',
+  'otro',
+]
+
+/** Grado de importancia. Sirve igual para una entrega del colegio y para algo de casa. */
 export const URGENCY_META: Record<Urgency, { label: string; color: ColorStyles }> = {
-  urgente: { label: 'Urgente', color: COLORS.rose },
-  normal: { label: 'Normal', color: COLORS.amber },
-  puede_esperar: { label: 'Puede esperar', color: COLORS.slate },
+  urgente: { label: 'Alta', color: COLORS.rose },
+  normal: { label: 'Media', color: COLORS.amber },
+  puede_esperar: { label: 'Baja', color: COLORS.slate },
 }
 
 export const TASK_KIND_META: Record<

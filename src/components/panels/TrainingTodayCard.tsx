@@ -70,7 +70,7 @@ export function TrainingTodayCard({ className }: { className?: string }) {
                   className={cx(
                     'grid h-8 w-8 shrink-0 place-items-center rounded-full border transition-colors',
                     done
-                      ? 'border-transparent bg-ok text-white'
+                      ? 'border-transparent bg-ok text-on-solid'
                       : 'border-line-strong text-content-subtle hover:border-ok hover:text-ok',
                   )}
                 >

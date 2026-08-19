@@ -59,25 +59,25 @@ export function Comida() {
           <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
             <div
               className={cx(
-                'rounded-3xl p-5 text-white shadow-card lg:col-span-2',
+                'rounded-3xl p-5 text-on-solid shadow-card lg:col-span-2',
                 scenario.color,
               )}
             >
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-on-solid/75">
                 {scenarioOverride ? 'Elegido por ti' : 'Sugerido por tu entreno'}
               </p>
               <p className="mt-0.5 text-2xl font-extrabold leading-tight tracking-tight">
                 {scenario.code} · {scenario.name}
               </p>
-              <p className="mt-1 text-sm text-white/85">{scenario.subtitle}</p>
+              <p className="mt-1 text-sm text-on-solid/85">{scenario.subtitle}</p>
               <div className="mt-4 flex gap-6">
                 <div>
                   <p className="text-2xl font-extrabold tabular">{scenario.kcal}</p>
-                  <p className="text-[11px] text-white/70">kcal aprox.</p>
+                  <p className="text-[11px] text-on-solid/70">kcal aprox.</p>
                 </div>
                 <div>
                   <p className="text-2xl font-extrabold tabular">{scenario.carbsG} g</p>
-                  <p className="text-[11px] text-white/70">carbohidratos</p>
+                  <p className="text-[11px] text-on-solid/70">carbohidratos</p>
                 </div>
               </div>
             </div>
@@ -269,14 +269,14 @@ function ScenarioBlock({ scenario }: { scenario: DietScenario }) {
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className={cx('w-full p-4 text-left text-white', scenario.color)}
+        className={cx('w-full p-4 text-left text-on-solid', scenario.color)}
       >
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-base font-bold">
               {scenario.code} · {scenario.name}
             </p>
-            <p className="text-xs text-white/80">
+            <p className="text-xs text-on-solid/75">
               {scenario.kcal} kcal · {scenario.carbsG} g carb · {scenario.triggerRule}
             </p>
           </div>

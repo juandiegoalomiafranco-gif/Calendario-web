@@ -65,7 +65,7 @@ export function TopBar() {
           </Link>
 
           <div className="ml-1 flex items-center gap-2.5 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-bold text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-bold text-on-solid">
               JD
             </span>
             <span className="leading-tight">

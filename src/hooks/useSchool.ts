@@ -1,12 +1,14 @@
 import { useCallback, useMemo } from 'react'
 import type {
   ClassNote,
+  PersonalArea,
   PeriodDef,
   SchoolClass,
   SchoolConfig,
   SchoolSetup,
   SchoolTask,
   TaskKind,
+  TaskScope,
   Urgency,
 } from '../data/schoolTypes'
 import { DEFAULT_SETUP } from '../data/schoolTimetable'
@@ -53,6 +55,8 @@ interface TaskRow {
   urgency: string | null
   kind: string | null
   done: boolean | null
+  scope: string | null
+  area: string | null
 }
 
 const configStore = createSingleton<SchoolConfig, ConfigRow>({
@@ -110,7 +114,9 @@ const tasksStore = createCollection<SchoolTask, TaskRow>({
   table: 'tasks',
   rowToItem: (r) => ({
     id: r.id,
+    scope: r.scope === 'personal' ? 'personal' : 'colegio',
     classCode: r.class_code ?? undefined,
+    area: (r.area as PersonalArea | null) ?? undefined,
     title: r.title,
     detail: r.notes ?? undefined,
     dueDate: r.due_date ?? undefined,
@@ -122,14 +128,15 @@ const tasksStore = createCollection<SchoolTask, TaskRow>({
   itemToRow: (t, userId) => ({
     id: t.id,
     user_id: userId,
+    scope: t.scope,
     class_code: t.classCode ?? null,
+    area: t.area ?? null,
     title: t.title,
     notes: t.detail ?? null,
     due_date: t.dueDate ?? null,
     urgency: t.urgency,
     kind: t.kind,
     done: t.done,
-    updated_at: new Date().toISOString(),
   }),
 })
 
@@ -285,8 +292,19 @@ export function useTasks(classCode?: string) {
   )
 
   const addTask = useCallback(
-    (task: Omit<SchoolTask, 'id' | 'done' | 'kind'> & { kind?: TaskKind }) => {
-      tasksStore.upsert({ ...task, kind: task.kind ?? 'tarea', id: newId(), done: false })
+    (
+      task: Omit<SchoolTask, 'id' | 'done' | 'kind' | 'scope'> & {
+        kind?: TaskKind
+        scope?: TaskScope
+      },
+    ) => {
+      tasksStore.upsert({
+        ...task,
+        scope: task.scope ?? (task.classCode ? 'colegio' : 'personal'),
+        kind: task.kind ?? 'tarea',
+        id: newId(),
+        done: false,
+      })
     },
     [],
   )
