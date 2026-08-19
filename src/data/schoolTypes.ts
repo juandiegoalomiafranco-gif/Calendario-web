@@ -25,6 +25,12 @@ export interface SchoolClass {
   teacher: string
   /** Clave de la paleta compartida (`src/data/palette.ts`). */
   color: ColorKey
+  /**
+   * Unidades o temas de la materia. Se van creando desde el formulario de nota y
+   * quedan guardadas aquí, para no volver a escribir «Derivadas» en cada nota y
+   * para poder filtrar las notas por unidad.
+   */
+  units?: string[]
 }
 
 /** Un periodo del día: su nombre, su horario y si es clase o descanso. */

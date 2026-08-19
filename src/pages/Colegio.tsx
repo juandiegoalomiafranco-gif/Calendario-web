@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { CalendarOff, Clock, MapPin, Settings2 } from 'lucide-react'
+import { CalendarOff, Clock, MapPin, Plus, Settings2 } from 'lucide-react'
 import { resolveDay } from '../lib/school'
 import { useSchoolConfig, useSchoolSetup, useTasks } from '../hooks/useSchool'
 import { useSchoolDay } from '../hooks/useSchoolDay'
@@ -10,6 +10,7 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { UrgentTasksCard } from '../components/panels/UrgentTasksCard'
+import { AddItemSheet } from '../components/school/AddItemSheet'
 
 const CYCLE_DAYS = [1, 2, 3, 4, 5, 6]
 
@@ -23,6 +24,7 @@ export function Colegio() {
 
   const [selectedDay, setSelectedDay] = useState<number>(cycle.cycleDay ?? 1)
   const [fixing, setFixing] = useState(false)
+  const [addingFor, setAddingFor] = useState<string | null>(null)
 
   // El horario de muestra usa las horas de HOY (el miércoles son más cortas).
   const slots = useMemo(() => resolveDay(setup, selectedDay, iso), [setup, selectedDay, iso])
@@ -152,14 +154,17 @@ export function Colegio() {
                 const isNow = cycle.cycleDay === selectedDay
 
                 return (
-                  <li key={slot.period}>
+                  <li
+                    key={slot.period}
+                    className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
+                  >
                     <Link
                       to={
                         slot.classCode
                           ? `/colegio/clase/${encodeURIComponent(slot.classCode)}`
                           : '/materias'
                       }
-                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-2"
+                      className="flex min-w-0 flex-1 items-center gap-3"
                     >
                       <span className="w-24 shrink-0 text-xs tabular text-content-muted">
                         {slot.start}–{slot.end}
@@ -189,6 +194,20 @@ export function Colegio() {
                         </span>
                       )}
                     </Link>
+
+                    {/* Programar una tarea sin salir del horario */}
+                    {slot.classCode && (
+                      <button
+                        type="button"
+                        onClick={() => setAddingFor(slot.classCode)}
+                        aria-label={`Añadir tarea de ${slot.cls.name}`}
+                        title="Añadir tarea"
+                        className="inline-flex h-8 shrink-0 items-center gap-1 rounded-full border border-line px-2.5 text-[11px] font-bold text-content-muted transition-colors hover:border-primary hover:text-content"
+                      >
+                        <Plus size={12} strokeWidth={2.6} aria-hidden />
+                        Tarea
+                      </button>
+                    )}
                   </li>
                 )
               })}
@@ -211,6 +230,13 @@ export function Colegio() {
           </Link>
         </Card>
       </div>
+
+      <AddItemSheet
+        open={addingFor != null}
+        onClose={() => setAddingFor(null)}
+        classCode={addingFor ?? undefined}
+        date={iso}
+      />
     </div>
   )
 }

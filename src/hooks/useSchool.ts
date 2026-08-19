@@ -197,6 +197,40 @@ export function useSchoolSetup() {
     [mutate],
   )
 
+  /** Añade una unidad a la materia si no la tenía ya. */
+  const addUnit = useCallback(
+    (code: string, unit: string) => {
+      const clean = unit.trim()
+      if (!clean) return
+      mutate((s) => {
+        const cls = s.classes[code]
+        if (!cls) return s
+        const units = cls.units ?? []
+        if (units.some((u) => u.toLowerCase() === clean.toLowerCase())) return s
+        return { ...s, classes: { ...s.classes, [code]: { ...cls, units: [...units, clean] } } }
+      })
+    },
+    [mutate],
+  )
+
+  /** Quita una unidad de la materia. Las notas que la usaban conservan su texto. */
+  const removeUnit = useCallback(
+    (code: string, unit: string) => {
+      mutate((s) => {
+        const cls = s.classes[code]
+        if (!cls) return s
+        return {
+          ...s,
+          classes: {
+            ...s.classes,
+            [code]: { ...cls, units: (cls.units ?? []).filter((u) => u !== unit) },
+          },
+        }
+      })
+    },
+    [mutate],
+  )
+
   /** Borra la materia y la quita de todos los periodos donde estuviera. */
   const removeClass = useCallback(
     (code: string) => {
@@ -261,6 +295,8 @@ export function useSchoolSetup() {
     setSlot,
     setPeriods,
     setDayType,
+    addUnit,
+    removeUnit,
     resetSetup,
     isCustom,
   }
@@ -274,14 +310,26 @@ export function useClassNotes(classCode?: string) {
   )
 
   const addNote = useCallback((note: Omit<ClassNote, 'id'>) => {
-    notesStore.upsert({ ...note, id: newId() })
+    const created = { ...note, id: newId() }
+    notesStore.upsert(created)
+    return created
+  }, [])
+
+  const updateNote = useCallback((note: ClassNote) => {
+    notesStore.upsert(note)
   }, [])
 
   const removeNote = useCallback((id: string) => {
     notesStore.remove(id)
   }, [])
 
-  return { notes, addNote, removeNote }
+  return { notes, addNote, updateNote, removeNote }
+}
+
+/** Una nota concreta por id, para abrirla a página completa. */
+export function useClassNote(id?: string) {
+  const all = notesStore.useAll()
+  return useMemo(() => (id ? all.find((n) => n.id === id) : undefined), [all, id])
 }
 
 export function useTasks(classCode?: string) {

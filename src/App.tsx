@@ -9,6 +9,7 @@ import { Progress } from './pages/Progress'
 import { Settings } from './pages/Settings'
 import { Colegio } from './pages/Colegio'
 import { ClassDetail } from './pages/ClassDetail'
+import { NotaDetalle } from './pages/NotaDetalle'
 import { Clases } from './pages/Clases'
 import { Materias } from './pages/Materias'
 import { Entreno } from './pages/Entreno'
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/" element={<Today />} />
           <Route path="/colegio" element={<Colegio />} />
           <Route path="/colegio/clase/:code" element={<ClassDetail />} />
+          <Route path="/colegio/clase/:code/nota/:id" element={<NotaDetalle />} />
           <Route path="/clases" element={<Clases />} />
           <Route path="/materias" element={<Materias />} />
           <Route path="/entreno" element={<Entreno />} />
