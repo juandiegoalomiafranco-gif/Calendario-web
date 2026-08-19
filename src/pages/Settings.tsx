@@ -1,6 +1,6 @@
 import { HeartPulse, Palette } from 'lucide-react'
 import { useSettings } from '../hooks/useSettings'
-import { PinSettings } from '../components/PinSettings'
+import { AccountSettings } from '../components/AccountSettings'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Field, NumberInput, TextArea } from '../components/ui/Field'
@@ -38,7 +38,7 @@ export function Settings() {
             </div>
           </Card>
 
-          <PinSettings />
+          <AccountSettings />
         </div>
 
         <div className="flex flex-col gap-4 lg:gap-5">

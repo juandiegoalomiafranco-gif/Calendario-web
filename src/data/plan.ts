@@ -310,7 +310,8 @@ export function getDayPlan(date: string): DayPlan | undefined {
   return PLAN.find((d) => d.date === date)
 }
 
-export function todayISO(): string {
-  const d = new Date()
-  return d.toISOString().slice(0, 10)
-}
+/**
+ * Alias histórico de `todayIso`. El «hoy» de toda la app vive en un solo sitio
+ * (`src/lib/dates.ts`) y se resuelve en hora de Colombia.
+ */
+export { todayIso as todayISO } from '../lib/dates'

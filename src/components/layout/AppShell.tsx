@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { cx } from '../../lib/cx'
 import { NowNextCard } from '../panels/NowNextCard'
 import { UrgentTasksCard } from '../panels/UrgentTasksCard'
+import { SyncBanner } from '../SyncIndicator'
 import { BottomNav } from './BottomNav'
 import { IconRail } from './IconRail'
 import { TopBar } from './TopBar'
@@ -38,7 +39,10 @@ export function AppShell({ children }: { children: ReactNode }) {
             showContext && 'xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-7',
           )}
         >
-          <main className="min-w-0">{children}</main>
+          <main className="min-w-0">
+            <SyncBanner />
+            {children}
+          </main>
 
           {showContext && (
             <aside className="sticky top-[calc(4rem+1.75rem)] hidden flex-col gap-4 xl:flex">

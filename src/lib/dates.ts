@@ -1,8 +1,20 @@
 /**
- * Utilidades de fecha en ISO (YYYY-MM-DD). Todo se interpreta en UTC —igual que
- * `weekdayOf` de data/plan.ts y `cycle.ts`— para que el día nunca se corra por la
- * zona horaria. Este archivo es el único sitio donde viven estas operaciones.
+ * Utilidades de fecha en ISO (YYYY-MM-DD). Este archivo es el único sitio donde
+ * viven estas operaciones.
+ *
+ * Dos relojes distintos, a propósito:
+ *
+ *  - La ARITMÉTICA entre fechas ISO se hace en UTC (sumar días, día de la semana,
+ *    rejilla del mes). Así una fecha como '2026-08-19' significa siempre lo mismo,
+ *    sin que el horario de verano de ninguna zona la corra un día.
+ *  - «AHORA» (qué día es hoy, qué hora es) se resuelve SIEMPRE en América/Bogotá.
+ *    Antes se usaba `new Date().toISOString()`, que es UTC: de 7 pm a medianoche
+ *    Colombia la app ya creía que era el día siguiente, así que cambiaba el día del
+ *    ciclo, adelantaba los pendientes y fechaba mal los gastos de la noche.
  */
+
+/** La app vive en Colombia; no depende de cómo tenga el reloj el dispositivo. */
+export const TIME_ZONE = 'America/Bogota'
 
 export const MONTHS = [
   'enero',
@@ -43,9 +55,28 @@ export function toIso(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-/** Fecha de hoy en ISO. */
-export function todayIso(): string {
-  return new Date().toISOString().slice(0, 10)
+const ISO_IN_BOGOTA = new Intl.DateTimeFormat('en-CA', {
+  timeZone: TIME_ZONE,
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+})
+
+const CLOCK_IN_BOGOTA = new Intl.DateTimeFormat('en-GB', {
+  timeZone: TIME_ZONE,
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+})
+
+/** Fecha de hoy en Colombia, en ISO. `en-CA` ya formatea como YYYY-MM-DD. */
+export function todayIso(now = new Date()): string {
+  return ISO_IN_BOGOTA.format(now)
+}
+
+/** Hora actual en Colombia como "HH:MM". */
+export function nowClock(now = new Date()): string {
+  return CLOCK_IN_BOGOTA.format(now)
 }
 
 export function addDays(iso: string, days: number): string {
@@ -165,9 +196,12 @@ export function toMinutes(time: string): number {
   return h * 60 + (m || 0)
 }
 
-/** Minutos transcurridos hoy, para saber qué clase está en curso. */
+/**
+ * Minutos transcurridos hoy en Colombia, para saber qué clase está en curso.
+ * En hora local del dispositivo fallaría en cuanto viajara o tuviera mal el reloj.
+ */
 export function nowMinutes(now = new Date()): number {
-  return now.getHours() * 60 + now.getMinutes()
+  return toMinutes(nowClock(now))
 }
 
 /** "8:10" a partir de minutos desde medianoche. */

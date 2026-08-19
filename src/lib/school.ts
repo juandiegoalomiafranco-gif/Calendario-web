@@ -1,6 +1,16 @@
-import type { PeriodDef, SchoolClass, SchoolSetup, TimetableSlot } from '../data/schoolTypes'
+import type {
+  LegacySchoolSetup,
+  PeriodDef,
+  SchoolClass,
+  SchoolSetup,
+  TimetableSlot,
+} from '../data/schoolTypes'
+import {
+  DEFAULT_DAY_TYPE_BY_WEEKDAY,
+  DEFAULT_PERIOD_SETS,
+} from '../data/schoolTimetable'
 import { colorOf, type ColorStyles } from '../data/palette'
-import { nowMinutes, toMinutes } from './dates'
+import { nowMinutes, toMinutes, weekdayIndex } from './dates'
 
 /** Un periodo del día ya resuelto: horario, materia y colores listos para pintar. */
 export interface ResolvedSlot extends TimetableSlot {
@@ -21,16 +31,55 @@ const UNKNOWN_CLASS: SchoolClass = {
 }
 
 /**
- * Clases de un día del ciclo con su horario resuelto a partir de los periodos.
- * Los descansos (recreo, almuerzo) se incluyen para poder dibujar el día completo;
- * filtra por `kind === 'class'` si sólo quieres las clases.
+ * Sube al formato actual un horario guardado con la forma antigua (un solo juego de
+ * horas para los seis días). Sin esto, un setup ya guardado dejaría la app sin
+ * horario al añadir el miércoles corto.
  */
-export function resolveDay(setup: SchoolSetup, cycleDay: number | null): ResolvedSlot[] {
+export function normalizeSetup(raw: LegacySchoolSetup | SchoolSetup): SchoolSetup {
+  const legacy = raw as LegacySchoolSetup
+  const periodSets =
+    legacy.periodSets ??
+    (legacy.periods
+      ? { ...DEFAULT_PERIOD_SETS, normal: legacy.periods }
+      : DEFAULT_PERIOD_SETS)
+  return {
+    periodSets,
+    dayTypeByWeekday: legacy.dayTypeByWeekday ?? DEFAULT_DAY_TYPE_BY_WEEKDAY,
+    classes: raw.classes,
+    timetable: raw.timetable,
+  }
+}
+
+/** Qué tipo de día es esa fecha ('normal', 'miercoles', …). */
+export function dayTypeFor(setup: SchoolSetup, dateIso?: string): string {
+  if (!dateIso) return 'normal'
+  return setup.dayTypeByWeekday[weekdayIndex(dateIso)] ?? 'normal'
+}
+
+/** Las horas que rigen esa fecha. Sin fecha, el día normal. */
+export function periodsFor(setup: SchoolSetup, dateIso?: string): PeriodDef[] {
+  const type = dayTypeFor(setup, dateIso)
+  return setup.periodSets[type] ?? setup.periodSets.normal ?? []
+}
+
+/**
+ * Clases de un día del ciclo con su horario resuelto.
+ *
+ * Las MATERIAS vienen del día del ciclo (1..6) y las HORAS de la fecha, porque el
+ * miércoles el colegio sale a la 1:00 pm con un solo recreo. Los descansos se
+ * incluyen para poder dibujar el día completo; filtra por `kind === 'class'` si
+ * sólo quieres las clases.
+ */
+export function resolveDay(
+  setup: SchoolSetup,
+  cycleDay: number | null,
+  dateIso?: string,
+): ResolvedSlot[] {
   if (!cycleDay) return []
   const slots = setup.timetable[cycleDay] ?? []
   const byPeriod = new Map(slots.map((s) => [s.period, s]))
 
-  return setup.periods.map((p) => {
+  return periodsFor(setup, dateIso).map((p) => {
     const slot = byPeriod.get(p.period)
     const cls = slot ? (setup.classes[slot.classCode] ?? UNKNOWN_CLASS) : UNKNOWN_CLASS
     return {

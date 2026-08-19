@@ -4,7 +4,6 @@ import { CalendarOff, Clock, MapPin, Plus, Settings2 } from 'lucide-react'
 import { cycleInfoFor } from '../lib/cycle'
 import { classesOnly, resolveDay, type ResolvedSlot } from '../lib/school'
 import { useSchoolConfig, useSchoolSetup, useTasks } from '../hooks/useSchool'
-import { holidayName } from '../data/holidays'
 import { TASK_KIND_META, type TaskKind } from '../data/schoolTypes'
 import { addDays, formatFull, relativeDay, todayIso } from '../lib/dates'
 import { cx } from '../lib/cx'
@@ -24,7 +23,8 @@ const RANGES = [
 interface DayBlock {
   date: string
   cycleDay: number | null
-  holiday?: string
+  /** Por qué no hay clases: festivo, receso, Semana Santa… */
+  noSchool?: string
   classes: ResolvedSlot[]
 }
 
@@ -52,8 +52,8 @@ export function Clases() {
       out.push({
         date,
         cycleDay: cycle.cycleDay,
-        holiday: holidayName(date),
-        classes: classesOnly(resolveDay(setup, cycle.cycleDay)),
+        noSchool: cycle.reason,
+        classes: classesOnly(resolveDay(setup, cycle.cycleDay, date)),
       })
     }
     return out
@@ -110,7 +110,7 @@ export function Clases() {
             {day.classes.length === 0 ? (
               <div className="flex items-center gap-2.5 px-4 py-5 text-sm text-content-muted">
                 <CalendarOff size={17} className="text-content-subtle" aria-hidden />
-                {day.holiday ? `Festivo · ${day.holiday}` : 'Sin clases este día.'}
+                {day.noSchool ?? 'Sin clases este día.'}
               </div>
             ) : (
               <ul className="divide-y divide-line">

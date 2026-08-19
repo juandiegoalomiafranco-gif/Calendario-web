@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarOff, Clock, MapPin, Settings2 } from 'lucide-react'
-import { holidayName } from '../data/holidays'
 import { resolveDay } from '../lib/school'
 import { useSchoolConfig, useSchoolSetup, useTasks } from '../hooks/useSchool'
 import { useSchoolDay } from '../hooks/useSchoolDay'
@@ -25,8 +24,8 @@ export function Colegio() {
   const [selectedDay, setSelectedDay] = useState<number>(cycle.cycleDay ?? 1)
   const [fixing, setFixing] = useState(false)
 
-  const slots = useMemo(() => resolveDay(setup, selectedDay), [setup, selectedDay])
-  const holiday = holidayName(iso)
+  // El horario de muestra usa las horas de HOY (el miércoles son más cortas).
+  const slots = useMemo(() => resolveDay(setup, selectedDay, iso), [setup, selectedDay, iso])
 
   /** Pendientes abiertos por materia, para avisar en la propia fila del horario. */
   const openByClass = useMemo(() => {
@@ -64,7 +63,7 @@ export function Colegio() {
                 Día {cycle.cycleDay}
               </p>
               <p className="mt-1 text-sm opacity-80">
-                {resolveDay(setup, cycle.cycleDay).filter((s) => s.kind === 'class' && s.classCode)
+                {resolveDay(setup, cycle.cycleDay, iso).filter((s) => s.kind === 'class' && s.classCode)
                   .length}{' '}
                 clases
               </p>
@@ -72,7 +71,7 @@ export function Colegio() {
           ) : (
             <>
               <p className="text-2xl font-extrabold leading-tight tracking-tight">
-                {holiday ? `Festivo · ${holiday}` : 'Sin colegio'}
+                {cycle.reason ?? 'Sin colegio'}
               </p>
               <p className="mt-1 text-sm opacity-80">El ciclo no avanza hoy.</p>
             </>

@@ -36,12 +36,27 @@ export interface TimetableSlot {
 }
 
 /**
- * Horario completo y editable: los periodos del día, las materias y qué va en cada
- * periodo de cada uno de los 6 días del ciclo. Se siembra con el horario real de
- * Juan Diego y a partir de ahí se edita desde la app.
+ * Horario completo y editable.
+ *
+ * En el CCB las MATERIAS salen del día del ciclo (1..6) pero las HORAS salen del día
+ * de la semana: el miércoles se sale a la 1:00 pm y solo hay un recreo. Por eso hay
+ * varios juegos de horas (`periodSets`) y un mapa de qué juego usa cada día de la
+ * semana. Se siembra con el horario real de Juan Diego y desde ahí se edita en la app.
  */
 export interface SchoolSetup {
-  periods: PeriodDef[]
+  /** Juegos de horas por tipo de día: 'normal', 'miercoles', … */
+  periodSets: Record<string, PeriodDef[]>
+  /** Qué juego de horas usa cada día. Índice 0 = lunes … 6 = domingo. */
+  dayTypeByWeekday: string[]
+  classes: Record<string, SchoolClass>
+  timetable: Record<number, TimetableSlot[]>
+}
+
+/** Forma antigua (un solo juego de horas), para poder leer lo ya guardado. */
+export interface LegacySchoolSetup {
+  periods?: PeriodDef[]
+  periodSets?: Record<string, PeriodDef[]>
+  dayTypeByWeekday?: string[]
   classes: Record<string, SchoolClass>
   timetable: Record<number, TimetableSlot[]>
 }
@@ -54,6 +69,11 @@ export interface SchoolConfig {
   overrides: { date: string; day: number }[]
   /** Materias y horario editables. Si falta, se usa la semilla. */
   setup?: SchoolSetup
+  /**
+   * Días sin clase añadidos a mano, para los que el colegio anuncia sobre la marcha
+   * y no están en el calendario oficial. Congelan el ciclo igual que un festivo.
+   */
+  noClassDays: string[]
 }
 
 export interface ClassNote {

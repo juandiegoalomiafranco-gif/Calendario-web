@@ -9,6 +9,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { COLORS, type ColorStyles } from '../data/palette'
+import { SCHOOL_EVENTS } from '../data/schoolCalendar'
 import { createCollection, newId } from '../lib/cloudStore'
 
 export type EventType = 'personal' | 'colegio' | 'salud' | 'viaje' | 'cumpleanos' | 'otro'
@@ -23,6 +24,8 @@ export interface CalendarEvent {
   /** Hora opcional, "18:30". */
   time?: string
   notes?: string
+  /** 'colegio' = sembrado del calendario oficial; 'propio' = puesto por ti. */
+  source?: 'colegio' | 'propio'
 }
 
 export const EVENT_TYPE_META: Record<
@@ -54,6 +57,7 @@ interface EventRow {
   important: boolean | null
   time: string | null
   notes: string | null
+  source: string | null
 }
 
 const store = createCollection<CalendarEvent, EventRow>({
@@ -68,6 +72,7 @@ const store = createCollection<CalendarEvent, EventRow>({
     important: r.important ?? r.type === 'importante',
     time: r.time ?? undefined,
     notes: r.notes ?? undefined,
+    source: r.source === 'colegio' ? 'colegio' : 'propio',
   }),
   itemToRow: (e, userId) => ({
     id: e.id,
@@ -78,15 +83,78 @@ const store = createCollection<CalendarEvent, EventRow>({
     important: e.important,
     time: e.time ?? null,
     notes: e.notes ?? null,
-    updated_at: new Date().toISOString(),
+    source: e.source ?? 'propio',
   }),
 })
+
+/**
+ * Id estable a partir de la fecha y el título. El calendario del colegio se siembra
+ * en cada dispositivo, así que los ids tienen que coincidir: si fueran aleatorios,
+ * el celular y el computador crearían dos copias de cada evento.
+ */
+function seedId(date: string, title: string): string {
+  const src = `ccb|${date}|${title}`
+  // Cuatro hashes FNV-1a con semillas distintas → 32 hex, con forma de UUID v4.
+  const parts = [0x811c9dc5, 0x01000193, 0x7f4a7c15, 0x9e3779b9].map((seed) => {
+    let h = seed >>> 0
+    for (let i = 0; i < src.length; i++) {
+      h ^= src.charCodeAt(i)
+      h = Math.imul(h, 0x01000193) >>> 0
+    }
+    return h.toString(16).padStart(8, '0')
+  })
+  const h = parts.join('')
+  return [
+    h.slice(0, 8),
+    h.slice(8, 12),
+    `4${h.slice(13, 16)}`,
+    `8${h.slice(17, 20)}`,
+    h.slice(20, 32),
+  ].join('-')
+}
+
+/** Los eventos del calendario oficial, listos para insertar. */
+export function schoolSeedEvents(): CalendarEvent[] {
+  return SCHOOL_EVENTS.map((e) => ({
+    id: seedId(e.date, e.title),
+    date: e.date,
+    title: e.title,
+    type: 'colegio' as EventType,
+    important: e.important ?? false,
+    time: e.time,
+    notes: e.notes,
+    source: 'colegio' as const,
+  }))
+}
+
+/**
+ * Siembra automática, una vez por dispositivo. Los ids son deterministas, así que
+ * si el celular y el computador siembran a la vez el resultado es el mismo: una
+ * sola copia de cada evento. Si algún día borras eventos del colegio a mano, no
+ * vuelven solos — la bandera ya quedó puesta.
+ */
+const SEED_FLAG = 'mivida:school-calendar-seeded:2026-2027'
+
+if (typeof localStorage !== 'undefined' && !localStorage.getItem(SEED_FLAG)) {
+  localStorage.setItem(SEED_FLAG, '1')
+  for (const e of schoolSeedEvents()) store.upsert(e)
+}
 
 export function useCalendarEvents() {
   const events = store.useAll()
 
+  /** Mete el año escolar completo. Es idempotente: repetirlo no duplica nada. */
+  const seedSchoolYear = useCallback(() => {
+    for (const e of schoolSeedEvents()) store.upsert(e)
+  }, [])
+
+  /** Quita solo lo sembrado por el colegio, dejando intacto lo tuyo. */
+  const clearSchoolYear = useCallback(() => {
+    for (const e of store.get()) if (e.source === 'colegio') store.remove(e.id)
+  }, [])
+
   const addEvent = useCallback((event: Omit<CalendarEvent, 'id'>) => {
-    store.upsert({ ...event, id: newId() })
+    store.upsert({ ...event, id: newId(), source: event.source ?? 'propio' })
   }, [])
 
   const updateEvent = useCallback((event: CalendarEvent) => {
@@ -102,5 +170,13 @@ export function useCalendarEvents() {
     store.remove(id)
   }, [])
 
-  return { events, addEvent, updateEvent, toggleImportant, removeEvent }
+  return {
+    events,
+    addEvent,
+    updateEvent,
+    toggleImportant,
+    removeEvent,
+    seedSchoolYear,
+    clearSchoolYear,
+  }
 }

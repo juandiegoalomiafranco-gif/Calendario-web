@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from 'react'
 import type {
   ClassNote,
+  PeriodDef,
   SchoolClass,
   SchoolConfig,
   SchoolSetup,
@@ -9,13 +10,20 @@ import type {
   Urgency,
 } from '../data/schoolTypes'
 import { DEFAULT_SETUP } from '../data/schoolTimetable'
+import { normalizeSetup } from '../lib/school'
 import { createCollection, createSingleton, newId } from '../lib/cloudStore'
 
-// Ancla por defecto (ajustable desde la app con «hoy es el Día N», que crea un reinicio).
+/**
+ * Ancla del ciclo: el miércoles 19 de agosto de 2026, primer día de clases de verdad
+ * de 11º, es el Día 2 (el martes 18 fue el Día 1). Desde ahí el ciclo cuenta solo
+ * en días de clase. Ajustable desde la app con «¿No es el día correcto?», que crea
+ * un reinicio en vez de tocar el ancla.
+ */
 const DEFAULT_CONFIG: SchoolConfig = {
-  anchorDate: '2026-07-23',
-  anchorDay: 1,
+  anchorDate: '2026-08-19',
+  anchorDay: 2,
   overrides: [],
+  noClassDays: [],
 }
 
 // --- Formas de fila en Supabase (el cliente no está tipado con el esquema) ----
@@ -24,6 +32,7 @@ interface ConfigRow {
   anchor_day: number
   overrides: { date: string; day: number }[] | null
   setup: SchoolSetup | null
+  no_class_days: string[] | null
 }
 interface NoteRow {
   id: string
@@ -55,6 +64,7 @@ const configStore = createSingleton<SchoolConfig, ConfigRow>({
     anchorDay: r.anchor_day,
     overrides: r.overrides ?? [],
     setup: r.setup ?? undefined,
+    noClassDays: r.no_class_days ?? [],
   }),
   valueToRow: (v, userId) => ({
     user_id: userId,
@@ -62,7 +72,7 @@ const configStore = createSingleton<SchoolConfig, ConfigRow>({
     anchor_day: v.anchorDay,
     overrides: v.overrides,
     setup: v.setup ?? null,
-    updated_at: new Date().toISOString(),
+    no_class_days: v.noClassDays ?? [],
   }),
 })
 
@@ -136,7 +146,20 @@ export function useSchoolConfig() {
     })
   }, [])
 
-  return { config, setConfig: configStore.set, setCycleDayOn }
+  /** Marca (o desmarca) un día como «sin clase»: el ciclo se congela ese día. */
+  const toggleNoClassDay = useCallback((date: string) => {
+    configStore.update((prev) => {
+      const days = prev.noClassDays ?? []
+      return {
+        ...prev,
+        noClassDays: days.includes(date)
+          ? days.filter((d) => d !== date)
+          : [...days, date].sort(),
+      }
+    })
+  }, [])
+
+  return { config, setConfig: configStore.set, setCycleDayOn, toggleNoClassDay }
 }
 
 /**
@@ -145,10 +168,19 @@ export function useSchoolConfig() {
  */
 export function useSchoolSetup() {
   const config = configStore.useValue()
-  const setup = config.setup ?? DEFAULT_SETUP
+  // `normalizeSetup` sube al formato actual lo que se guardó con la forma antigua
+  // (un solo juego de horas), para que añadir el miércoles corto no deje a nadie
+  // sin horario.
+  const setup = useMemo(
+    () => (config.setup ? normalizeSetup(config.setup) : DEFAULT_SETUP),
+    [config.setup],
+  )
 
   const mutate = useCallback((fn: (prev: SchoolSetup) => SchoolSetup) => {
-    configStore.update((prev) => ({ ...prev, setup: fn(prev.setup ?? DEFAULT_SETUP) }))
+    configStore.update((prev) => ({
+      ...prev,
+      setup: fn(prev.setup ? normalizeSetup(prev.setup) : DEFAULT_SETUP),
+    }))
   }, [])
 
   const upsertClass = useCallback(
@@ -180,8 +212,9 @@ export function useSchoolSetup() {
       mutate((s) => {
         const slots = (s.timetable[cycleDay] ?? []).filter((x) => x.period !== period)
         if (classCode) slots.push({ period, classCode, room })
-        // Mantiene el orden de los periodos del día
-        const order = s.periods.map((p) => p.period)
+        // Mantiene el orden de los periodos del día normal, que es el que define
+        // la secuencia Adv → P1 … P6 en todos los tipos de día.
+        const order = (s.periodSets.normal ?? []).map((p) => p.period)
         slots.sort((a, b) => order.indexOf(a.period) - order.indexOf(b.period))
         return { ...s, timetable: { ...s.timetable, [cycleDay]: slots } }
       })
@@ -189,8 +222,21 @@ export function useSchoolSetup() {
     [mutate],
   )
 
+  /** Cambia las horas de un tipo de día ('normal', 'miercoles', …). */
   const setPeriods = useCallback(
-    (periods: SchoolSetup['periods']) => mutate((s) => ({ ...s, periods })),
+    (dayType: string, periods: PeriodDef[]) =>
+      mutate((s) => ({ ...s, periodSets: { ...s.periodSets, [dayType]: periods } })),
+    [mutate],
+  )
+
+  /** Asigna a un día de la semana el juego de horas que le toca. */
+  const setDayType = useCallback(
+    (weekday: number, dayType: string) =>
+      mutate((s) => {
+        const next = [...s.dayTypeByWeekday]
+        next[weekday] = dayType
+        return { ...s, dayTypeByWeekday: next }
+      }),
     [mutate],
   )
 
@@ -201,7 +247,16 @@ export function useSchoolSetup() {
 
   const isCustom = config.setup != null
 
-  return { setup, upsertClass, removeClass, setSlot, setPeriods, resetSetup, isCustom }
+  return {
+    setup,
+    upsertClass,
+    removeClass,
+    setSlot,
+    setPeriods,
+    setDayType,
+    resetSetup,
+    isCustom,
+  }
 }
 
 export function useClassNotes(classCode?: string) {
