@@ -65,7 +65,8 @@ export function CodeGate({ children }: { children: ReactNode }) {
             setError(null)
             setCode(e.target.value)
           }}
-          placeholder={`Mínimo ${MIN_CODE_LENGTH} caracteres`}
+          placeholder="Tu código"
+          inputMode="numeric"
           aria-label="Código de acceso"
           className="rounded-2xl border border-line bg-surface px-4 py-3 text-center text-[15px] tracking-widest text-content placeholder:tracking-normal placeholder:text-content-subtle focus:border-primary"
         />

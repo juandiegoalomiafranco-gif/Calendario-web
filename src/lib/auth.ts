@@ -12,16 +12,38 @@ import { supabase } from './supabase'
  */
 
 const UNLOCK_KEY = 'mivida:unlocked'
-export const MIN_CODE_LENGTH = 6
+export const MIN_CODE_LENGTH = 4
+
+async function sha256(texto: string): Promise<Uint8Array> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(texto))
+  return new Uint8Array(digest)
+}
 
 /** Email interno derivado del código (mismo código → mismo email → misma cuenta). */
 export async function emailForCode(code: string): Promise<string> {
-  const bytes = new TextEncoder().encode(`mivida:${code.trim()}`)
-  const digest = await crypto.subtle.digest('SHA-256', bytes)
-  const hex = Array.from(new Uint8Array(digest))
+  const bytes = await sha256(`mivida:${code.trim()}`)
+  const hex = Array.from(bytes)
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('')
   return `u${hex.slice(0, 40)}@mivida.local`
+}
+
+/**
+ * Contraseña derivada del código, no el código en crudo.
+ *
+ * Dos razones. Supabase exige una longitud mínima de contraseña (6 por defecto), así
+ * que un código corto haría fallar el registro con un error que no dice nada útil;
+ * el hash siempre mide 43 caracteres y ese problema desaparece. Y el código tal cual
+ * nunca sale del dispositivo.
+ *
+ * Ojo: esto no añade seguridad frente a alguien que adivine el código — la fortaleza
+ * sigue siendo la del código que escribes.
+ */
+async function passwordForCode(code: string): Promise<string> {
+  const bytes = await sha256(`mivida:pw:${code.trim()}`)
+  let bin = ''
+  for (const b of bytes) bin += String.fromCharCode(b)
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 export interface AuthResult {
@@ -39,7 +61,7 @@ export async function signInWithCode(code: string): Promise<AuthResult> {
     return { ok: false, error: `El código debe tener al menos ${MIN_CODE_LENGTH} caracteres.` }
   }
   const email = await emailForCode(clean)
-  const password = clean
+  const password = await passwordForCode(clean)
 
   const { error } = await supabase.auth.signInWithPassword({ email, password })
   if (!error) return { ok: true }
