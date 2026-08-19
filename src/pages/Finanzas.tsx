@@ -91,18 +91,17 @@ export function Finanzas() {
     () => accounts.filter((a) => a.kind !== 'externa').reduce((s, a) => s + a.balance, 0),
     [accounts],
   )
-  const gastoDelMes = (source?: MoneySource) =>
-    transactions
-      .filter(
-        (t) =>
-          t.kind === 'gasto' &&
-          monthKey(t.date) === thisMonth &&
-          (source ? t.source === source : true),
-      )
-      .reduce((s, t) => s + t.amount, 0)
-
-  const monthGastoMio = useMemo(() => gastoDelMes('mia'), [transactions, thisMonth])
-  const monthGastoPapas = useMemo(() => gastoDelMes('papas'), [transactions, thisMonth])
+  /** Gasto del mes separado por fuente: es la cifra que él quiere ver aparte. */
+  const { monthGastoMio, monthGastoPapas } = useMemo(() => {
+    let mio = 0
+    let papas = 0
+    for (const t of transactions) {
+      if (t.kind !== 'gasto' || monthKey(t.date) !== thisMonth) continue
+      if (t.source === 'papas') papas += t.amount
+      else mio += t.amount
+    }
+    return { monthGastoMio: mio, monthGastoPapas: papas }
+  }, [transactions, thisMonth])
   const monthIngreso = useMemo(
     () =>
       transactions

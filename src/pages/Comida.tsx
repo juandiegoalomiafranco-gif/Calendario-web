@@ -11,6 +11,8 @@ import {
   type ScenarioCode,
 } from '../data/nutrition'
 import { scenarioForDay } from '../lib/nutrition'
+import { useCoach } from '../hooks/useCoach'
+import { LoncheraCard } from '../components/panels/LoncheraCard'
 import { useNutritionDay } from '../hooks/useNutritionLog'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
@@ -30,13 +32,19 @@ const TABS: { value: Tab; label: string }[] = [
 export function Comida() {
   const iso = todayISO()
   const day = getDayPlan(iso)
-  const suggested = useMemo(() => scenarioForDay(day?.sessions ?? []), [day])
+  const { sesionesDe } = useCoach()
+  // Si el entrenador mandó plan para hoy, manda el suyo sobre el plan estático.
+  const sesionesDeHoy = useMemo(
+    () => sesionesDe(iso) ?? day?.sessions ?? [],
+    [sesionesDe, iso, day],
+  )
+  const suggested = useMemo(() => scenarioForDay(sesionesDeHoy), [sesionesDeHoy])
   const { mealsDone, scenarioOverride, toggleMeal, setOverride } = useNutritionDay(iso)
   const [tab, setTab] = useState<Tab>('hoy')
 
   const activeCode = scenarioOverride ?? suggested
   const scenario = SCENARIOS[activeCode]
-  const trainingToday = (day?.sessions ?? []).filter((s) => s.type !== 'rest')
+  const trainingToday = sesionesDeHoy.filter((s) => s.type !== 'rest')
 
   return (
     <div className="flex flex-col gap-4 lg:gap-6">
@@ -125,6 +133,8 @@ export function Comida() {
           </div>
 
           <div className="grid grid-cols-1 items-start gap-4 md:grid-cols-2 xl:grid-cols-3 lg:gap-5">
+            <LoncheraCard dateIso={iso} escenario={activeCode} />
+
             {scenario.meals.map((meal) => (
               <MealCard
                 key={meal.id}
