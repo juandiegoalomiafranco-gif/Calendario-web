@@ -139,6 +139,61 @@ body {
   display: none;
 }
 
+/*
+ * Zonas táctiles en el celular.
+ *
+ * El dedo necesita cerca de 44 px para acertar sin fallar. Midiendo la app en
+ * pantalla de iPhone, los chips y los segmentados se quedaban en 32 px, los botones
+ * normales en 40, y los de borrar una cuenta o un control en 14×14 — casi imposibles
+ * de tocar a propósito, y encima destructivos.
+ *
+ * Todo esto vive dentro de `pointer: coarse`, así que en el computador, donde el
+ * ratón acierta en un píxel, el diseño no cambia ni un poco.
+ */
+@media (pointer: coarse) {
+  button,
+  [role='button'],
+  select,
+  textarea,
+  input:not([type='checkbox']):not([type='radio']) {
+    min-height: 44px;
+  }
+
+  /* Los que solo llevan un icono también necesitan ancho, no solo alto. */
+  button:has(> svg:only-child),
+  a:has(> svg:only-child) {
+    min-width: 44px;
+    justify-content: center;
+  }
+
+  /* Las casillas de completar, que son de 20 px, se tocan por su etiqueta:
+     se le da altura cómoda a la etiqueta entera en vez de agrandar el cuadrito. */
+  label:has(> input[type='checkbox']) {
+    min-height: 44px;
+    align-items: center;
+  }
+
+  /*
+   * Enlaces que funcionan como control (filas del horario, «Ver todos», accesos de
+   * las tarjetas). Se distinguen de un enlace dentro de un párrafo porque son caja
+   * flex o rejilla; a un enlace de texto corrido darle 44 px de alto lo rompería.
+   */
+  a.flex,
+  a.inline-flex,
+  a.grid {
+    min-height: 44px;
+  }
+
+  /*
+   * Las leyendas van a 11 px, que en la mano se lee apretado. Subirlas a 12 solo en
+   * el celular evita tocar los 59 sitios donde aparecen y deja el computador igual.
+   */
+  .text-\[11px\] {
+    font-size: 12px;
+    line-height: 1.35;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

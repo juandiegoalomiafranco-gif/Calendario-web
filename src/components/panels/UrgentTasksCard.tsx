@@ -45,7 +45,7 @@ export function UrgentTasksCard({
         action={
           <Link
             to="/pendientes"
-            className="inline-flex items-center gap-1 text-xs font-semibold text-content-muted transition-colors hover:text-content"
+            className="-my-3 inline-flex min-h-11 items-center gap-1 py-3 text-xs font-semibold text-content-muted transition-colors hover:text-content"
           >
             Ver todos
             <ArrowUpRight size={13} aria-hidden />
