@@ -124,7 +124,7 @@ export function Clases() {
                         <div className="min-w-0 flex-1">
                           <Link
                             to={`/colegio/clase/${encodeURIComponent(slot.classCode)}`}
-                            className="block truncate text-[15px] font-bold text-content hover:underline"
+                            className="-my-3 block truncate py-3 text-[15px] font-bold text-content hover:underline"
                           >
                             {slot.cls.name}
                           </Link>

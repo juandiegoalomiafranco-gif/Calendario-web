@@ -182,7 +182,10 @@ export function Calendario() {
                   aria-current={isToday ? 'date' : undefined}
                   aria-label={formatFull(date)}
                   className={cx(
-                    'flex min-h-[5.5rem] flex-col items-stretch gap-1 border-line p-1.5 text-left transition-colors lg:min-h-[7.5rem]',
+                    // En el celular las celdas llevan puntos, no títulos, así que no
+                    // necesitan 5,5rem: con 3 el mes entero cabe y queda sitio debajo
+                    // para el detalle del día. De sm en adelante vuelven los títulos.
+                    'flex min-h-[3rem] flex-col items-stretch gap-1 border-line p-1.5 text-left transition-colors sm:min-h-[5.5rem] lg:min-h-[7.5rem]',
                     i % 7 !== 0 && 'border-l',
                     i >= 7 && 'border-t',
                     outside && 'bg-surface-2/50',
@@ -224,22 +227,48 @@ export function Calendario() {
                   </span>
 
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    {marks.slice(0, MAX_MARKS).map((m) => (
-                      <span
-                        key={m.key}
-                        className={cx(
-                          'truncate rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight',
-                          m.color.soft,
+                    {/*
+                     * En el celular la celda mide unos 50 px de ancho: un título
+                     * recortado ahí no se lee («Whole S…»), solo estorba. Se muestran
+                     * puntos de color, que dicen «aquí hay algo y de qué tipo», y el
+                     * título completo aparece al tocar el día.
+                     */}
+                    {marks.length > 0 && (
+                      <span className="flex flex-wrap items-center gap-1 sm:hidden">
+                        {marks.slice(0, MAX_MARKS).map((m) => (
+                          <span
+                            key={m.key}
+                            aria-hidden
+                            className={cx('h-1.5 w-1.5 shrink-0 rounded-full', m.color.dot)}
+                          />
+                        ))}
+                        {marks.length > MAX_MARKS && (
+                          <span className="text-[10px] font-bold leading-none text-content-muted">
+                            +{marks.length - MAX_MARKS}
+                          </span>
                         )}
-                      >
-                        {m.label}
-                      </span>
-                    ))}
-                    {marks.length > MAX_MARKS && (
-                      <span className="px-1.5 text-[10px] font-bold text-content-muted">
-                        +{marks.length - MAX_MARKS} más
+                        <span className="sr-only">{marks.map((m) => m.label).join(', ')}</span>
                       </span>
                     )}
+
+                    <span className="hidden min-w-0 flex-col gap-0.5 sm:flex">
+                      {marks.slice(0, MAX_MARKS).map((m) => (
+                        <span
+                          key={m.key}
+                          className={cx(
+                            'truncate rounded px-1.5 py-0.5 text-[10px] font-semibold leading-tight',
+                            m.color.soft,
+                          )}
+                        >
+                          {m.label}
+                        </span>
+                      ))}
+                      {marks.length > MAX_MARKS && (
+                        <span className="px-1.5 text-[10px] font-bold text-content-muted">
+                          +{marks.length - MAX_MARKS} más
+                        </span>
+                      )}
+                    </span>
                   </span>
                 </button>
               )

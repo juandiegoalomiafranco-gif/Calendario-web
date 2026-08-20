@@ -9,40 +9,43 @@ import type { PeriodDef, SchoolClass, SchoolSetup, TimetableSlot } from './schoo
  * con editarlo desde «Colegio → Materias».
  */
 
-/** Día normal: lunes, martes, jueves y viernes. Salida 3:05 pm. */
+/**
+ * Día normal: lunes, martes, jueves y viernes. Salida 3:05 pm.
+ *
+ * Horario oficial de **Grados 10-12** (el colegio publica uno distinto para 6º-9º,
+ * que almuerza a las 12:25 en vez de a la 1:20).
+ */
 export const DEFAULT_PERIODS: PeriodDef[] = [
   { period: 'Adv', start: '8:00', end: '8:10', kind: 'class' },
   { period: 'P1', start: '8:10', end: '9:05', kind: 'class' },
   { period: 'P2', start: '9:10', end: '10:05', kind: 'class' },
-  { period: 'Recreo', start: '10:05', end: '10:28', kind: 'break' },
+  { period: 'Recreo', start: '10:05', end: '10:30', kind: 'break' },
   { period: 'P3', start: '10:30', end: '11:25', kind: 'class' },
   { period: 'P4', start: '11:30', end: '12:25', kind: 'class' },
   { period: 'P5', start: '12:30', end: '13:20', kind: 'class' },
-  { period: 'Almuerzo', start: '13:20', end: '14:05', kind: 'break' },
+  { period: 'Almuerzo', start: '13:20', end: '14:10', kind: 'break' },
   { period: 'P6', start: '14:10', end: '15:05', kind: 'class' },
 ]
 
 /**
- * Miércoles: salida a la 1:00 pm y UN SOLO recreo, así que las clases son más
- * cortas. Las horas son una estimación repartida proporcionalmente (7 bloques y un
- * recreo de 20 min entre 8:00 y 13:00) hasta tener el horario oficial: se editan
- * desde «Materias y horario → Horas del día» sin tocar el código.
+ * Miércoles: horario corto, igual para todo el colegio (6º-12º). Un solo descanso,
+ * clases de 40-45 min y salida a la **1:05 pm**.
  */
 export const WEDNESDAY_PERIODS: PeriodDef[] = [
   { period: 'Adv', start: '8:00', end: '8:10', kind: 'class' },
   { period: 'P1', start: '8:10', end: '8:55', kind: 'class' },
-  { period: 'P2', start: '8:55', end: '9:40', kind: 'class' },
-  { period: 'P3', start: '9:40', end: '10:25', kind: 'class' },
-  { period: 'Recreo', start: '10:25', end: '10:45', kind: 'break' },
-  { period: 'P4', start: '10:45', end: '11:30', kind: 'class' },
-  { period: 'P5', start: '11:30', end: '12:15', kind: 'class' },
-  { period: 'P6', start: '12:15', end: '13:00', kind: 'class' },
+  { period: 'P2', start: '9:00', end: '9:40', kind: 'class' },
+  { period: 'P3', start: '9:45', end: '10:25', kind: 'class' },
+  { period: 'Recreo', start: '10:25', end: '10:55', kind: 'break' },
+  { period: 'P4', start: '10:55', end: '11:35', kind: 'class' },
+  { period: 'P5', start: '11:40', end: '12:20', kind: 'class' },
+  { period: 'P6', start: '12:25', end: '13:05', kind: 'class' },
 ]
 
 /** Nombre visible de cada tipo de día, para la pantalla de edición. */
 export const DAY_TYPE_LABELS: Record<string, string> = {
   normal: 'Día normal',
-  miercoles: 'Miércoles (salida 1:00 pm)',
+  miercoles: 'Miércoles (salida 1:05 pm)',
 }
 
 export const DEFAULT_PERIOD_SETS: Record<string, PeriodDef[]> = {

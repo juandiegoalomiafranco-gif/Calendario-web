@@ -7,7 +7,7 @@ import { useSchoolDay } from '../hooks/useSchoolDay'
 import { formatFull, todayIso } from '../lib/dates'
 import { cx } from '../lib/cx'
 import { PageHeader } from '../components/layout/PageHeader'
-import { Card, CardHeader } from '../components/ui/Card'
+import { Card } from '../components/ui/Card'
 import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { UrgentTasksCard } from '../components/panels/UrgentTasksCard'
 import { AddItemSheet } from '../components/school/AddItemSheet'
@@ -114,18 +114,22 @@ export function Colegio() {
         {/* Horario del día seleccionado */}
         <Card padding="none" className="overflow-hidden lg:col-span-2">
           <div className="border-b border-line p-4">
-            <CardHeader
-              title="Horario del ciclo"
-              className="mb-0"
-              action={
-                <SegmentedControl
-                  options={CYCLE_DAYS.map((d) => ({ value: String(d), label: String(d) }))}
-                  value={String(selectedDay)}
-                  onChange={(v) => setSelectedDay(Number(v))}
-                  ariaLabel="Día del ciclo"
-                />
-              }
-            />
+            {/*
+             * En el celular el título y los seis días no caben en la misma línea:
+             * el título se cortaba en «Horario del c…» y el día 6 quedaba fuera de
+             * la pantalla. Apilados, se ve el nombre completo y los seis días.
+             */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="text-[15px] font-semibold tracking-tight text-content">
+                Horario del ciclo
+              </h2>
+              <SegmentedControl
+                options={CYCLE_DAYS.map((d) => ({ value: String(d), label: String(d) }))}
+                value={String(selectedDay)}
+                onChange={(v) => setSelectedDay(Number(v))}
+                ariaLabel="Día del ciclo"
+              />
+            </div>
           </div>
 
           {slots.length === 0 ? (
