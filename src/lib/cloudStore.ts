@@ -43,6 +43,15 @@ function registerLoader(loader: Loader) {
   if (currentUserId) loader(currentUserId)
 }
 
+let reconexion: ReturnType<typeof setTimeout> | null = null
+let intentosRealtime = 0
+
+/**
+ * El canal de Realtime se cae solo, y en el celular se cae todo el rato: al bloquear
+ * la pantalla iOS suspende el WebSocket, y al cambiar de wifi a datos se corta. Antes
+ * `subscribe()` iba sin callback, así que nadie se enteraba de la caída y el canal se
+ * quedaba muerto: el celular dejaba de recibir lo del computador hasta recargar.
+ */
 function startRealtime(userId: string) {
   stopRealtime()
   const ch = supabase.channel(`mivida-sync-${userId}`)
@@ -56,14 +65,41 @@ function startRealtime(userId: string) {
       },
     )
   }
-  ch.subscribe()
   channel = ch
+  ch.subscribe((estado) => {
+    // Si ya lo reemplazamos o lo cerramos a propósito, su estado ya no nos importa.
+    if (channel !== ch) return
+    if (estado === 'SUBSCRIBED') {
+      intentosRealtime = 0
+      // Mientras estuvo caído pudimos perdernos cambios del otro dispositivo:
+      // una bajada completa nos pone al día.
+      schedulePull()
+    } else if (estado === 'CHANNEL_ERROR' || estado === 'TIMED_OUT' || estado === 'CLOSED') {
+      programarReconexion(userId)
+    }
+  })
+}
+
+function programarReconexion(userId: string) {
+  if (reconexion) return
+  intentosRealtime++
+  // 2 s, 4 s, 8 s… hasta un minuto, para no castigar la batería ni la red.
+  const espera = Math.min(2_000 * 2 ** (intentosRealtime - 1), 60_000)
+  reconexion = setTimeout(() => {
+    reconexion = null
+    if (currentUserId === userId) startRealtime(userId)
+  }, espera)
 }
 
 function stopRealtime() {
+  if (reconexion) {
+    clearTimeout(reconexion)
+    reconexion = null
+  }
   if (channel) {
-    void supabase.removeChannel(channel)
-    channel = null
+    const ch = channel
+    channel = null // antes de quitarlo, para que su CLOSED no dispare reconexión
+    void supabase.removeChannel(ch)
   }
 }
 
@@ -115,17 +151,28 @@ function writeJSON<T>(key: string, value: T) {
 
 // --- Programación de reintentos ---------------------------------------------
 
-const flushers = new Set<() => void>()
-const pullers = new Set<() => void>()
+/** `forzar` salta el guardado de espera y la comprobación de `navigator.onLine`. */
+const flushers = new Set<(forzar: boolean) => void>()
+const pullers = new Set<(forzar: boolean) => void>()
 
-function scheduleFlush() {
-  flushers.forEach((f) => f())
+function scheduleFlush(forzar = false) {
+  flushers.forEach((f) => f(forzar))
 }
 
-/** Fuerza una sincronización completa (botón «sincronizar ahora»). */
+function schedulePull(forzar = false) {
+  pullers.forEach((p) => p(forzar))
+}
+
+/**
+ * Fuerza una sincronización completa (botón «Sincronizar ahora» y reconexiones).
+ *
+ * Va forzada a propósito: en iOS `navigator.onLine` miente y a veces se queda en
+ * `false` con la red funcionando. Si el botón respetara esa bandera, el usuario
+ * tocaría «Sincronizar ahora» y no pasaría absolutamente nada.
+ */
 export function syncNow() {
-  pullers.forEach((p) => p())
-  scheduleFlush()
+  schedulePull(true)
+  scheduleFlush(true)
 }
 
 if (typeof window !== 'undefined') {
@@ -133,9 +180,17 @@ if (typeof window !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') syncNow()
   })
+
+  // Subir lo que quede en la cola, a menudo y barato (no hace nada si está vacía).
   setInterval(() => {
-    if (navigator.onLine && currentUserId) scheduleFlush()
-  }, 30_000)
+    if (currentUserId) scheduleFlush()
+  }, 20_000)
+
+  // Bajar cada minuto. Es la red de seguridad para cuando Realtime está caído:
+  // sin esto, un canal muerto dejaba el dispositivo desactualizado indefinidamente.
+  setInterval(() => {
+    if (currentUserId && document.visibilityState === 'visible') schedulePull()
+  }, 60_000)
 }
 
 interface RowMeta {
@@ -176,6 +231,27 @@ export function createCollection<T extends { id: string }, Row>(
   )
   const listeners = new Set<() => void>()
   let flushing = false
+
+  /** Reintento con espera creciente, para no machacar la red cuando algo falla. */
+  let fallos = 0
+  let proximoIntento = 0
+
+  function anotarFallo(mensaje: string) {
+    fallos++
+    proximoIntento = Date.now() + Math.min(10_000 * 2 ** (fallos - 1), 5 * 60_000)
+    markSyncError(opts.key, mensaje)
+  }
+
+  function anotarExito() {
+    fallos = 0
+    proximoIntento = 0
+    markSynced(opts.key)
+  }
+
+  /** ¿Toca esperar todavía? Un intento forzado (botón, reconexión) nunca espera. */
+  function enEspera(forzar: boolean) {
+    return !forzar && Date.now() < proximoIntento
+  }
 
   function saveOutbox() {
     writeJSON(outboxKey, [...outbox.entries()])
@@ -220,8 +296,8 @@ export function createCollection<T extends { id: string }, Row>(
     if (changed) persistLocal(next)
   }
 
-  async function pull() {
-    if (!currentUserId) return
+  async function pull(forzar = false) {
+    if (!currentUserId || enEspera(forzar)) return
     markSyncing(1)
     try {
       let q = supabase.from(opts.table).select('*')
@@ -229,18 +305,24 @@ export function createCollection<T extends { id: string }, Row>(
       q = cursor ? q.gt('updated_at', cursor) : q.is('deleted_at', null)
       const { data, error } = await q
       if (error) {
-        markSyncError(error.message)
+        anotarFallo(error.message)
         return
       }
       applyRows((data ?? []) as (Row & RowMeta)[])
-      markSynced()
+      anotarExito()
+    } catch (e) {
+      // Un fallo de red lanza en vez de devolver `error`, y sin este catch la
+      // promesa quedaba rechazada sin que nadie lo registrara.
+      anotarFallo(e instanceof Error ? e.message : 'Fallo de red al bajar datos')
     } finally {
       markSyncing(-1)
     }
   }
 
-  async function flush() {
-    if (flushing || !currentUserId || outbox.size === 0 || !navigator.onLine) return
+  async function flush(forzar = false) {
+    if (flushing || !currentUserId || outbox.size === 0) return
+    if (enEspera(forzar)) return
+    if (!forzar && !navigator.onLine) return
     flushing = true
     markSyncing(1)
     try {
@@ -251,7 +333,7 @@ export function createCollection<T extends { id: string }, Row>(
       }))
       const { error } = await supabase.from(opts.table).upsert(rows, { onConflict: 'id' })
       if (error) {
-        markSyncError(error.message)
+        anotarFallo(error.message)
         return
       }
       // Solo se sacan de la cola los que se enviaron: lo escrito entretanto se queda.
@@ -259,7 +341,9 @@ export function createCollection<T extends { id: string }, Row>(
         if (outbox.get(id) === entry) outbox.delete(id)
       }
       saveOutbox()
-      markSynced()
+      anotarExito()
+    } catch (e) {
+      anotarFallo(e instanceof Error ? e.message : 'Fallo de red al subir datos')
     } finally {
       flushing = false
       markSyncing(-1)
@@ -272,8 +356,8 @@ export function createCollection<T extends { id: string }, Row>(
     void flush()
   }
 
-  flushers.add(() => void flush())
-  pullers.add(() => void pull())
+  flushers.add((forzar) => void flush(forzar))
+  pullers.add((forzar) => void pull(forzar))
 
   realtimeHandlers.set(opts.table, (row) => applyRows([row as Row & RowMeta]))
 
@@ -358,8 +442,27 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
     persistLocal(opts.rowToValue(row))
   }
 
-  async function pull() {
-    if (!currentUserId) return
+  let fallos = 0
+  let proximoIntento = 0
+
+  function anotarFallo(mensaje: string) {
+    fallos++
+    proximoIntento = Date.now() + Math.min(10_000 * 2 ** (fallos - 1), 5 * 60_000)
+    markSyncError(opts.key, mensaje)
+  }
+
+  function anotarExito() {
+    fallos = 0
+    proximoIntento = 0
+    markSynced(opts.key)
+  }
+
+  function enEspera(forzar: boolean) {
+    return !forzar && Date.now() < proximoIntento
+  }
+
+  async function pull(forzar = false) {
+    if (!currentUserId || enEspera(forzar)) return
     markSyncing(1)
     try {
       const { data, error } = await supabase
@@ -368,19 +471,23 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
         .limit(1)
         .maybeSingle()
       if (error) {
-        markSyncError(error.message)
+        anotarFallo(error.message)
         return
       }
       if (data) applyRow(data as Row & { updated_at?: string | null })
       else setDirty(true) // aún no hay fila: la creamos con lo que haya en local
-      markSynced()
+      anotarExito()
+    } catch (e) {
+      anotarFallo(e instanceof Error ? e.message : 'Fallo de red al bajar datos')
     } finally {
       markSyncing(-1)
     }
   }
 
-  async function flush() {
-    if (flushing || !dirty || !currentUserId || !navigator.onLine) return
+  async function flush(forzar = false) {
+    if (flushing || !dirty || !currentUserId) return
+    if (enEspera(forzar)) return
+    if (!forzar && !navigator.onLine) return
     flushing = true
     markSyncing(1)
     try {
@@ -388,19 +495,21 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
         .from(opts.table)
         .upsert(opts.valueToRow(cache, currentUserId), { onConflict: 'user_id' })
       if (error) {
-        markSyncError(error.message)
+        anotarFallo(error.message)
         return
       }
       setDirty(false)
-      markSynced()
+      anotarExito()
+    } catch (e) {
+      anotarFallo(e instanceof Error ? e.message : 'Fallo de red al subir datos')
     } finally {
       flushing = false
       markSyncing(-1)
     }
   }
 
-  flushers.add(() => void flush())
-  pullers.add(() => void pull())
+  flushers.add((forzar) => void flush(forzar))
+  pullers.add((forzar) => void pull(forzar))
   realtimeHandlers.set(opts.table, (row) =>
     applyRow(row as Row & { updated_at?: string | null }),
   )
