@@ -41,7 +41,7 @@ export function DietTodayCard({ className }: { className?: string }) {
       />
 
       <div className="flex items-center gap-3">
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-base font-extrabold text-white">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-accent text-base font-extrabold text-on-solid">
           {scenario.code}
         </span>
         <div className="min-w-0">

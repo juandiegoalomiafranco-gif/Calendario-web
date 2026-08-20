@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { AppShell } from './components/layout/AppShell'
 import { ScrollToTop } from './components/ScrollToTop'
-import { PinGate } from './components/PinGate'
+import { CodeGate } from './components/CodeGate'
 import { Today } from './pages/Today'
 import { Week } from './pages/Week'
 import { DayDetail } from './pages/DayDetail'
@@ -9,6 +9,7 @@ import { Progress } from './pages/Progress'
 import { Settings } from './pages/Settings'
 import { Colegio } from './pages/Colegio'
 import { ClassDetail } from './pages/ClassDetail'
+import { NotaDetalle } from './pages/NotaDetalle'
 import { Clases } from './pages/Clases'
 import { Materias } from './pages/Materias'
 import { Entreno } from './pages/Entreno'
@@ -23,13 +24,14 @@ import { Mas } from './pages/Mas'
 
 export default function App() {
   return (
-    <PinGate>
+    <CodeGate>
       <AppShell>
         <ScrollToTop />
         <Routes>
           <Route path="/" element={<Today />} />
           <Route path="/colegio" element={<Colegio />} />
           <Route path="/colegio/clase/:code" element={<ClassDetail />} />
+          <Route path="/colegio/clase/:code/nota/:id" element={<NotaDetalle />} />
           <Route path="/clases" element={<Clases />} />
           <Route path="/materias" element={<Materias />} />
           <Route path="/entreno" element={<Entreno />} />
@@ -50,6 +52,6 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppShell>
-    </PinGate>
+    </CodeGate>
   )
 }

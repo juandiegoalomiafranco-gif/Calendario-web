@@ -1,103 +1,63 @@
-import { useCallback, useSyncExternalStore } from 'react'
-import { supabase } from '../lib/supabase'
-
-const STORAGE_KEY = 'calendario-web:settings:v1'
+import { useCallback } from 'react'
+import { createSingleton } from '../lib/cloudStore'
 
 export interface Settings {
   restingHr: number
   maxHr: number
   paceNote: string
+  /** Hora (0-23, en Colombia) a la que llega el aviso de lo que vence mañana. */
+  reminderHour: number
+  /** Interruptor de los avisos. El permiso del navegador va aparte, por dispositivo. */
+  remindersOn: boolean
 }
 
 const DEFAULT_SETTINGS: Settings = {
   restingHr: 55,
   maxHr: 200,
   paceNote: '',
+  reminderHour: 19,
+  remindersOn: false,
 }
 
-function readStorage(): Settings {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? { ...DEFAULT_SETTINGS, ...(JSON.parse(raw) as Partial<Settings>) } : DEFAULT_SETTINGS
-  } catch {
-    return DEFAULT_SETTINGS
-  }
+interface SettingsRow {
+  resting_hr: number | null
+  max_hr: number | null
+  pace_note: string | null
+  reminder_hour: number | null
+  reminders_on: boolean | null
 }
 
-// Store compartido a nivel de módulo (caché local + sincronización con Supabase).
-let cache: Settings = readStorage()
-const listeners = new Set<() => void>()
-
-function emit() {
-  listeners.forEach((l) => l())
-}
-
-function persistLocal(next: Settings) {
-  cache = next
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // sin espacio o modo privado: al menos queda en memoria
-  }
-  emit()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
-// --- Sincronización con Supabase ---------------------------------------------
-let currentUserId: string | null = null
-
-async function loadFromSupabase() {
-  const { data, error } = await supabase.from('settings').select('*').maybeSingle()
-  if (error || !data) return
-  persistLocal({
-    restingHr: data.resting_hr ?? DEFAULT_SETTINGS.restingHr,
-    maxHr: data.max_hr ?? DEFAULT_SETTINGS.maxHr,
-    paceNote: data.pace_note ?? '',
-  })
-}
-
-function pushToSupabase(next: Settings) {
-  if (!currentUserId) return
-  supabase
-    .from('settings')
-    .upsert(
-      {
-        user_id: currentUserId,
-        resting_hr: next.restingHr,
-        max_hr: next.maxHr,
-        pace_note: next.paceNote,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: 'user_id' },
-    )
-    .then(({ error }) => {
-      if (error) console.error('No se pudieron guardar los ajustes:', error.message)
-    })
-}
-
-supabase.auth.getSession().then(({ data }) => {
-  currentUserId = data.session?.user.id ?? null
-  if (currentUserId) loadFromSupabase()
-})
-supabase.auth.onAuthStateChange((_event, session) => {
-  const nextId = session?.user.id ?? null
-  if (nextId === currentUserId) return
-  currentUserId = nextId
-  if (nextId) loadFromSupabase()
-  else persistLocal(DEFAULT_SETTINGS)
+/**
+ * Ajustes del usuario. Pasan por el mismo `createSingleton` que el resto: caché
+ * local, cola de salida y Realtime, para que cambiar la hora del aviso en el celular
+ * se vea también en el computador.
+ */
+const store = createSingleton<Settings, SettingsRow>({
+  key: 'calendario-web:settings:v1',
+  table: 'settings',
+  fallback: DEFAULT_SETTINGS,
+  rowToValue: (r) => ({
+    restingHr: r.resting_hr ?? DEFAULT_SETTINGS.restingHr,
+    maxHr: r.max_hr ?? DEFAULT_SETTINGS.maxHr,
+    paceNote: r.pace_note ?? '',
+    reminderHour: r.reminder_hour ?? DEFAULT_SETTINGS.reminderHour,
+    remindersOn: r.reminders_on ?? DEFAULT_SETTINGS.remindersOn,
+  }),
+  valueToRow: (v, userId) => ({
+    user_id: userId,
+    resting_hr: v.restingHr,
+    max_hr: v.maxHr,
+    pace_note: v.paceNote,
+    reminder_hour: v.reminderHour,
+    reminders_on: v.remindersOn,
+  }),
 })
 
 export function useSettings() {
-  const settings = useSyncExternalStore(subscribe, () => cache)
+  const settings = store.useValue()
 
   const update = useCallback((patch: Partial<Settings>) => {
-    const next = { ...cache, ...patch }
-    persistLocal(next)
-    pushToSupabase(next)
+    store.update((prev) => ({ ...prev, ...patch }))
   }, [])
 
   return { settings, update }

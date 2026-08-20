@@ -1,21 +1,31 @@
 import { useCallback, useMemo } from 'react'
 import type {
   ClassNote,
+  PersonalArea,
+  PeriodDef,
   SchoolClass,
   SchoolConfig,
   SchoolSetup,
   SchoolTask,
   TaskKind,
+  TaskScope,
   Urgency,
 } from '../data/schoolTypes'
 import { DEFAULT_SETUP } from '../data/schoolTimetable'
+import { normalizeSetup } from '../lib/school'
 import { createCollection, createSingleton, newId } from '../lib/cloudStore'
 
-// Ancla por defecto (ajustable desde la app con «hoy es el Día N», que crea un reinicio).
+/**
+ * Ancla del ciclo: el miércoles 19 de agosto de 2026, primer día de clases de verdad
+ * de 11º, es el Día 2 (el martes 18 fue el Día 1). Desde ahí el ciclo cuenta solo
+ * en días de clase. Ajustable desde la app con «¿No es el día correcto?», que crea
+ * un reinicio en vez de tocar el ancla.
+ */
 const DEFAULT_CONFIG: SchoolConfig = {
-  anchorDate: '2026-07-23',
-  anchorDay: 1,
+  anchorDate: '2026-08-19',
+  anchorDay: 2,
   overrides: [],
+  noClassDays: [],
 }
 
 // --- Formas de fila en Supabase (el cliente no está tipado con el esquema) ----
@@ -24,6 +34,7 @@ interface ConfigRow {
   anchor_day: number
   overrides: { date: string; day: number }[] | null
   setup: SchoolSetup | null
+  no_class_days: string[] | null
 }
 interface NoteRow {
   id: string
@@ -44,6 +55,8 @@ interface TaskRow {
   urgency: string | null
   kind: string | null
   done: boolean | null
+  scope: string | null
+  area: string | null
 }
 
 const configStore = createSingleton<SchoolConfig, ConfigRow>({
@@ -55,6 +68,7 @@ const configStore = createSingleton<SchoolConfig, ConfigRow>({
     anchorDay: r.anchor_day,
     overrides: r.overrides ?? [],
     setup: r.setup ?? undefined,
+    noClassDays: r.no_class_days ?? [],
   }),
   valueToRow: (v, userId) => ({
     user_id: userId,
@@ -62,7 +76,7 @@ const configStore = createSingleton<SchoolConfig, ConfigRow>({
     anchor_day: v.anchorDay,
     overrides: v.overrides,
     setup: v.setup ?? null,
-    updated_at: new Date().toISOString(),
+    no_class_days: v.noClassDays ?? [],
   }),
 })
 
@@ -100,7 +114,9 @@ const tasksStore = createCollection<SchoolTask, TaskRow>({
   table: 'tasks',
   rowToItem: (r) => ({
     id: r.id,
+    scope: r.scope === 'personal' ? 'personal' : 'colegio',
     classCode: r.class_code ?? undefined,
+    area: (r.area as PersonalArea | null) ?? undefined,
     title: r.title,
     detail: r.notes ?? undefined,
     dueDate: r.due_date ?? undefined,
@@ -112,14 +128,15 @@ const tasksStore = createCollection<SchoolTask, TaskRow>({
   itemToRow: (t, userId) => ({
     id: t.id,
     user_id: userId,
+    scope: t.scope,
     class_code: t.classCode ?? null,
+    area: t.area ?? null,
     title: t.title,
     notes: t.detail ?? null,
     due_date: t.dueDate ?? null,
     urgency: t.urgency,
     kind: t.kind,
     done: t.done,
-    updated_at: new Date().toISOString(),
   }),
 })
 
@@ -136,7 +153,20 @@ export function useSchoolConfig() {
     })
   }, [])
 
-  return { config, setConfig: configStore.set, setCycleDayOn }
+  /** Marca (o desmarca) un día como «sin clase»: el ciclo se congela ese día. */
+  const toggleNoClassDay = useCallback((date: string) => {
+    configStore.update((prev) => {
+      const days = prev.noClassDays ?? []
+      return {
+        ...prev,
+        noClassDays: days.includes(date)
+          ? days.filter((d) => d !== date)
+          : [...days, date].sort(),
+      }
+    })
+  }, [])
+
+  return { config, setConfig: configStore.set, setCycleDayOn, toggleNoClassDay }
 }
 
 /**
@@ -145,15 +175,58 @@ export function useSchoolConfig() {
  */
 export function useSchoolSetup() {
   const config = configStore.useValue()
-  const setup = config.setup ?? DEFAULT_SETUP
+  // `normalizeSetup` sube al formato actual lo que se guardó con la forma antigua
+  // (un solo juego de horas), para que añadir el miércoles corto no deje a nadie
+  // sin horario.
+  const setup = useMemo(
+    () => (config.setup ? normalizeSetup(config.setup) : DEFAULT_SETUP),
+    [config.setup],
+  )
 
   const mutate = useCallback((fn: (prev: SchoolSetup) => SchoolSetup) => {
-    configStore.update((prev) => ({ ...prev, setup: fn(prev.setup ?? DEFAULT_SETUP) }))
+    configStore.update((prev) => ({
+      ...prev,
+      setup: fn(prev.setup ? normalizeSetup(prev.setup) : DEFAULT_SETUP),
+    }))
   }, [])
 
   const upsertClass = useCallback(
     (cls: SchoolClass) => {
       mutate((s) => ({ ...s, classes: { ...s.classes, [cls.code]: cls } }))
+    },
+    [mutate],
+  )
+
+  /** Añade una unidad a la materia si no la tenía ya. */
+  const addUnit = useCallback(
+    (code: string, unit: string) => {
+      const clean = unit.trim()
+      if (!clean) return
+      mutate((s) => {
+        const cls = s.classes[code]
+        if (!cls) return s
+        const units = cls.units ?? []
+        if (units.some((u) => u.toLowerCase() === clean.toLowerCase())) return s
+        return { ...s, classes: { ...s.classes, [code]: { ...cls, units: [...units, clean] } } }
+      })
+    },
+    [mutate],
+  )
+
+  /** Quita una unidad de la materia. Las notas que la usaban conservan su texto. */
+  const removeUnit = useCallback(
+    (code: string, unit: string) => {
+      mutate((s) => {
+        const cls = s.classes[code]
+        if (!cls) return s
+        return {
+          ...s,
+          classes: {
+            ...s.classes,
+            [code]: { ...cls, units: (cls.units ?? []).filter((u) => u !== unit) },
+          },
+        }
+      })
     },
     [mutate],
   )
@@ -180,8 +253,9 @@ export function useSchoolSetup() {
       mutate((s) => {
         const slots = (s.timetable[cycleDay] ?? []).filter((x) => x.period !== period)
         if (classCode) slots.push({ period, classCode, room })
-        // Mantiene el orden de los periodos del día
-        const order = s.periods.map((p) => p.period)
+        // Mantiene el orden de los periodos del día normal, que es el que define
+        // la secuencia Adv → P1 … P6 en todos los tipos de día.
+        const order = (s.periodSets.normal ?? []).map((p) => p.period)
         slots.sort((a, b) => order.indexOf(a.period) - order.indexOf(b.period))
         return { ...s, timetable: { ...s.timetable, [cycleDay]: slots } }
       })
@@ -189,8 +263,21 @@ export function useSchoolSetup() {
     [mutate],
   )
 
+  /** Cambia las horas de un tipo de día ('normal', 'miercoles', …). */
   const setPeriods = useCallback(
-    (periods: SchoolSetup['periods']) => mutate((s) => ({ ...s, periods })),
+    (dayType: string, periods: PeriodDef[]) =>
+      mutate((s) => ({ ...s, periodSets: { ...s.periodSets, [dayType]: periods } })),
+    [mutate],
+  )
+
+  /** Asigna a un día de la semana el juego de horas que le toca. */
+  const setDayType = useCallback(
+    (weekday: number, dayType: string) =>
+      mutate((s) => {
+        const next = [...s.dayTypeByWeekday]
+        next[weekday] = dayType
+        return { ...s, dayTypeByWeekday: next }
+      }),
     [mutate],
   )
 
@@ -201,7 +288,18 @@ export function useSchoolSetup() {
 
   const isCustom = config.setup != null
 
-  return { setup, upsertClass, removeClass, setSlot, setPeriods, resetSetup, isCustom }
+  return {
+    setup,
+    upsertClass,
+    removeClass,
+    setSlot,
+    setPeriods,
+    setDayType,
+    addUnit,
+    removeUnit,
+    resetSetup,
+    isCustom,
+  }
 }
 
 export function useClassNotes(classCode?: string) {
@@ -212,14 +310,26 @@ export function useClassNotes(classCode?: string) {
   )
 
   const addNote = useCallback((note: Omit<ClassNote, 'id'>) => {
-    notesStore.upsert({ ...note, id: newId() })
+    const created = { ...note, id: newId() }
+    notesStore.upsert(created)
+    return created
+  }, [])
+
+  const updateNote = useCallback((note: ClassNote) => {
+    notesStore.upsert(note)
   }, [])
 
   const removeNote = useCallback((id: string) => {
     notesStore.remove(id)
   }, [])
 
-  return { notes, addNote, removeNote }
+  return { notes, addNote, updateNote, removeNote }
+}
+
+/** Una nota concreta por id, para abrirla a página completa. */
+export function useClassNote(id?: string) {
+  const all = notesStore.useAll()
+  return useMemo(() => (id ? all.find((n) => n.id === id) : undefined), [all, id])
 }
 
 export function useTasks(classCode?: string) {
@@ -230,8 +340,19 @@ export function useTasks(classCode?: string) {
   )
 
   const addTask = useCallback(
-    (task: Omit<SchoolTask, 'id' | 'done' | 'kind'> & { kind?: TaskKind }) => {
-      tasksStore.upsert({ ...task, kind: task.kind ?? 'tarea', id: newId(), done: false })
+    (
+      task: Omit<SchoolTask, 'id' | 'done' | 'kind' | 'scope'> & {
+        kind?: TaskKind
+        scope?: TaskScope
+      },
+    ) => {
+      tasksStore.upsert({
+        ...task,
+        scope: task.scope ?? (task.classCode ? 'colegio' : 'personal'),
+        kind: task.kind ?? 'tarea',
+        id: newId(),
+        done: false,
+      })
     },
     [],
   )

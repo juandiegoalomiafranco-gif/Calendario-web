@@ -56,6 +56,64 @@ body {
   }
 }
 
+/*
+ * Notas de clase: se leen y se escriben con el mismo aspecto de documento, para que
+ * lo que ves mientras escribes sea lo que queda guardado.
+ */
+.prose-nota :where(h2) {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  margin: 1.1em 0 0.35em;
+}
+.prose-nota :where(h3) {
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 1em 0 0.3em;
+}
+.prose-nota :where(h2, h3):first-child {
+  margin-top: 0;
+}
+.prose-nota :where(p) {
+  margin: 0 0 0.6em;
+}
+.prose-nota :where(p):last-child {
+  margin-bottom: 0;
+}
+.prose-nota :where(ul) {
+  list-style: disc;
+  padding-left: 1.35em;
+  margin: 0 0 0.6em;
+}
+.prose-nota :where(ol) {
+  list-style: decimal;
+  padding-left: 1.5em;
+  margin: 0 0 0.6em;
+}
+.prose-nota :where(li) {
+  margin: 0.15em 0;
+}
+.prose-nota :where(li) :where(ul, ol) {
+  margin: 0.2em 0;
+}
+.prose-nota :where(u) {
+  text-underline-offset: 3px;
+}
+.prose-nota :where(mark) {
+  background-color: rgb(var(--warn) / 0.28);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 2px;
+}
+
+/* Texto guía del editor cuando la nota está vacía */
+.prose-nota[contenteditable]:empty::before,
+.prose-nota[contenteditable] > p:only-child:empty::before {
+  content: attr(data-placeholder);
+  color: rgb(var(--text-subtle));
+  pointer-events: none;
+}
+
 /* Barras de scroll discretas dentro de paneles */
 .scroll-slim {
   scrollbar-width: thin;

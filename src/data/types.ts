@@ -39,7 +39,6 @@ export type FlexActivity = 'futbol' | 'voley' | 'natacion'
 export interface LogEntry {
   completed: boolean
   avgHr?: number
-  distanceKm?: number
   durationMin?: number
   calories?: number
   activity?: FlexActivity

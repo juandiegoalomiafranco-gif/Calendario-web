@@ -14,7 +14,12 @@ export function useSchoolDay(dateIso: string) {
   const { setup } = useSchoolSetup()
 
   const cycle = useMemo(() => cycleInfoFor(dateIso, config), [dateIso, config])
-  const slots = useMemo(() => resolveDay(setup, cycle.cycleDay), [setup, cycle.cycleDay])
+  // La fecha importa: el miércoles las horas son otras aunque las materias sean las
+  // del mismo día de ciclo.
+  const slots = useMemo(
+    () => resolveDay(setup, cycle.cycleDay, dateIso),
+    [setup, cycle.cycleDay, dateIso],
+  )
   const classes = useMemo(() => classesOnly(slots), [slots])
 
   return { cycle, slots, classes, setup }

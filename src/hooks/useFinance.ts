@@ -7,6 +7,18 @@ import { todayISO } from '../data/plan'
 export type AccountKind = 'efectivo' | 'ahorros' | 'inversion' | 'externa'
 export type TxKind = 'gasto' | 'ingreso'
 
+/**
+ * De quién salió la plata. Es la distinción central de este módulo: lo que pagan
+ * los papás NO baja el saldo propio; solo suma al total mensual «de mis papás»,
+ * con su propio desglose por categoría.
+ */
+export type MoneySource = 'mia' | 'papas'
+
+export const MONEY_SOURCE_META: Record<MoneySource, { label: string; short: string }> = {
+  mia: { label: 'Mi plata', short: 'Mía' },
+  papas: { label: 'Plata de mis papás', short: 'Papás' },
+}
+
 export interface Account {
   id: string
   name: string
@@ -21,8 +33,11 @@ export interface Transaction {
   date: string
   amount: number
   kind: TxKind
+  /** De quién es la plata. Solo la propia mueve saldos. */
+  source: MoneySource
   accountId?: string
   category?: string
+  /** Detalle libre del origen: «tarjeta de papá», «efectivo que me dieron»… */
   sourceDetail?: string
   description?: string
 }
@@ -64,6 +79,7 @@ interface TxRow {
   date: string
   amount: number
   kind: string
+  source: string | null
   account_id: string | null
   category: string | null
   source_detail: string | null
@@ -116,6 +132,7 @@ const txStore = createCollection<Transaction, TxRow>({
     date: r.date,
     amount: Number(r.amount ?? 0),
     kind: (r.kind as TxKind) ?? 'gasto',
+    source: r.source === 'papas' ? 'papas' : 'mia',
     accountId: r.account_id ?? undefined,
     category: r.category ?? undefined,
     sourceDetail: r.source_detail ?? undefined,
@@ -127,6 +144,7 @@ const txStore = createCollection<Transaction, TxRow>({
     date: t.date,
     amount: t.amount,
     kind: t.kind,
+    source: t.source,
     account_id: t.accountId ?? null,
     category: t.category ?? null,
     source_detail: t.sourceDetail ?? null,
@@ -184,12 +202,17 @@ export function useFinance() {
   const addTransaction = useCallback((t: Omit<Transaction, 'id'>) => {
     const tx = { ...t, id: newId() }
     txStore.upsert(tx)
-    adjustBalance(tx.accountId, tx.kind === 'ingreso' ? tx.amount : -tx.amount)
+    // Lo de los papás se registra pero no mueve saldos: su plata no es tu patrimonio.
+    if (tx.source === 'mia') {
+      adjustBalance(tx.accountId, tx.kind === 'ingreso' ? tx.amount : -tx.amount)
+    }
   }, [])
 
   const removeTransaction = useCallback((id: string) => {
     const tx = txStore.get().find((t) => t.id === id)
-    if (tx) adjustBalance(tx.accountId, tx.kind === 'ingreso' ? -tx.amount : tx.amount)
+    if (tx && tx.source === 'mia') {
+      adjustBalance(tx.accountId, tx.kind === 'ingreso' ? -tx.amount : tx.amount)
+    }
     txStore.remove(id)
   }, [])
 
@@ -216,6 +239,13 @@ export function useFinance() {
   }, [])
   const removeCategory = useCallback((id: string) => categoriesStore.remove(id), [])
 
+  const renameCategory = useCallback((id: string, name: string) => {
+    const clean = name.trim()
+    const cat = categoriesStore.get().find((c) => c.id === id)
+    if (!clean || !cat) return
+    categoriesStore.upsert({ ...cat, name: clean })
+  }, [])
+
   /**
    * Aplica la mesada (a la cuenta indicada) y el interés mensual de cada cuenta de
    * ahorro/CDT según su interest_pct. Reversible: crea transacciones que se pueden borrar.
@@ -223,7 +253,16 @@ export function useFinance() {
   const applyMonthly = useCallback((mesada: number, personalAccountId?: string) => {
     const date = todayISO()
     if (personalAccountId && mesada > 0) {
-      const tx = { id: newId(), date, amount: mesada, kind: 'ingreso' as TxKind, accountId: personalAccountId, category: 'Mesada', description: 'Mesada mensual' }
+      const tx = {
+        id: newId(),
+        date,
+        amount: mesada,
+        kind: 'ingreso' as TxKind,
+        source: 'mia' as MoneySource,
+        accountId: personalAccountId,
+        category: 'Mesada',
+        description: 'Mesada mensual',
+      }
       txStore.upsert(tx)
       adjustBalance(personalAccountId, mesada)
     }
@@ -231,7 +270,16 @@ export function useFinance() {
       if (a.interestPct && a.interestPct > 0 && (a.kind === 'ahorros' || a.kind === 'inversion')) {
         const interest = Math.round(a.balance * (a.interestPct / 100))
         if (interest > 0) {
-          const tx = { id: newId(), date, amount: interest, kind: 'ingreso' as TxKind, accountId: a.id, category: 'Interés', description: `Interés ${a.interestPct}%` }
+          const tx = {
+            id: newId(),
+            date,
+            amount: interest,
+            kind: 'ingreso' as TxKind,
+            source: 'mia' as MoneySource,
+            accountId: a.id,
+            category: 'Interés',
+            description: `Interés ${a.interestPct}%`,
+          }
           txStore.upsert(tx)
           adjustBalance(a.id, interest)
         }
@@ -253,6 +301,7 @@ export function useFinance() {
     removeTransfer,
     addCategory,
     removeCategory,
+    renameCategory,
     applyMonthly,
   }
 }

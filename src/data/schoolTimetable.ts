@@ -9,6 +9,7 @@ import type { PeriodDef, SchoolClass, SchoolSetup, TimetableSlot } from './schoo
  * con editarlo desde «Colegio → Materias».
  */
 
+/** Día normal: lunes, martes, jueves y viernes. Salida 3:05 pm. */
 export const DEFAULT_PERIODS: PeriodDef[] = [
   { period: 'Adv', start: '8:00', end: '8:10', kind: 'class' },
   { period: 'P1', start: '8:10', end: '9:05', kind: 'class' },
@@ -19,6 +20,45 @@ export const DEFAULT_PERIODS: PeriodDef[] = [
   { period: 'P5', start: '12:30', end: '13:20', kind: 'class' },
   { period: 'Almuerzo', start: '13:20', end: '14:05', kind: 'break' },
   { period: 'P6', start: '14:10', end: '15:05', kind: 'class' },
+]
+
+/**
+ * Miércoles: salida a la 1:00 pm y UN SOLO recreo, así que las clases son más
+ * cortas. Las horas son una estimación repartida proporcionalmente (7 bloques y un
+ * recreo de 20 min entre 8:00 y 13:00) hasta tener el horario oficial: se editan
+ * desde «Materias y horario → Horas del día» sin tocar el código.
+ */
+export const WEDNESDAY_PERIODS: PeriodDef[] = [
+  { period: 'Adv', start: '8:00', end: '8:10', kind: 'class' },
+  { period: 'P1', start: '8:10', end: '8:55', kind: 'class' },
+  { period: 'P2', start: '8:55', end: '9:40', kind: 'class' },
+  { period: 'P3', start: '9:40', end: '10:25', kind: 'class' },
+  { period: 'Recreo', start: '10:25', end: '10:45', kind: 'break' },
+  { period: 'P4', start: '10:45', end: '11:30', kind: 'class' },
+  { period: 'P5', start: '11:30', end: '12:15', kind: 'class' },
+  { period: 'P6', start: '12:15', end: '13:00', kind: 'class' },
+]
+
+/** Nombre visible de cada tipo de día, para la pantalla de edición. */
+export const DAY_TYPE_LABELS: Record<string, string> = {
+  normal: 'Día normal',
+  miercoles: 'Miércoles (salida 1:00 pm)',
+}
+
+export const DEFAULT_PERIOD_SETS: Record<string, PeriodDef[]> = {
+  normal: DEFAULT_PERIODS,
+  miercoles: WEDNESDAY_PERIODS,
+}
+
+/** Índice 0 = lunes … 6 = domingo. */
+export const DEFAULT_DAY_TYPE_BY_WEEKDAY: string[] = [
+  'normal',
+  'normal',
+  'miercoles',
+  'normal',
+  'normal',
+  'normal',
+  'normal',
 ]
 
 export const DEFAULT_CLASSES: Record<string, SchoolClass> = {
@@ -98,7 +138,8 @@ export const DEFAULT_TIMETABLE: Record<number, TimetableSlot[]> = {
 }
 
 export const DEFAULT_SETUP: SchoolSetup = {
-  periods: DEFAULT_PERIODS,
+  periodSets: DEFAULT_PERIOD_SETS,
+  dayTypeByWeekday: DEFAULT_DAY_TYPE_BY_WEEKDAY,
   classes: DEFAULT_CLASSES,
   timetable: DEFAULT_TIMETABLE,
 }

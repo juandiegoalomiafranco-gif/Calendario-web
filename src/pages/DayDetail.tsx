@@ -8,7 +8,6 @@ import { useTrainingLog } from '../hooks/useTrainingLog'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card } from '../components/ui/Card'
 import { Field, NumberInput, Select, TextArea } from '../components/ui/Field'
-import { formatPace, isDistanceSession, parsePlannedDistance } from '../lib/stats'
 import { formatFull } from '../lib/dates'
 import { cx } from '../lib/cx'
 import type { FlexActivity, LogEntry, Session } from '../data/types'
@@ -157,30 +156,6 @@ function SessionDetailCard({ session }: { session: Session }) {
           </div>
         )}
 
-        {entry.completed && isDistanceSession(session.type) && (
-          <div className="flex flex-col gap-1.5 rounded-2xl bg-accent-soft p-3">
-            <Field label="¿Cuántos km hiciste?">
-              <NumberInput
-                step="0.1"
-                min="0"
-                value={entry.distanceKm ?? ''}
-                onChange={(e) =>
-                  patch({ distanceKm: e.target.value ? Number(e.target.value) : undefined })
-                }
-                placeholder={session.distanceKm ? `Plan: ${session.distanceKm} km` : '0.0'}
-                className="bg-surface"
-              />
-            </Field>
-            {entry.distanceKm == null && (
-              <p className="text-xs text-accent">
-                {parsePlannedDistance(session.distanceKm) > 0
-                  ? `Sin dato, contaremos ~${parsePlannedDistance(session.distanceKm)} km del plan.`
-                  : 'Sin dato, esta sesión suma 0 km en Progreso.'}
-              </p>
-            )}
-          </div>
-        )}
-
         {entry.completed && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Duración (min)">
@@ -203,12 +178,6 @@ function SessionDetailCard({ session }: { session: Session }) {
                 }
               />
             </Field>
-            {formatPace(entry.distanceKm, entry.durationMin) && (
-              <p className="col-span-2 -mt-1 text-xs text-content-muted">
-                <span className="font-semibold text-content">Ritmo:</span>{' '}
-                {formatPace(entry.distanceKm, entry.durationMin)}
-              </p>
-            )}
             <Field label="FC media (ppm)" className="col-span-2 sm:col-span-1">
               <NumberInput
                 inputMode="numeric"

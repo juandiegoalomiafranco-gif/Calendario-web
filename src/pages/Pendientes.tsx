@@ -2,11 +2,14 @@ import { useMemo, useState } from 'react'
 import { ListChecks, PartyPopper, Plus, Trash2 } from 'lucide-react'
 import { useSchoolSetup, useTasks } from '../hooks/useSchool'
 import {
+  PERSONAL_AREA_META,
+  PERSONAL_AREA_ORDER,
   TASK_KIND_META,
   TASK_KIND_ORDER,
   URGENCY_META,
   URGENCY_ORDER,
-  type SchoolTask,
+  type Task,
+  type TaskScope,
 } from '../data/schoolTypes'
 import { classList } from '../lib/school'
 import { todayIso } from '../lib/dates'
@@ -20,6 +23,7 @@ import { TaskItem } from '../components/tasks/TaskItem'
 import { sortByPressure } from '../components/panels/UrgentTasksCard'
 
 type Filter = 'abiertos' | 'hoy' | 'semana' | 'hechos'
+type Scope = TaskScope | 'todo'
 
 const FILTERS: { value: Filter; label: string }[] = [
   { value: 'abiertos', label: 'Abiertos' },
@@ -28,13 +32,25 @@ const FILTERS: { value: Filter; label: string }[] = [
   { value: 'hechos', label: 'Hechos' },
 ]
 
-/** Todos los pendientes: tareas, exámenes, quices y entregas de cualquier materia. */
+const SCOPES: { value: Scope; label: string }[] = [
+  { value: 'colegio', label: 'Colegio' },
+  { value: 'personal', label: 'Personal' },
+  { value: 'todo', label: 'Todo' },
+]
+
+/**
+ * Todos los pendientes en un solo sitio: lo del colegio (tareas, exámenes, quices y
+ * entregas por materia) y lo personal de la casa, cada uno en su pestaña y con la
+ * opción de verlo todo junto.
+ */
 export function Pendientes() {
   const today = todayIso()
   const { tasks, toggleTask, removeTask } = useTasks()
   const { setup } = useSchoolSetup()
   const [filter, setFilter] = useState<Filter>('abiertos')
+  const [scope, setScope] = useState<Scope>('colegio')
   const [classFilter, setClassFilter] = useState<string>('')
+  const [areaFilter, setAreaFilter] = useState<string>('')
   const [adding, setAdding] = useState(false)
 
   const classes = classList(setup)
@@ -46,7 +62,9 @@ export function Pendientes() {
 
   const shown = useMemo(() => {
     let list = tasks
-    if (classFilter) list = list.filter((t) => t.classCode === classFilter)
+    if (scope !== 'todo') list = list.filter((t) => t.scope === scope)
+    if (scope === 'colegio' && classFilter) list = list.filter((t) => t.classCode === classFilter)
+    if (scope === 'personal' && areaFilter) list = list.filter((t) => t.area === areaFilter)
     switch (filter) {
       case 'abiertos':
         list = list.filter((t) => !t.done)
@@ -62,19 +80,31 @@ export function Pendientes() {
         break
     }
     return sortByPressure(list, today)
-  }, [tasks, filter, classFilter, today, weekLimit])
+  }, [tasks, filter, scope, classFilter, areaFilter, today, weekLimit])
 
   /** Cuántos abiertos hay de cada tipo, para el resumen de arriba. */
   const byKind = useMemo(() => {
-    const m = new Map<SchoolTask['kind'], number>()
+    const m = new Map<Task['kind'], number>()
     for (const t of tasks) {
-      if (t.done) continue
+      if (t.done || t.scope === 'personal') continue
       m.set(t.kind, (m.get(t.kind) ?? 0) + 1)
     }
     return m
   }, [tasks])
 
-  const overdue = tasks.filter((t) => !t.done && t.dueDate && t.dueDate < today).length
+  /** Lo mismo para las áreas de casa. */
+  const byArea = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const t of tasks) {
+      if (t.done || t.scope !== 'personal') continue
+      const a = t.area ?? 'otro'
+      m.set(a, (m.get(a) ?? 0) + 1)
+    }
+    return m
+  }, [tasks])
+
+  const visibles = scope === 'todo' ? tasks : tasks.filter((t) => t.scope === scope)
+  const overdue = visibles.filter((t) => !t.done && t.dueDate && t.dueDate < today).length
 
   return (
     <div className="flex flex-col gap-4 lg:gap-6">
@@ -83,6 +113,12 @@ export function Pendientes() {
         title="Pendientes"
         actions={
           <>
+            <SegmentedControl
+              options={SCOPES}
+              value={scope}
+              onChange={setScope}
+              ariaLabel="Colegio o personal"
+            />
             <SegmentedControl
               options={FILTERS}
               value={filter}
@@ -97,28 +133,90 @@ export function Pendientes() {
         }
       />
 
-      {/* Resumen por tipo */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {TASK_KIND_ORDER.map((k) => {
-          const meta = TASK_KIND_META[k]
-          return (
-            <Card key={k} className="flex items-center gap-3">
-              <span className={cx('grid h-10 w-10 shrink-0 place-items-center rounded-xl', meta.color.soft)}>
-                <meta.Icon size={17} strokeWidth={2} aria-hidden />
-              </span>
-              <div className="min-w-0">
-                <p className="text-xl font-extrabold tabular leading-none text-content">
-                  {byKind.get(k) ?? 0}
-                </p>
-                <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>
-              </div>
-            </Card>
-          )
-        })}
-      </div>
+      {/* Resumen: tipos en Colegio, áreas en Personal */}
+      {scope !== 'personal' ? (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {TASK_KIND_ORDER.map((k) => {
+            const meta = TASK_KIND_META[k]
+            return (
+              <Card key={k} className="flex items-center gap-3">
+                <span
+                  className={cx(
+                    'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+                    meta.color.soft,
+                  )}
+                >
+                  <meta.Icon size={17} strokeWidth={2} aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xl font-extrabold tabular leading-none text-content">
+                    {byKind.get(k) ?? 0}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {PERSONAL_AREA_ORDER.slice(0, 4).map((a) => {
+            const meta = PERSONAL_AREA_META[a]
+            return (
+              <Card key={a} className="flex items-center gap-3">
+                <span
+                  className={cx(
+                    'grid h-10 w-10 shrink-0 place-items-center rounded-xl',
+                    meta.color.soft,
+                  )}
+                >
+                  <meta.Icon size={17} strokeWidth={2} aria-hidden />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-xl font-extrabold tabular leading-none text-content">
+                    {byArea.get(a) ?? 0}
+                  </p>
+                  <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Filtro por área, en los personales */}
+      {scope === 'personal' && (
+        <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+          <button
+            type="button"
+            onClick={() => setAreaFilter('')}
+            aria-pressed={areaFilter === ''}
+            className={cx(
+              'h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors',
+              areaFilter === '' ? 'bg-primary text-primary-on' : 'bg-surface-2 text-content-muted',
+            )}
+          >
+            Todas
+          </button>
+          {PERSONAL_AREA_ORDER.map((a) => (
+            <button
+              key={a}
+              type="button"
+              onClick={() => setAreaFilter(areaFilter === a ? '' : a)}
+              aria-pressed={areaFilter === a}
+              className={cx(
+                'h-8 shrink-0 rounded-full px-3 text-[13px] font-semibold transition-colors',
+                areaFilter === a ? 'bg-primary text-primary-on' : 'bg-surface-2 text-content-muted',
+              )}
+            >
+              {PERSONAL_AREA_META[a].label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Filtro por materia */}
-      {classes.length > 0 && (
+      {scope !== 'personal' && classes.length > 0 && (
         <div className="no-scrollbar -mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:px-0">
           <button
             type="button"
@@ -158,7 +256,11 @@ export function Pendientes() {
             <PartyPopper size={24} className="text-content-subtle" aria-hidden />
           )}
           <p className="text-sm text-content-muted">
-            {filter === 'hechos' ? 'Aún no has completado nada.' : 'No tienes nada pendiente aquí.'}
+            {filter === 'hechos'
+              ? 'Aún no has completado nada.'
+              : scope === 'personal'
+                ? 'Nada pendiente en la casa. Añade lo que tengas que hacer.'
+                : 'No tienes nada pendiente aquí.'}
           </p>
         </Card>
       ) : (
@@ -194,7 +296,8 @@ export function Pendientes() {
       <AddItemSheet
         open={adding}
         onClose={() => setAdding(false)}
-        classCode={classFilter || undefined}
+        classCode={scope === 'colegio' ? classFilter || undefined : undefined}
+        initialScope={scope === 'todo' ? 'colegio' : scope}
         date={today}
       />
     </div>

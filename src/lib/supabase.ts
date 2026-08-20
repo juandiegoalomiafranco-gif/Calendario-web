@@ -10,27 +10,19 @@ if (!url || !publishableKey) {
 }
 
 // Cliente único de Supabase. La sesión se guarda en localStorage y se refresca sola.
+//
+// La sesión la inicia el usuario con su código de acceso (ver src/lib/auth.ts y
+// CodeGate). El mismo código abre la misma cuenta en cualquier dispositivo, que es
+// justo lo que la sesión anónima anterior impedía: creaba un usuario distinto por
+// dispositivo, así que el celular y el computador nunca veían los mismos datos.
 export const supabase = createClient(url, publishableKey, {
   auth: {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: false,
   },
-})
-
-// Sesión anónima automática: la app NO tiene login. En la primera carga se crea una
-// sesión anónima (sin correo ni contraseña) para tener un auth.uid() y que RLS proteja
-// los datos por dispositivo. Requiere "Anonymous sign-ins" activado en Supabase; si está
-// apagado, la app sigue funcionando solo con localStorage (no se rompe nada).
-void supabase.auth.getSession().then(({ data }) => {
-  if (!data.session) {
-    void supabase.auth.signInAnonymously().then(({ error }) => {
-      if (error) {
-        console.warn(
-          'Sesión anónima no disponible (activa "Anonymous sign-ins" en Supabase):',
-          error.message,
-        )
-      }
-    })
-  }
+  realtime: {
+    // Suficiente para una persona con dos dispositivos; evita ráfagas innecesarias.
+    params: { eventsPerSecond: 5 },
+  },
 })

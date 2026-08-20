@@ -4,6 +4,7 @@ import { todayIso, weekdayLong } from '../../lib/dates'
 import { useTasks } from '../../hooks/useSchool'
 import { cx } from '../../lib/cx'
 import { ThemeToggle } from '../ui/ThemeToggle'
+import { SyncIndicator } from '../SyncIndicator'
 
 /** Logotipo de MyLife: el mismo mosaico del icono de la app. */
 export function Wordmark({ className }: { className?: string }) {
@@ -41,6 +42,7 @@ export function TopBar() {
         </Link>
 
         <div className="flex items-center gap-2">
+          <SyncIndicator />
           <ThemeToggle compact />
 
           <Link
@@ -63,7 +65,7 @@ export function TopBar() {
           </Link>
 
           <div className="ml-1 flex items-center gap-2.5 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-bold text-white">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-bold text-on-solid">
               JD
             </span>
             <span className="leading-tight">

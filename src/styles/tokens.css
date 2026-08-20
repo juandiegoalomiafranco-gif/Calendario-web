@@ -46,6 +46,25 @@
   --danger: 205 51 51;
   --danger-soft: 253 228 228;
 
+  /*
+   * Texto que va ENCIMA de un fondo saturado (chips de color, botones sólidos,
+   * el check de "hecho", el avatar). En claro los fondos son oscuros → texto
+   * blanco; en oscuro se aclaran a propósito → texto casi negro. Sin este token,
+   * un `text-white` fijo queda blanco sobre pastel claro y no se lee.
+   */
+  --on-solid: 255 255 255;
+
+  /*
+   * Tarjeta destacada (Patrimonio, escenario de comida). Se queda grafito en los
+   * dos temas: en oscuro `--primary` es casi blanco, así que un degradado de
+   * primary con texto blanco dejaba blanco sobre blanco.
+   */
+  --hero-from: 42 45 52;
+  --hero-to: 22 24 29;
+  --hero-fg: 255 255 255;
+  --hero-ok: 74 205 140;
+  --hero-danger: 244 121 121;
+
   /* Paleta de categorías — materias, tipos de evento, actividades */
   --cat-violet: 124 92 245;
   --cat-blue: 32 128 230;
@@ -108,6 +127,12 @@
   --warn-soft: 60 46 14;
   --danger: 244 106 106;
   --danger-soft: 63 26 26;
+
+  --on-solid: 16 18 22;
+
+  /* Un grafito algo más claro que --bg y --surface, para que la tarjeta se separe */
+  --hero-from: 54 58 68;
+  --hero-to: 32 35 42;
 
   /* Categorías aclaradas para mantener contraste sobre fondo oscuro */
   --cat-violet: 165 141 255;

@@ -143,9 +143,6 @@ export const PRINCIPLES: string[] = [
   'Lo pequeño hecho todos los días vence a lo grande hecho de vez en cuando.',
 ]
 
-export const GOAL_DATE = '2026-08-05'
-export const GOAL_DISTANCE_KM = 21
-
 const RAW_PLAN: DayPlan[] = [
   { date: '2026-07-15', weekday: weekdayOf('2026-07-15'), sessions: [crossfit('2026-07-15-am'), restPM('2026-07-15-pm')] },
   { date: '2026-07-16', weekday: weekdayOf('2026-07-16'), sessions: [crossfit('2026-07-16-am'), swimTechnique('2026-07-16-pm')] },
@@ -310,7 +307,8 @@ export function getDayPlan(date: string): DayPlan | undefined {
   return PLAN.find((d) => d.date === date)
 }
 
-export function todayISO(): string {
-  const d = new Date()
-  return d.toISOString().slice(0, 10)
-}
+/**
+ * Alias histórico de `todayIso`. El «hoy» de toda la app vive en un solo sitio
+ * (`src/lib/dates.ts`) y se resuelve en hora de Colombia.
+ */
+export { todayIso as todayISO } from '../lib/dates'
