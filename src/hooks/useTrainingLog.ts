@@ -1,50 +1,18 @@
-import { useCallback, useSyncExternalStore } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { LogEntry } from '../data/types'
-import { supabase } from '../lib/supabase'
+import { createCollection } from '../lib/cloudStore'
+import { stableId } from '../lib/ids'
 
-const STORAGE_KEY = 'calendario-web:log:v1'
-
-type LogMap = Record<string, LogEntry>
-
-// --- Caché local: carga instantánea y lectura offline ------------------------
-function readStorage(): LogMap {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as LogMap) : {}
-  } catch {
-    return {}
-  }
+/** Una entrada del registro, con la identidad de su fila en la nube. */
+interface LogItem extends LogEntry {
+  id: string
+  sessionId: string
 }
 
-// Store compartido a nivel de módulo: todas las instancias del hook ven el mismo
-// log, así dos tarjetas de un mismo día no se pisan las entradas entre sí.
-let cache: LogMap = readStorage()
-const listeners = new Set<() => void>()
-
-function emit() {
-  listeners.forEach((l) => l())
-}
-
-function persistLocal(next: LogMap) {
-  cache = next
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // sin espacio o modo privado: mantenemos al menos el estado en memoria
-  }
-  emit()
-}
-
-function subscribe(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
-}
-
-// --- Mapeo fila (Supabase) <-> LogEntry (app) --------------------------------
 interface Row {
+  id: string
   session_id: string
   completed: boolean
-  distance_km: number | null
   duration_min: number | null
   calories: number | null
   avg_hr: number | null
@@ -53,86 +21,98 @@ interface Row {
   notes: string | null
 }
 
-function rowToEntry(r: Row): LogEntry {
-  return {
+const STORAGE_KEY = 'mivida:training-log:v1'
+const LEGACY_KEY = 'calendario-web:log:v1'
+
+/**
+ * Una fila por sesión del plan. El id sale del `session_id`, así que el celular y
+ * el computador llegan al mismo y no se crean dos filas para el mismo entreno.
+ */
+function rowId(sessionId: string): string {
+  return stableId('log', sessionId)
+}
+
+/**
+ * La versión anterior de este hook guardaba el registro como un objeto suelto en
+ * otra clave, leía de la nube una sola vez al arrancar y perdía cualquier cambio
+ * escrito sin señal. Lo que quedara en esa caché se pasa una vez al formato nuevo;
+ * de ahí en adelante lo sube la cola de salida como el resto de la app.
+ */
+function importarCacheVieja() {
+  try {
+    if (localStorage.getItem(STORAGE_KEY) != null) return
+    const raw = localStorage.getItem(LEGACY_KEY)
+    if (!raw) return
+    const viejo = JSON.parse(raw) as Record<string, LogEntry>
+    const items: LogItem[] = Object.entries(viejo).map(([sessionId, e]) => ({
+      id: rowId(sessionId),
+      sessionId,
+      completed: e.completed ?? false,
+      durationMin: e.durationMin,
+      calories: e.calories,
+      avgHr: e.avgHr,
+      activity: e.activity,
+      feeling: e.feeling,
+      notes: e.notes,
+    }))
+    if (items.length > 0) localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+  } catch {
+    // Caché vieja ilegible: se arranca limpio y manda lo que haya en la nube.
+  }
+}
+
+if (typeof localStorage !== 'undefined') importarCacheVieja()
+
+const store = createCollection<LogItem, Row>({
+  key: STORAGE_KEY,
+  table: 'training_log',
+  rowToItem: (r) => ({
+    id: r.id,
+    sessionId: r.session_id,
     completed: r.completed,
-    distanceKm: r.distance_km ?? undefined,
     durationMin: r.duration_min ?? undefined,
     calories: r.calories ?? undefined,
     avgHr: r.avg_hr ?? undefined,
     activity: (r.activity as LogEntry['activity']) ?? undefined,
     feeling: (r.feeling as LogEntry['feeling']) ?? undefined,
     notes: r.notes ?? undefined,
-  }
-}
-
-function entryToRow(sessionId: string, userId: string, e: LogEntry) {
-  // Los session.id empiezan por YYYY-MM-DD (p. ej. "2026-07-15-am"); derivamos la fecha.
-  const date = /^\d{4}-\d{2}-\d{2}/.test(sessionId) ? sessionId.slice(0, 10) : null
-  return {
+  }),
+  itemToRow: (i, userId) => ({
+    id: i.id,
     user_id: userId,
-    session_id: sessionId,
-    date,
-    completed: e.completed ?? false,
-    distance_km: e.distanceKm ?? null,
-    duration_min: e.durationMin ?? null,
-    calories: e.calories ?? null,
-    avg_hr: e.avgHr ?? null,
-    activity: e.activity ?? null,
-    feeling: e.feeling ?? null,
-    notes: e.notes ?? null,
-    updated_at: new Date().toISOString(),
-  }
-}
-
-// --- Sincronización con Supabase ---------------------------------------------
-let currentUserId: string | null = null
-
-async function loadFromSupabase() {
-  const { data, error } = await supabase.from('training_log').select('*')
-  if (error || !data) return // sin conexión / error: nos quedamos con la caché local
-  const map: LogMap = {}
-  for (const r of data as Row[]) map[r.session_id] = rowToEntry(r)
-  persistLocal(map)
-}
-
-function pushToSupabase(sessionId: string, entry: LogEntry) {
-  if (!currentUserId) return
-  supabase
-    .from('training_log')
-    .upsert(entryToRow(sessionId, currentUserId, entry), { onConflict: 'user_id,session_id' })
-    .then(({ error }) => {
-      if (error) console.error('No se pudo guardar el entrenamiento:', error.message)
-    })
-}
-
-// Recargar al entrar y limpiar al salir, para no mezclar datos entre usuarios.
-supabase.auth.getSession().then(({ data }) => {
-  currentUserId = data.session?.user.id ?? null
-  if (currentUserId) loadFromSupabase()
-})
-supabase.auth.onAuthStateChange((_event, session) => {
-  const nextId = session?.user.id ?? null
-  if (nextId === currentUserId) return
-  currentUserId = nextId
-  if (nextId) loadFromSupabase()
-  else persistLocal({})
+    session_id: i.sessionId,
+    // Los session.id empiezan por YYYY-MM-DD (p. ej. "2026-07-15-am").
+    date: /^\d{4}-\d{2}-\d{2}/.test(i.sessionId) ? i.sessionId.slice(0, 10) : null,
+    completed: i.completed ?? false,
+    duration_min: i.durationMin ?? null,
+    calories: i.calories ?? null,
+    avg_hr: i.avgHr ?? null,
+    activity: i.activity ?? null,
+    feeling: i.feeling ?? null,
+    notes: i.notes ?? null,
+  }),
 })
 
 export function useTrainingLog() {
-  const log = useSyncExternalStore(subscribe, () => cache)
+  const items = store.useAll()
+
+  // Las pantallas consultan por id de sesión, no por id de fila.
+  const log = useMemo(() => {
+    const porSesion: Record<string, LogEntry> = {}
+    for (const item of items) porSesion[item.sessionId] = item
+    return porSesion
+  }, [items])
 
   const getEntry = useCallback((sessionId: string): LogEntry | undefined => log[sessionId], [log])
 
   const setEntry = useCallback((sessionId: string, entry: LogEntry) => {
-    persistLocal({ ...cache, [sessionId]: entry }) // optimista + caché
-    pushToSupabase(sessionId, entry)
+    store.upsert({ ...entry, id: rowId(sessionId), sessionId })
   }, [])
 
   const toggleCompleted = useCallback((sessionId: string) => {
-    const next: LogEntry = { ...cache[sessionId], completed: !cache[sessionId]?.completed }
-    persistLocal({ ...cache, [sessionId]: next })
-    pushToSupabase(sessionId, next)
+    const actual = store.get().find((x) => x.sessionId === sessionId)
+    const base: LogItem = actual ?? { id: rowId(sessionId), sessionId, completed: false }
+    store.upsert({ ...base, completed: !base.completed })
   }, [])
 
   return { log, getEntry, setEntry, toggleCompleted }

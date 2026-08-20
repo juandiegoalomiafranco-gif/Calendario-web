@@ -5,19 +5,18 @@ import {
   ChevronRight,
   Dumbbell,
   Flame,
-  MapPin,
   NotebookPen,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react'
-import { PLAN, getDayPlan, todayISO, GOAL_DISTANCE_KM } from '../data/plan'
+import { PLAN, getDayPlan, todayISO } from '../data/plan'
 import { SessionCard } from '../components/SessionCard'
 import { StatCard } from '../components/StatCard'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { Button } from '../components/ui/Button'
 import { useTrainingLog } from '../hooks/useTrainingLog'
-import { computeStreaks, kmForEntry } from '../lib/stats'
+import { computeStreaks } from '../lib/stats'
 import { formatFull } from '../lib/dates'
 
 interface Access {
@@ -40,7 +39,7 @@ const LINKS: Access[] = [
     to: '/progreso',
     Icon: TrendingUp,
     label: 'Estadísticas',
-    caption: 'Km, ritmo, FC y cumplimiento',
+    caption: 'Constancia, tiempo y FC',
     tone: 'bg-cat-soft-green text-cat-green',
   },
   {
@@ -84,9 +83,9 @@ export function Entreno() {
   const { log, getEntry, toggleCompleted } = useTrainingLog()
 
   const streaks = useMemo(() => computeStreaks(PLAN, log, iso), [log, iso])
-  const kmTotal = useMemo(() => {
+  const workoutsDone = useMemo(() => {
     let total = 0
-    for (const d of PLAN) for (const s of d.sessions) total += kmForEntry(s, log[s.id]).km
+    for (const d of PLAN) for (const s of d.sessions) if (s.type !== 'rest' && log[s.id]?.completed) total++
     return total
   }, [log])
 
@@ -98,7 +97,7 @@ export function Entreno() {
       <PageHeader
         eyebrow={formatFull(iso)}
         title="Entreno"
-        description={<>Camino al {GOAL_DISTANCE_KM}K del 5 de agosto.</>}
+        description={<>Lo que toca hoy y cómo vas de constancia.</>}
         actions={
           <Link
             to="/semana"
@@ -110,7 +109,7 @@ export function Entreno() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
         <StatCard
           label="Racha"
           value={String(streaks.current)}
@@ -120,14 +119,6 @@ export function Entreno() {
           caption={`mejor: ${streaks.best}`}
         />
         <StatCard
-          label="Km acumulados"
-          value={kmTotal.toFixed(1)}
-          unit="km"
-          Icon={MapPin}
-          tone="bg-cat-soft-rose text-cat-rose"
-          caption="registrados + plan"
-        />
-        <StatCard
           label="Hoy"
           value={sessions.length === 0 ? 'Descanso' : `${done}/${sessions.length}`}
           Icon={Dumbbell}
@@ -135,12 +126,11 @@ export function Entreno() {
           caption={sessions.length === 0 ? 'día libre' : 'sesiones hechas'}
         />
         <StatCard
-          label="Meta"
-          value={String(GOAL_DISTANCE_KM)}
-          unit="km"
+          label="Entrenos"
+          value={String(workoutsDone)}
           Icon={TrendingUp}
           tone="bg-cat-soft-green text-cat-green"
-          caption="5 de agosto"
+          caption="completados en el plan"
         />
       </div>
 

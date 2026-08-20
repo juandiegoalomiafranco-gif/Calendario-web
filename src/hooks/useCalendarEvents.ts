@@ -11,6 +11,7 @@ import {
 import { COLORS, type ColorStyles } from '../data/palette'
 import { SCHOOL_EVENTS } from '../data/schoolCalendar'
 import { createCollection, newId } from '../lib/cloudStore'
+import { stableId } from '../lib/ids'
 
 export type EventType = 'personal' | 'colegio' | 'salud' | 'viaje' | 'cumpleanos' | 'otro'
 
@@ -93,24 +94,7 @@ const store = createCollection<CalendarEvent, EventRow>({
  * el celular y el computador crearían dos copias de cada evento.
  */
 function seedId(date: string, title: string): string {
-  const src = `ccb|${date}|${title}`
-  // Cuatro hashes FNV-1a con semillas distintas → 32 hex, con forma de UUID v4.
-  const parts = [0x811c9dc5, 0x01000193, 0x7f4a7c15, 0x9e3779b9].map((seed) => {
-    let h = seed >>> 0
-    for (let i = 0; i < src.length; i++) {
-      h ^= src.charCodeAt(i)
-      h = Math.imul(h, 0x01000193) >>> 0
-    }
-    return h.toString(16).padStart(8, '0')
-  })
-  const h = parts.join('')
-  return [
-    h.slice(0, 8),
-    h.slice(8, 12),
-    `4${h.slice(13, 16)}`,
-    `8${h.slice(17, 20)}`,
-    h.slice(20, 32),
-  ].join('-')
+  return stableId('ccb', date, title)
 }
 
 /** Los eventos del calendario oficial, listos para insertar. */

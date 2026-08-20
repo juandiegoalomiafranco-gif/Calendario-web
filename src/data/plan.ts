@@ -143,9 +143,6 @@ export const PRINCIPLES: string[] = [
   'Lo pequeño hecho todos los días vence a lo grande hecho de vez en cuando.',
 ]
 
-export const GOAL_DATE = '2026-08-05'
-export const GOAL_DISTANCE_KM = 21
-
 const RAW_PLAN: DayPlan[] = [
   { date: '2026-07-15', weekday: weekdayOf('2026-07-15'), sessions: [crossfit('2026-07-15-am'), restPM('2026-07-15-pm')] },
   { date: '2026-07-16', weekday: weekdayOf('2026-07-16'), sessions: [crossfit('2026-07-16-am'), swimTechnique('2026-07-16-pm')] },
