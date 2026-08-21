@@ -30,10 +30,26 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+/*
+ * El armazón ocupa exactamente la pantalla y no más: es una columna con el
+ * contenido desplazable en medio y la barra de navegación abajo. Con ALTURA fija
+ * (no `min-height`) la barra queda clavada al borde inferior pase lo que pase.
+ */
 .app-shell {
-  min-height: 100vh;
+  height: 100vh;
   /* dvh sigue el viewport dinámico de iOS en standalone; el vh de arriba es el respaldo */
-  min-height: 100dvh;
+  height: 100dvh;
+}
+
+/*
+ * La caja que se desplaza. `overscroll-behavior: contain` corta el rebote elástico
+ * de iOS al llegar al final, que era lo que hacía «saltar» la barra de abajo.
+ */
+.app-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Trama diagonal de las celdas sin actividad en las rejillas */

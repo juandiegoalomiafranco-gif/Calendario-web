@@ -3,6 +3,7 @@ import { useLocation } from 'react-router-dom'
 import { cx } from '../../lib/cx'
 import { NowNextCard } from '../panels/NowNextCard'
 import { UrgentTasksCard } from '../panels/UrgentTasksCard'
+import { SCROLL_AREA_ID } from '../ScrollToTop'
 import { SyncBanner } from '../SyncIndicator'
 import { BottomNav } from './BottomNav'
 import { IconRail } from './IconRail'
@@ -26,30 +27,40 @@ export function AppShell({ children }: { children: ReactNode }) {
   const showContext = !WITHOUT_CONTEXT.includes(pathname)
 
   return (
-    <div className="app-shell bg-bg">
+    <div className="app-shell flex flex-col bg-bg">
       <IconRail />
 
-      <div className="lg:pl-[72px]">
+      <div className="flex min-h-0 flex-1 flex-col lg:pl-[72px]">
         <TopBar />
 
-        <div
-          className={cx(
-            'mx-auto w-full px-4 pb-28 pt-[calc(env(safe-area-inset-top)+1rem)]',
-            'sm:px-6 lg:max-w-[1600px] lg:px-8 lg:pb-12 lg:pt-7',
-            showContext && 'xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-7',
-          )}
-        >
-          <main className="min-w-0">
-            <SyncBanner />
-            {children}
-          </main>
+        {/*
+         * El scroll vive AQUÍ, no en la página.
+         *
+         * Antes la barra de abajo era `position: fixed`, y en el iPhone eso se mueve:
+         * con el rebote elástico al llegar al final, al aparecer el teclado y al
+         * cambiar el viewport. Ahora el contenido se desplaza dentro de esta caja y
+         * la barra es un hermano suyo, así que no puede moverse ni un píxel.
+         */}
+        <div id={SCROLL_AREA_ID} className="app-scroll min-h-0 flex-1">
+          <div
+            className={cx(
+              'mx-auto w-full max-w-2xl px-4 pb-6 pt-[calc(env(safe-area-inset-top)+1rem)]',
+              'sm:px-6 lg:max-w-[1600px] lg:px-8 lg:pb-12 lg:pt-7',
+              showContext && 'xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-7',
+            )}
+          >
+            <main className="min-w-0">
+              <SyncBanner />
+              {children}
+            </main>
 
-          {showContext && (
-            <aside className="sticky top-[calc(4rem+1.75rem)] hidden flex-col gap-4 xl:flex">
-              <NowNextCard />
-              <UrgentTasksCard />
-            </aside>
-          )}
+            {showContext && (
+              <aside className="sticky top-0 hidden flex-col gap-4 xl:flex">
+                <NowNextCard />
+                <UrgentTasksCard />
+              </aside>
+            )}
+          </div>
         </div>
       </div>
 
