@@ -47,10 +47,10 @@ function Kpi({ Icon, label, value, caption, tone, to }: KpiProps) {
       </span>
       <span className="min-w-0">
         <span className="block truncate text-xs font-semibold text-content-muted">{label}</span>
-        <span className="block truncate text-xl font-extrabold leading-tight tracking-tight text-content">
+        <span className="line-clamp-2 text-xl font-extrabold leading-tight tracking-tight text-content">
           {value}
         </span>
-        <span className="block truncate text-[11px] text-content-subtle">{caption}</span>
+        <span className="line-clamp-2 text-[11px] leading-snug text-content-subtle">{caption}</span>
       </span>
     </Link>
   )

@@ -2,12 +2,18 @@ import { NavLink } from 'react-router-dom'
 import { cx } from '../../lib/cx'
 import { MOBILE_ITEMS } from './navItems'
 
-/** Navegación de móvil. En escritorio la sustituye el rail de iconos. */
+/**
+ * Navegación de móvil. En escritorio la sustituye el rail de iconos.
+ *
+ * No lleva `position: fixed` a propósito: es el último hijo del armazón, que es una
+ * columna a la altura de la pantalla con el scroll en el contenido. Así la barra no
+ * puede moverse — ni con el rebote elástico de iOS, ni al abrirse el teclado.
+ */
 export function BottomNav() {
   return (
     <nav
       aria-label="Secciones"
-      className="fixed inset-x-0 bottom-0 z-30 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="z-30 shrink-0 pb-[env(safe-area-inset-bottom)] lg:hidden"
     >
       <div className="mx-auto max-w-md px-4 pb-3">
         <div className="flex items-center justify-between gap-1 rounded-full border border-line bg-surface/90 p-1.5 shadow-lg backdrop-blur-xl">
