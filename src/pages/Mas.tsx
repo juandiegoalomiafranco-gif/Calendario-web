@@ -56,7 +56,7 @@ export function Mas() {
         ))}
       </div>
 
-      <div className="flex items-center justify-between gap-3 rounded-3xl border border-line bg-surface p-4 shadow-card">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-line bg-surface p-4 shadow-card">
         <p className="text-sm font-semibold text-content">Tema</p>
         <ThemeToggle />
       </div>
