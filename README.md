@@ -1,4 +1,4 @@
-# Mi Vida — organización personal
+# MyLife — organización personal
 
 App personal (Vite + React + TypeScript + Tailwind) para el colegio, el entreno, la
 comida, los pendientes y la plata. Datos en **Supabase** (Postgres + RLS), pensada
