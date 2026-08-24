@@ -3,11 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/icon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      `interactive-widget=resizes-content`: en Android el teclado pasa a encoger el
+      viewport, así que el botón de guardar nunca queda debajo. iOS lo ignora — ahí lo
+      resuelve `useKeyboardInset`.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#f4f5f7" />
     <meta
       name="description"
-      content="MyLife — colegio, tareas, entrenamiento, dieta, finanzas y eventos de Juan Diego en un solo sitio."
+      content="MyLife — la app del celular de Juan Diego para organizar toda su vida: colegio, tareas, entrenamiento, dieta, finanzas, calendario y pendientes en un solo sitio."
     />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />

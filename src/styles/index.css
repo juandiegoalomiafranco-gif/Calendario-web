@@ -5,9 +5,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * El documento NO se desplaza: el scroll vive dentro de `.app-scroll`.
+ *
+ * Con `min-height` y el armazón en `100dvh`, en el celular el documento acababa
+ * siendo un pelo más alto que el hueco real —`dvh` mide de más mientras las barras
+ * del sistema entran y salen— y se podía arrastrar la página entera. Al hacerlo se
+ * movía la app completa: la barra de abajo se despegaba del borde dejando un vacío
+ * y el contenido de arriba se metía debajo de la barra de estado. Con altura fija y
+ * `overflow: hidden` eso no puede pasar.
+ */
+html,
+body,
+#root {
+  height: 100%;
+}
+
 html,
 body {
-  min-height: 100%;
+  overflow: hidden;
 }
 
 html {
@@ -18,7 +34,6 @@ html {
 body {
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior-y: none;
-  overflow-x: hidden;
   background-color: rgb(var(--bg));
   color: rgb(var(--text));
   font-synthesis-weight: none;
@@ -34,11 +49,17 @@ body {
  * El armazón ocupa exactamente la pantalla y no más: es una columna con el
  * contenido desplazable en medio y la barra de navegación abajo. Con ALTURA fija
  * (no `min-height`) la barra queda clavada al borde inferior pase lo que pase.
+ *
+ * El `100%` va encadenado desde html → body → #root (los tres necesitan altura, o
+ * el porcentaje no resuelve y el armazón crece con el contenido), así que mide el
+ * hueco de verdad en vez
+ * de fiarse de `dvh`: si el armazón se pasa aunque sea de 40 px, la barra se sale
+ * por abajo y la app entera se puede arrastrar. `dvh` queda de respaldo por si
+ * algún navegador no resolviera bien el porcentaje.
  */
 .app-shell {
-  height: 100vh;
-  /* dvh sigue el viewport dinámico de iOS en standalone; el vh de arriba es el respaldo */
   height: 100dvh;
+  height: 100%;
 }
 
 /*
@@ -50,6 +71,17 @@ body {
   overflow-x: hidden;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+/*
+ * Alto máximo del diálogo. Va aquí y no en una utilidad de Tailwind para poder dejar
+ * `vh` de respaldo: donde `dvh` existe gana la segunda línea, y donde no, sigue
+ * habiendo un tope. Medirlo en `vh` a secas se pasaba de largo, porque el armazón
+ * usa `dvh` y los dos no valen lo mismo cuando la barra del navegador está fuera.
+ */
+.sheet-panel {
+  max-height: 88vh;
+  max-height: 88dvh;
 }
 
 /* Trama diagonal de las celdas sin actividad en las rejillas */
@@ -173,6 +205,24 @@ body {
   textarea,
   input:not([type='checkbox']):not([type='radio']) {
     min-height: 44px;
+  }
+
+  /*
+   * 16 px en los campos de escribir, ni uno menos.
+   *
+   * Por debajo de 16, Safari en iOS hace zoom él solo al enfocar un campo y NO lo
+   * deshace al salir: la app se queda ampliada y descuadrada. Los campos venían a
+   * 15 px, justo por debajo del umbral. La diferencia no se nota; el zoom sí.
+   *
+   * El `:not([hidden])` no filtra nada: está para sumar especificidad y ganarle a las
+   * utilidades `text-sm` / `text-[15px]` de Tailwind, que si no mandan ellas. El
+   * selector de `input` ya va sobrado con sus dos `:not`.
+   */
+  select:not([hidden]),
+  textarea:not([hidden]),
+  [contenteditable='true']:not([hidden]),
+  input:not([type='checkbox']):not([type='radio']) {
+    font-size: 16px;
   }
 
   /* Los que solo llevan un icono también necesitan ancho, no solo alto. */

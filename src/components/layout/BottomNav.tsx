@@ -8,14 +8,20 @@ import { MOBILE_ITEMS } from './navItems'
  * No lleva `position: fixed` a propósito: es el último hijo del armazón, que es una
  * columna a la altura de la pantalla con el scroll en el contenido. Así la barra no
  * puede moverse — ni con el rebote elástico de iOS, ni al abrirse el teclado.
+ *
+ * La píldora va apoyada abajo del todo. Antes flotaba 46 px por encima del borde: 12
+ * de aire transparente más los 34 enteros de la zona segura del iPhone. De esa zona
+ * solo hace falta lo justo para no pisar el indicador de inicio, así que se recorta
+ * 1.25 rem y queda un respiro de ~14 px en iPhone y de 6 px donde no hay indicador.
+ * El tamaño de la píldora no cambia: lo que se recupera es pantalla para el contenido.
  */
 export function BottomNav() {
   return (
     <nav
       aria-label="Secciones"
-      className="z-30 shrink-0 pb-[env(safe-area-inset-bottom)] lg:hidden"
+      className="z-30 shrink-0 pb-[max(0.375rem,calc(env(safe-area-inset-bottom)-1.25rem))] lg:hidden"
     >
-      <div className="mx-auto max-w-md px-4 pb-3">
+      <div className="mx-auto max-w-md px-4">
         <div className="flex items-center justify-between gap-1 rounded-full border border-line bg-surface/90 p-1.5 shadow-lg backdrop-blur-xl">
           {MOBILE_ITEMS.map(({ to, label, Icon, end }) => (
             <NavLink
