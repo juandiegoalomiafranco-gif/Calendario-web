@@ -3,10 +3,12 @@ import type { PeriodDef, SchoolClass, SchoolSetup, TimetableSlot } from './schoo
 /**
  * Semilla del horario — Grade 11, Colegio Colombo Británico (Cali), ciclo de 6 días.
  *
- * Esto es sólo el punto de partida: en el primer arranque se copia a la configuración
- * del usuario (`SchoolConfig.setup`) y a partir de ahí Juan Diego edita materias y
- * horario desde la app, sin tocar el código. Al empezar un año electivo nuevo basta
- * con editarlo desde «Colegio → Materias».
+ * Esto es el punto de partida: mientras el usuario no haya guardado su propio horario
+ * (`SchoolConfig.setup`) manda esta semilla, y desde «Colegio → Materias» él edita lo
+ * que quiera sin tocar el código.
+ *
+ * Cuando el colegio emite un horario nuevo, se cambia aquí y se sube `VERSION_HORARIO`:
+ * así también lo reciben los perfiles que ya tenían un horario guardado.
  */
 
 /**
@@ -64,14 +66,33 @@ export const DEFAULT_DAY_TYPE_BY_WEEKDAY: string[] = [
   'normal',
 ]
 
+/**
+ * Versión de la semilla del horario. Al subirla, un horario ya guardado se reemplaza
+ * por esta semilla (ver `normalizeSetup` en `src/lib/school.ts`): sin eso, el horario
+ * nuevo nunca le llegaría a quien ya tuviera su `setup` en la nube.
+ */
+export const VERSION_HORARIO = 2
+
+/**
+ * Materias que cambiaron de código al pasar al horario de 2026-2027 (SAS subió a HL,
+ * Inglés bajó a SL, Business y Español cambiaron de grupo). Sirve para no perder las
+ * unidades ya creadas y para reapuntar notas y tareas viejas.
+ */
+export const RENOMBRES_DE_CODIGO: Record<string, string> = {
+  ESSSL2: 'ESSHL1',
+  ENGAHL1: 'ENGASL1',
+  BMHL2: 'BMHL3',
+  ESPASL2: 'ESPASL1',
+}
+
 export const DEFAULT_CLASSES: Record<string, SchoolClass> = {
   ADV9: { code: 'ADV9', name: 'Advisory', teacher: 'FL', color: 'slate' },
-  ESSSL2: { code: 'ESSSL2', name: 'SAS', teacher: 'NMR', color: 'cyan' },
+  ESSHL1: { code: 'ESSHL1', name: 'SAS', teacher: 'NMR', color: 'cyan' },
   'MAA&ASL1': { code: 'MAA&ASL1', name: 'Matemáticas', teacher: 'TG', color: 'blue' },
   ECOHLSL2: { code: 'ECOHLSL2', name: 'Economía', teacher: 'RP', color: 'green' },
-  ENGAHL1: { code: 'ENGAHL1', name: 'Inglés', teacher: 'SM', color: 'violet' },
-  BMHL2: { code: 'BMHL2', name: 'Business', teacher: 'JDS', color: 'amber' },
-  ESPASL2: { code: 'ESPASL2', name: 'Español', teacher: 'RV', color: 'rose' },
+  ENGASL1: { code: 'ENGASL1', name: 'Inglés', teacher: 'HP', color: 'violet' },
+  BMHL3: { code: 'BMHL3', name: 'Business', teacher: 'JDS', color: 'amber' },
+  ESPASL1: { code: 'ESPASL1', name: 'Español', teacher: 'AMP', color: 'rose' },
   ICFES5: { code: 'ICFES5', name: 'ICFES', teacher: 'NMR/LP/SMI', color: 'fuchsia' },
   TOK2: { code: 'TOK2', name: 'TOK', teacher: 'PALL', color: 'indigo' },
   CIESOC6: { code: 'CIESOC6', name: 'Ciencias Sociales', teacher: 'AMM', color: 'teal' },
@@ -82,48 +103,54 @@ function slot(period: string, classCode: string, room: string): TimetableSlot {
   return { period, classCode, room }
 }
 
-/** DEFAULT_TIMETABLE[díaDeCiclo 1..6] = clases de ese día (Adv + P1..P6). */
+/**
+ * DEFAULT_TIMETABLE[díaDeCiclo 1..6] = clases de ese día (Adv + P1..P6).
+ *
+ * Copiado del horario que emitió el colegio el 27/08/2026. En el Día 5 el colegio dejó
+ * las dos últimas horas en blanco, pero él sigue teniendo Study Hall y Ciencias
+ * Sociales ahí, con el mismo profesor y el mismo salón de siempre.
+ */
 export const DEFAULT_TIMETABLE: Record<number, TimetableSlot[]> = {
   1: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'ESSSL2', 'Lab2'),
+    slot('P1', 'ESPASL1', 'R8'),
     slot('P2', 'MAA&ASL1', 'R6'),
     slot('P3', 'ECOHLSL2', 'R1'),
     slot('P4', 'ADV9', 'R24'),
-    slot('P5', 'ENGAHL1', 'R8'),
-    slot('P6', 'BMHL2', 'R2'),
+    slot('P5', 'BMHL3', 'R13'),
+    slot('P6', 'ESSHL1', 'Lab2'),
   ],
   2: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'BMHL2', 'R2'),
+    slot('P1', 'ESSHL1', 'Lab6'),
     slot('P2', 'ICFES5', 'Lab5'),
-    slot('P3', 'ENGAHL1', 'R8'),
+    slot('P3', 'BMHL3', 'R13'),
     slot('P4', 'ECOHLSL2', 'R1'),
-    slot('P5', 'ESPASL2', 'R3'),
+    slot('P5', 'ENGASL1', 'R6'),
     slot('P6', 'MAA&ASL1', 'R5'),
   ],
   3: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'ENGAHL1', 'R8'),
+    slot('P1', 'BMHL3', 'R13'),
     slot('P2', 'ECOHLSL2', 'R1'),
-    slot('P3', 'BMHL2', 'R4'),
-    slot('P4', 'ESSSL2', 'Lab7'),
+    slot('P3', 'ESSHL1', 'Lab6'),
+    slot('P4', 'ESPASL1', 'R10'),
     slot('P5', 'MAA&ASL1', 'R6'),
-    slot('P6', 'ESPASL2', 'R6'),
+    slot('P6', 'ENGASL1', 'R8'),
   ],
   4: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'BMHL2', 'R2'),
-    slot('P2', 'ESSSL2', 'Lab7'),
+    slot('P1', 'ESSHL1', 'Lab2'),
+    slot('P2', 'ESPASL1', 'R10'),
     slot('P3', 'ECOHLSL2', 'R1'),
-    slot('P4', 'ESPASL2', 'R9'),
+    slot('P4', 'ENGASL1', 'R6'),
     slot('P5', 'TOK2', 'R2'),
-    slot('P6', 'ENGAHL1', 'R8'),
+    slot('P6', 'BMHL3', 'R1'),
   ],
   5: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'BMHL2', 'R2'),
-    slot('P2', 'ENGAHL1', 'R8'),
+    slot('P1', 'ESSHL1', 'Lab2'),
+    slot('P2', 'BMHL3', 'R13'),
     slot('P3', 'MAA&ASL1', 'R6'),
     slot('P4', 'ECOHLSL2', 'R1'),
     slot('P5', 'SH7', ''),
@@ -131,16 +158,17 @@ export const DEFAULT_TIMETABLE: Record<number, TimetableSlot[]> = {
   ],
   6: [
     slot('Adv', 'ADV9', 'R24'),
-    slot('P1', 'ESPASL2', 'R3'),
+    slot('P1', 'ENGASL1', 'R7'),
     slot('P2', 'ECOHLSL2', 'R1'),
-    slot('P3', 'ENGAHL1', 'R7'),
-    slot('P4', 'BMHL2', 'R2'),
+    slot('P3', 'BMHL3', 'R13'),
+    slot('P4', 'ESSHL1', 'Lab2'),
     slot('P5', 'TOK2', 'R3'),
-    slot('P6', 'ESSSL2', 'Lab3'),
+    slot('P6', 'ESPASL1', 'R9'),
   ],
 }
 
 export const DEFAULT_SETUP: SchoolSetup = {
+  version: VERSION_HORARIO,
   periodSets: DEFAULT_PERIOD_SETS,
   dayTypeByWeekday: DEFAULT_DAY_TYPE_BY_WEEKDAY,
   classes: DEFAULT_CLASSES,

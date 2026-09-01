@@ -57,6 +57,11 @@ export interface TimetableSlot {
  * semana. Se siembra con el horario real de Juan Diego y desde ahí se edita en la app.
  */
 export interface SchoolSetup {
+  /**
+   * Versión de la semilla con la que se armó este horario (`VERSION_HORARIO`). Si es
+   * más vieja, `normalizeSetup` lo sube al horario nuevo del colegio.
+   */
+  version?: number
   /** Juegos de horas por tipo de día: 'normal', 'miercoles', … */
   periodSets: Record<string, PeriodDef[]>
   /** Qué juego de horas usa cada día. Índice 0 = lunes … 6 = domingo. */
@@ -67,6 +72,7 @@ export interface SchoolSetup {
 
 /** Forma antigua (un solo juego de horas), para poder leer lo ya guardado. */
 export interface LegacySchoolSetup {
+  version?: number
   periods?: PeriodDef[]
   periodSets?: Record<string, PeriodDef[]>
   dayTypeByWeekday?: string[]

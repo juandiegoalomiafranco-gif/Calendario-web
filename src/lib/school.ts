@@ -6,8 +6,12 @@ import type {
   TimetableSlot,
 } from '../data/schoolTypes'
 import {
+  DEFAULT_CLASSES,
   DEFAULT_DAY_TYPE_BY_WEEKDAY,
   DEFAULT_PERIOD_SETS,
+  DEFAULT_TIMETABLE,
+  RENOMBRES_DE_CODIGO,
+  VERSION_HORARIO,
 } from '../data/schoolTimetable'
 import { colorOf, type ColorStyles } from '../data/palette'
 import { nowMinutes, toMinutes, weekdayIndex } from './dates'
@@ -31,9 +35,14 @@ const UNKNOWN_CLASS: SchoolClass = {
 }
 
 /**
- * Sube al formato actual un horario guardado con la forma antigua (un solo juego de
- * horas para los seis días). Sin esto, un setup ya guardado dejaría la app sin
- * horario al añadir el miércoles corto.
+ * Pone al día un horario guardado. Hace dos cosas:
+ *
+ *  1. Sube al formato actual el que se guardó con la forma antigua (un solo juego de
+ *     horas para los seis días); sin esto, añadir el miércoles corto dejaba sin
+ *     horario a quien ya tuviera su setup guardado.
+ *  2. Si viene de una semilla vieja (`version`), cambia materias y horario por los del
+ *     horario nuevo del colegio. Es lo único que hace llegar un horario nuevo a quien
+ *     ya había guardado el suyo, porque a partir de ahí la semilla deja de mandar.
  */
 export function normalizeSetup(raw: LegacySchoolSetup | SchoolSetup): SchoolSetup {
   const legacy = raw as LegacySchoolSetup
@@ -42,11 +51,47 @@ export function normalizeSetup(raw: LegacySchoolSetup | SchoolSetup): SchoolSetu
     (legacy.periods
       ? { ...DEFAULT_PERIOD_SETS, normal: legacy.periods }
       : DEFAULT_PERIOD_SETS)
+  const dayTypeByWeekday = legacy.dayTypeByWeekday ?? DEFAULT_DAY_TYPE_BY_WEEKDAY
+  if (legacy.version !== VERSION_HORARIO) {
+    return conHorarioNuevo(periodSets, dayTypeByWeekday, raw.classes)
+  }
   return {
+    version: VERSION_HORARIO,
     periodSets,
-    dayTypeByWeekday: legacy.dayTypeByWeekday ?? DEFAULT_DAY_TYPE_BY_WEEKDAY,
+    dayTypeByWeekday,
     classes: raw.classes,
     timetable: raw.timetable,
+  }
+}
+
+/**
+ * Cambia las materias y el horario por los de la semilla nueva, conservando las horas
+ * (que no cambiaron) y las unidades que él ya había creado tomando notas. Las materias
+ * que cambiaron de código llevan sus unidades al código nuevo, para que la unidad
+ * «Introduction to Business Management» siga estando en Business y no se pierda.
+ */
+function conHorarioNuevo(
+  periodSets: Record<string, PeriodDef[]>,
+  dayTypeByWeekday: string[],
+  guardadas: Record<string, SchoolClass>,
+): SchoolSetup {
+  const unidades = new Map<string, string[]>()
+  for (const [code, cls] of Object.entries(guardadas)) {
+    if (cls.units?.length) unidades.set(RENOMBRES_DE_CODIGO[code] ?? code, cls.units)
+  }
+
+  const classes: Record<string, SchoolClass> = {}
+  for (const [code, cls] of Object.entries(DEFAULT_CLASSES)) {
+    const units = unidades.get(code)
+    classes[code] = units ? { ...cls, units } : cls
+  }
+
+  return {
+    version: VERSION_HORARIO,
+    periodSets,
+    dayTypeByWeekday,
+    classes,
+    timetable: DEFAULT_TIMETABLE,
   }
 }
 
