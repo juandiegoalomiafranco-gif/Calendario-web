@@ -2,13 +2,18 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body {
+html,
+body {
   min-height: 100%;
 }
 
 html {
-  /* Matches bg-ink-50 so the iOS overscroll / status-bar area never flashes white */
+  /* Igual a bg-ink-50, para que el rebote de iOS y la barra de estado nunca
+     parpadeen en blanco */
   background-color: #0b0b0d;
+  /* Le dice al navegador que la app es oscura: sin esto, los inputs, selects y
+     scrollbars nativos se dibujan en tema claro sobre un fondo casi negro. */
+  color-scheme: dark;
 }
 
 body {
@@ -19,6 +24,25 @@ body {
 
 .app-shell {
   min-height: 100vh;
-  /* dvh tracks the iOS standalone dynamic viewport; the vh line above is the fallback */
+  /* dvh sigue el viewport dinámico de iOS en modo standalone; la línea de arriba
+     es el respaldo para navegadores que no lo soportan */
   min-height: 100dvh;
+}
+
+/* Foco visible con el teclado, sin anillo al tocar con el dedo */
+:focus-visible {
+  outline: 2px solid #ff7a3c;
+  outline-offset: 2px;
+}
+
+/* Respeta a quien pidió menos movimiento en el sistema */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -3,3 +3,7 @@ dist
 .DS_Store
 *.local
 *.tsbuildinfo
+
+# Variables de entorno locales (nunca al repo)
+.env
+.env.local
