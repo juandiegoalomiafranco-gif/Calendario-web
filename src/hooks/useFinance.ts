@@ -3,6 +3,7 @@ import { Banknote, CreditCard, Landmark, TrendingUp, type LucideIcon } from 'luc
 import { COLORS, type ColorStyles } from '../data/palette'
 import { createCollection, newId } from '../lib/cloudStore'
 import { todayIso } from '../lib/dates'
+import { rendimientoEA } from '../lib/finance'
 
 export type AccountKind = 'efectivo' | 'ahorros' | 'inversion' | 'externa'
 export type TxKind = 'gasto' | 'ingreso'
@@ -24,6 +25,10 @@ export interface Account {
   name: string
   kind: AccountKind
   balance: number
+  /**
+   * Tasa **efectiva anual** (EA), como la anuncia el banco: 11 = 11 % EA. Antes se leía
+   * como interés mensual, y con un 11 se habría sumado el 11 % cada mes.
+   */
   interestPct?: number
   interestDay?: number
   notes?: string
@@ -49,6 +54,46 @@ export interface Transfer {
   amount: number
   notes?: string
 }
+/** «debo»: le tengo que pagar a alguien. «me_deben»: alguien me tiene que pagar. */
+export type DebtDirection = 'debo' | 'me_deben'
+
+export interface Debt {
+  id: string
+  direction: DebtDirection
+  person: string
+  amount: number
+  concept?: string
+  /** Para cuándo quedó el pago. Opcional: hay préstamos sin fecha. */
+  dueDate?: string
+  /** Fecha en que se saldó. Mientras falte, sigue pendiente. */
+  paidAt?: string
+  /** Cuenta por la que entró o salió la plata al saldarla. */
+  paidAccountId?: string
+  /** Movimiento creado al saldarla, para poder deshacerlo sin descuadrar el saldo. */
+  paidTxId?: string
+  notes?: string
+}
+
+export const DEBT_DIRECTION_META: Record<
+  DebtDirection,
+  { label: string; pay: string; paid: string; category: string; txKind: TxKind }
+> = {
+  me_deben: {
+    label: 'Me deben',
+    pay: 'Ya me pagó',
+    paid: 'Ya me pagaron',
+    category: 'Me pagaron',
+    txKind: 'ingreso',
+  },
+  debo: {
+    label: 'Debo',
+    pay: 'Ya pagué',
+    paid: 'Ya pagué',
+    category: 'Pago de deuda',
+    txKind: 'gasto',
+  },
+}
+
 export interface FinanceCategory {
   id: string
   name: string
@@ -91,6 +136,18 @@ interface TransferRow {
   from_account_id: string
   to_account_id: string
   amount: number
+  notes: string | null
+}
+interface DebtRow {
+  id: string
+  direction: string
+  person: string
+  amount: number
+  concept: string | null
+  due_date: string | null
+  paid_at: string | null
+  paid_account_id: string | null
+  paid_tx_id: string | null
   notes: string | null
 }
 interface CategoryRow {
@@ -181,6 +238,36 @@ const categoriesStore = createCollection<FinanceCategory, CategoryRow>({
   itemToRow: (c, userId) => ({ id: c.id, user_id: userId, name: c.name, kind: c.kind }),
 })
 
+const debtsStore = createCollection<Debt, DebtRow>({
+  key: 'mivida:debts:v1',
+  table: 'debts',
+  rowToItem: (r) => ({
+    id: r.id,
+    direction: r.direction === 'debo' ? 'debo' : 'me_deben',
+    person: r.person,
+    amount: Number(r.amount ?? 0),
+    concept: r.concept ?? undefined,
+    dueDate: r.due_date ?? undefined,
+    paidAt: r.paid_at ?? undefined,
+    paidAccountId: r.paid_account_id ?? undefined,
+    paidTxId: r.paid_tx_id ?? undefined,
+    notes: r.notes ?? undefined,
+  }),
+  itemToRow: (d, userId) => ({
+    id: d.id,
+    user_id: userId,
+    direction: d.direction,
+    person: d.person,
+    amount: d.amount,
+    concept: d.concept ?? null,
+    due_date: d.dueDate ?? null,
+    paid_at: d.paidAt ?? null,
+    paid_account_id: d.paidAccountId ?? null,
+    paid_tx_id: d.paidTxId ?? null,
+    notes: d.notes ?? null,
+  }),
+})
+
 function adjustBalance(accountId: string | undefined, delta: number) {
   if (!accountId) return
   const acc = accountsStore.get().find((a) => a.id === accountId)
@@ -192,6 +279,7 @@ export function useFinance() {
   const transactions = txStore.useAll()
   const transfers = transfersStore.useAll()
   const categories = categoriesStore.useAll()
+  const debts = debtsStore.useAll()
 
   const addAccount = useCallback((a: Omit<Account, 'id'>) => {
     accountsStore.upsert({ ...a, id: newId() })
@@ -246,9 +334,67 @@ export function useFinance() {
     categoriesStore.upsert({ ...cat, name: clean })
   }, [])
 
+  const addDebt = useCallback((d: Omit<Debt, 'id'>) => {
+    debtsStore.upsert({ ...d, id: newId() })
+  }, [])
+  const updateDebt = useCallback((d: Debt) => debtsStore.upsert(d), [])
+  /** Borrar una deuda no toca el movimiento con que se saldó: esa plata sí se movió. */
+  const removeDebt = useCallback((id: string) => debtsStore.remove(id), [])
+
   /**
-   * Aplica la mesada (a la cuenta indicada) y el interés mensual de cada cuenta de
-   * ahorro/CDT según su interest_pct. Reversible: crea transacciones que se pueden borrar.
+   * Salda una deuda. Con cuenta, la plata entra («me deben») o sale («debo») de verdad:
+   * se crea el movimiento y el saldo se ajusta. Sin cuenta, solo queda marcada.
+   */
+  const markDebtPaid = useCallback((id: string, date: string, accountId?: string) => {
+    const debt = debtsStore.get().find((d) => d.id === id)
+    if (!debt || debt.paidAt) return
+    let paidTxId: string | undefined
+    if (accountId) {
+      const meta = DEBT_DIRECTION_META[debt.direction]
+      const tx: Transaction = {
+        id: newId(),
+        date,
+        amount: debt.amount,
+        kind: meta.txKind,
+        source: 'mia',
+        accountId,
+        category: meta.category,
+        description:
+          debt.direction === 'me_deben'
+            ? `${debt.person} me pagó${debt.concept ? ` · ${debt.concept}` : ''}`
+            : `Le pagué a ${debt.person}${debt.concept ? ` · ${debt.concept}` : ''}`,
+      }
+      txStore.upsert(tx)
+      adjustBalance(accountId, meta.txKind === 'ingreso' ? tx.amount : -tx.amount)
+      paidTxId = tx.id
+    }
+    debtsStore.upsert({ ...debt, paidAt: date, paidAccountId: accountId, paidTxId })
+  }, [])
+
+  /** Vuelve a dejarla pendiente y devuelve el saldo como estaba. */
+  const unmarkDebtPaid = useCallback((id: string) => {
+    const debt = debtsStore.get().find((d) => d.id === id)
+    if (!debt) return
+    if (debt.paidTxId) {
+      const tx = txStore.get().find((t) => t.id === debt.paidTxId)
+      if (tx) {
+        adjustBalance(tx.accountId, tx.kind === 'ingreso' ? -tx.amount : tx.amount)
+        txStore.remove(tx.id)
+      }
+    }
+    debtsStore.upsert({
+      ...debt,
+      paidAt: undefined,
+      paidAccountId: undefined,
+      paidTxId: undefined,
+    })
+  }, [])
+
+  /**
+   * Aplica la mesada (a la cuenta indicada) y el interés de un mes de cada cuenta de
+   * ahorro/CDT. `interestPct` es la tasa EA, así que el mes se saca con su equivalente
+   * compuesto (`rendimientoEA`), no dividiendo entre 12. Reversible: crea
+   * transacciones que se pueden borrar.
    */
   const applyMonthly = useCallback((mesada: number, personalAccountId?: string) => {
     const date = todayIso()
@@ -268,7 +414,7 @@ export function useFinance() {
     }
     for (const a of accountsStore.get()) {
       if (a.interestPct && a.interestPct > 0 && (a.kind === 'ahorros' || a.kind === 'inversion')) {
-        const interest = Math.round(a.balance * (a.interestPct / 100))
+        const interest = Math.round(rendimientoEA(a.balance, a.interestPct).mensual)
         if (interest > 0) {
           const tx = {
             id: newId(),
@@ -278,7 +424,7 @@ export function useFinance() {
             source: 'mia' as MoneySource,
             accountId: a.id,
             category: 'Interés',
-            description: `Interés ${a.interestPct}%`,
+            description: `Interés del mes (${a.interestPct} % EA)`,
           }
           txStore.upsert(tx)
           adjustBalance(a.id, interest)
@@ -292,6 +438,7 @@ export function useFinance() {
     transactions,
     transfers,
     categories,
+    debts,
     addAccount,
     updateAccount,
     removeAccount,
@@ -303,5 +450,10 @@ export function useFinance() {
     removeCategory,
     renameCategory,
     applyMonthly,
+    addDebt,
+    updateDebt,
+    removeDebt,
+    markDebtPaid,
+    unmarkDebtPaid,
   }
 }

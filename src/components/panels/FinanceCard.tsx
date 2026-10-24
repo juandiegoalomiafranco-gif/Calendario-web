@@ -9,11 +9,14 @@ import { Card, CardHeader } from '../ui/Card'
 
 /** Balance total y movimientos del mes en curso. */
 export function FinanceCard({ className }: { className?: string }) {
-  const { accounts, transactions } = useFinance()
+  const { accounts, transactions, debts } = useFinance()
   const thisMonth = monthKey(todayIso())
 
   const { total, income, expense } = useMemo(() => {
-    const total = accounts.reduce((sum, a) => sum + a.balance, 0)
+    // Igual que el patrimonio de Finanzas: la tarjeta de papá no es plata tuya.
+    const total = accounts
+      .filter((a) => a.kind !== 'externa')
+      .reduce((sum, a) => sum + a.balance, 0)
     let income = 0
     let expense = 0
     for (const t of transactions) {
@@ -23,6 +26,18 @@ export function FinanceCard({ className }: { className?: string }) {
     }
     return { total, income, expense }
   }, [accounts, transactions, thisMonth])
+
+  // Lo pendiente de deudas, para no olvidar que alguien te debe o que tú debes.
+  const { meDeben, debo } = useMemo(() => {
+    let meDeben = 0
+    let debo = 0
+    for (const d of debts) {
+      if (d.paidAt) continue
+      if (d.direction === 'me_deben') meDeben += d.amount
+      else debo += d.amount
+    }
+    return { meDeben, debo }
+  }, [debts])
 
   return (
     <Card className={cx('flex flex-col', className)}>
@@ -66,6 +81,22 @@ export function FinanceCard({ className }: { className?: string }) {
           </p>
         </div>
       </div>
+
+      {(meDeben > 0 || debo > 0) && (
+        <p className="mt-3 text-xs text-content-muted">
+          {meDeben > 0 && (
+            <>
+              Te deben <strong className="tabular text-ok">{formatCOP(meDeben)}</strong>
+            </>
+          )}
+          {meDeben > 0 && debo > 0 && ' · '}
+          {debo > 0 && (
+            <>
+              Debes <strong className="tabular text-danger">{formatCOP(debo)}</strong>
+            </>
+          )}
+        </p>
+      )}
 
       {accounts.length === 0 && (
         <p className="mt-3 text-xs text-content-subtle">
