@@ -54,7 +54,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <div className="app-shell flex flex-col bg-bg">
+    // `relative`: la barra de abajo flota sobre el contenido con `absolute` (ver BottomNav).
+    <div className="app-shell relative flex flex-col bg-bg">
       <IconRail />
 
       <div className="flex min-h-0 flex-1 flex-col lg:pl-[72px]">
@@ -74,7 +75,9 @@ export function AppShell({ children }: { children: ReactNode }) {
             // haya sitio real al que desplazarse. Sin esto no hay a dónde subir.
             style={teclado ? { paddingBottom: teclado + 24 } : undefined}
             className={cx(
-              'mx-auto w-full max-w-2xl px-4 pb-6 pt-[calc(env(safe-area-inset-top)+1rem)]',
+              // Abajo deja sitio a la barra flotante (68 px + su margen + la zona segura)
+              // para que lo último de la página no quede escondido detrás.
+              'mx-auto w-full max-w-2xl px-4 pb-[calc(env(safe-area-inset-bottom)+6.5rem)] pt-[calc(env(safe-area-inset-top)+1rem)]',
               'sm:px-6 lg:max-w-[1600px] lg:px-8 lg:pb-12 lg:pt-7',
               showContext && 'xl:grid xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start xl:gap-7',
             )}

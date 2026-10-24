@@ -13,7 +13,10 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode
 }
 
-/** Superficie base de MyLife: tarjeta blanca, borde sutil y sombra difusa. */
+/**
+ * Superficie base de MyLife: tarjeta blanca y borde fino. La sombra grande se quitó
+ * con el diseño nuevo: con tantas tarjetas juntas, la pantalla se veía cargada.
+ */
 export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
   { padding = 'md', className, children, ...rest },
   ref,
@@ -22,7 +25,7 @@ export const Card = forwardRef<HTMLDivElement, CardProps>(function Card(
     <div
       ref={ref}
       className={cx(
-        'rounded-3xl border border-line bg-surface shadow-card',
+        'rounded-3xl border border-line bg-surface shadow-sm',
         PADDING[padding],
         className,
       )}
@@ -46,7 +49,7 @@ export function CardHeader({ title, action, icon, className }: CardHeaderProps) 
     <div className={cx('mb-3 flex items-center justify-between gap-3', className)}>
       <div className="flex min-w-0 items-center gap-2">
         {icon}
-        <h2 className="truncate text-[15px] font-semibold tracking-tight text-content">{title}</h2>
+        <h2 className="truncate text-section text-content">{title}</h2>
       </div>
       {action}
     </div>
@@ -65,7 +68,7 @@ export function Section({ title, action, className, children }: SectionProps) {
   return (
     <section className={cx('flex flex-col gap-3', className)}>
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold tracking-tight text-content">{title}</h2>
+        <h2 className="text-section text-content">{title}</h2>
         {action}
       </div>
       {children}

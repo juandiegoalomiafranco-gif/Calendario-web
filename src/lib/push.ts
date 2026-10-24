@@ -127,6 +127,44 @@ export async function activarPush(): Promise<ActivarResultado> {
   return { ok: true, estado: 'activo' }
 }
 
+/**
+ * Vuelve a guardar la suscripción de este dispositivo. Se llama al abrir la app y al
+ * volver a ella.
+ *
+ * El servidor borra las suscripciones que el servicio de push da por caducadas, pero
+ * el teléfono sigue teniendo la suya y la app decía «activo» mientras los avisos ya no
+ * llegaban. Guardarla de nuevo (o crearla si el navegador la perdió) lo arregla sin
+ * pedir nada: solo actúa si el permiso ya estaba concedido y hay sesión.
+ */
+export async function refrescarSuscripcionPush(): Promise<void> {
+  try {
+    if (!soporteDePush() || !VAPID_PUBLIC || Notification.permission !== 'granted') return
+    const { data } = await supabase.auth.getSession()
+    const userId = data.session?.user.id
+    if (!userId) return
+    const reg = await navigator.serviceWorker.ready
+    const sub =
+      (await reg.pushManager.getSubscription()) ??
+      (await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: base64UrlABytes(VAPID_PUBLIC),
+      }))
+    await supabase.from('push_subscriptions').upsert(
+      {
+        endpoint: sub.endpoint,
+        user_id: userId,
+        p256dh: bytesABase64Url(sub.getKey('p256dh')),
+        auth: bytesABase64Url(sub.getKey('auth')),
+        user_agent: navigator.userAgent.slice(0, 200),
+      },
+      { onConflict: 'endpoint' },
+    )
+  } catch (e) {
+    // Sin red o sin permiso del sistema: se reintenta en la próxima apertura.
+    console.warn('No se pudo refrescar la suscripción de avisos:', e)
+  }
+}
+
 /** Deja de recibir avisos en ESTE dispositivo. */
 export async function desactivarPush(): Promise<void> {
   const reg = await navigator.serviceWorker.getRegistration()

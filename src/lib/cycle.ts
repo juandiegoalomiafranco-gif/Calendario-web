@@ -80,3 +80,48 @@ export function cycleInfoFor(dateISO: string, config: SchoolConfig): CycleInfo {
   const cycleDay = ((((baseDay - 1 + delta) % 6) + 6) % 6) + 1
   return { schoolDay: true, cycleDay }
 }
+
+/**
+ * Primera fecha, desde `fromISO` (incluida), que cae en ese día del ciclo.
+ *
+ * Sirve para pintar un día del ciclo con las horas de la fecha en que de verdad toca:
+ * un miércoles, el «Día 4» que se consulta es el del jueves y sale a las 3:05, no a
+ * la 1:05. Dos ciclos de 6 días caben de sobra en 60 días aunque haya un festivo o
+ * una semana de receso en medio; más allá (vacaciones largas) devuelve `null`.
+ */
+export function nextDateForCycleDay(
+  fromISO: string,
+  cycleDay: number,
+  config: SchoolConfig,
+  maxDays = 60,
+): string | null {
+  for (let i = 0; i <= maxDays; i++) {
+    const date = addDays(fromISO, i)
+    if (cycleInfoFor(date, config).cycleDay === cycleDay) return date
+  }
+  return null
+}
+
+/**
+ * Siguiente día con clases DESPUÉS de `fromISO`, con su día del ciclo. Es lo que se
+ * muestra el fin de semana o un festivo («Descanso — el lunes te toca Día 3») y
+ * también por la tarde, cuando las clases de hoy ya terminaron.
+ *
+ * Salta los días sin clase con `isSchoolDay`, que es barato, y solo al encontrar uno
+ * calcula su día del ciclo (`cycleInfoFor` cuenta desde el ancla): así salen bien
+ * hasta unas vacaciones de un mes sin recorrer el ciclo en cada fecha.
+ */
+export function nextSchoolDay(
+  fromISO: string,
+  config: SchoolConfig,
+  maxDays = 400,
+): { date: string; cycleDay: number } | null {
+  const extra = config.noClassDays ?? []
+  for (let i = 1; i <= maxDays; i++) {
+    const date = addDays(fromISO, i)
+    if (!isSchoolDay(date, extra)) continue
+    const { cycleDay } = cycleInfoFor(date, config)
+    return cycleDay ? { date, cycleDay } : null
+  }
+  return null
+}

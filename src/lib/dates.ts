@@ -210,3 +210,17 @@ export function fromMinutes(total: number): string {
   const m = total % 60
   return `${h}:${String(m).padStart(2, '0')}`
 }
+
+/** "15:05" → "3:05 pm", "8:10" → "8:10 am": así se dice la hora en Colombia. */
+export function hora12(hhmm: string): string {
+  const [h, m] = hhmm.split(':').map(Number)
+  if (!Number.isFinite(h)) return hhmm
+  const sufijo = h >= 12 ? 'pm' : 'am'
+  const h12 = h % 12 === 0 ? 12 : h % 12
+  return `${h12}:${String(m || 0).padStart(2, '0')} ${sufijo}`
+}
+
+/** ¿Es una fecha `YYYY-MM-DD` válida? Para no fiarse de lo que venga en la URL. */
+export function esFechaIso(v: string | null | undefined): v is string {
+  return !!v && /^\d{4}-\d{2}-\d{2}$/.test(v) && !Number.isNaN(Date.parse(`${v}T00:00:00Z`))
+}

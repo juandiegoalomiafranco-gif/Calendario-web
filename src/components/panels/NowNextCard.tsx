@@ -1,7 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Clock, MapPin } from 'lucide-react'
-import { useNowAndNext } from '../../hooks/useSchoolDay'
-import { todayIso } from '../../lib/dates'
+import { useNextSchoolDay, useNowAndNext } from '../../hooks/useSchoolDay'
+import { formatFull, relativeDay, todayIso } from '../../lib/dates'
 import { holidayName } from '../../data/holidays'
 import type { ResolvedSlot } from '../../lib/school'
 import { cx } from '../../lib/cx'
@@ -55,7 +55,10 @@ function SlotRow({ slot, live }: { slot: ResolvedSlot; live?: boolean }) {
 export function NowNextCard({ className }: { className?: string }) {
   const iso = todayIso()
   const { current, next, cycle } = useNowAndNext(iso, true)
+  const nextDay = useNextSchoolDay(iso)
   const holiday = holidayName(iso)
+  // Sin más clases hoy, «Sigue» apunta a la primera del próximo día de colegio.
+  const firstNext = nextDay?.classes[0]
 
   return (
     <Card className={cx('flex flex-col', className)}>
@@ -70,14 +73,22 @@ export function NowNextCard({ className }: { className?: string }) {
         }
       />
 
-      {!cycle.schoolDay ? (
-        <p className="rounded-2xl bg-surface-2 p-3 text-sm text-content-muted">
-          {holiday ? `Festivo · ${holiday}` : 'Hoy no hay colegio.'}
-        </p>
-      ) : !current && !next ? (
-        <p className="rounded-2xl bg-surface-2 p-3 text-sm text-content-muted">
-          Las clases de hoy ya terminaron.
-        </p>
+      {!cycle.schoolDay || (!current && !next) ? (
+        <div className="flex flex-col gap-2">
+          <p className="rounded-2xl bg-surface-2 p-3 text-sm text-content-muted">
+            {!cycle.schoolDay
+              ? holiday
+                ? `Festivo · ${holiday}`
+                : 'Hoy no hay colegio: descansa.'
+              : 'Las clases de hoy ya terminaron.'}
+            {nextDay && (
+              <span className="mt-0.5 block font-semibold text-content first-letter:uppercase">
+                {relativeDay(nextDay.date, iso)} · {formatFull(nextDay.date)} · Día {nextDay.cycleDay}
+              </span>
+            )}
+          </p>
+          {firstNext && <SlotRow slot={firstNext} />}
+        </div>
       ) : (
         <div className="flex flex-col gap-2">
           {current && <SlotRow slot={current} live />}

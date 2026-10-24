@@ -13,8 +13,8 @@ export function Wordmark({ className }: { className?: string }) {
       <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary">
         <span className="grid grid-cols-2 gap-[3px]">
           <span className="h-[6px] w-[6px] rounded-[2px] bg-primary-on" />
-          <span className="h-[6px] w-[6px] rounded-[2px] bg-accent" />
-          <span className="h-[6px] w-[6px] rounded-[2px] bg-accent" />
+          <span className="h-[6px] w-[6px] rounded-[2px] bg-brand" />
+          <span className="h-[6px] w-[6px] rounded-[2px] bg-brand" />
           <span className="h-[6px] w-[6px] rounded-[2px] bg-primary-on/45" />
         </span>
       </span>
@@ -65,7 +65,7 @@ export function TopBar() {
           </Link>
 
           <div className="ml-1 flex items-center gap-2.5 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-4">
-            <span className="grid h-8 w-8 place-items-center rounded-full bg-accent text-sm font-bold text-on-solid">
+            <span className="grid h-8 w-8 place-items-center rounded-full bg-brand text-sm font-bold text-brand-on">
               JD
             </span>
             <span className="leading-tight">

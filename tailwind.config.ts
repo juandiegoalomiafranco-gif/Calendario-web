@@ -53,6 +53,12 @@ export default {
           strong: token('accent-strong'),
           soft: token('accent-soft'),
         },
+        brand: {
+          DEFAULT: token('brand'),
+          strong: token('brand-strong'),
+          soft: token('brand-soft'),
+          on: token('on-brand'),
+        },
         /** Texto sobre fondos saturados: blanco en claro, casi negro en oscuro. */
         'on-solid': token('on-solid'),
         hero: {
@@ -70,6 +76,18 @@ export default {
       },
       fontFamily: {
         sans: ['"Plus Jakarta Sans Variable"', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      /*
+       * Escala tipográfica del diseño nuevo. Pocos tamaños y pesos medios: antes había
+       * once tamaños sueltos y casi todo en extrabold, y la pantalla se veía saturada.
+       */
+      fontSize: {
+        display: ['30px', { lineHeight: '36px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        title: ['24px', { lineHeight: '30px', letterSpacing: '-0.02em', fontWeight: '600' }],
+        section: ['17px', { lineHeight: '24px', letterSpacing: '-0.01em', fontWeight: '600' }],
+        body: ['15px', { lineHeight: '22px' }],
+        caption: ['13px', { lineHeight: '18px' }],
+        micro: ['12px', { lineHeight: '16px', letterSpacing: '0.06em', fontWeight: '600' }],
       },
       borderRadius: {
         '4xl': '2rem',

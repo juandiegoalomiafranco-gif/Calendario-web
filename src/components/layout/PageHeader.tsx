@@ -31,11 +31,11 @@ export function PageHeader({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div className="min-w-0">
           {eyebrow && (
-            <div className="text-sm font-medium text-content-muted first-letter:uppercase">
+            <div className="text-caption font-medium text-content-muted first-letter:uppercase lg:text-sm">
               {eyebrow}
             </div>
           )}
-          <h1 className="text-[26px] font-extrabold leading-tight tracking-tight text-content lg:text-[32px]">
+          <h1 className="text-title text-content lg:text-[32px] lg:leading-[38px]">
             {title}
           </h1>
           {description && (

@@ -14,9 +14,10 @@ import {
 } from '../../data/schoolTypes'
 import { useSchoolSetup, useTasks } from '../../hooks/useSchool'
 import { formatFull } from '../../lib/dates'
+import { classList } from '../../lib/school'
 import { cx } from '../../lib/cx'
 import { Button } from '../ui/Button'
-import { DateInput, Field, TextArea, TextInput } from '../ui/Field'
+import { DateInput, Field, Select, TextArea, TextInput } from '../ui/Field'
 import { Sheet } from '../ui/Sheet'
 
 interface AddItemSheetProps {
@@ -61,6 +62,12 @@ export function AddItemSheet({
   const [detail, setDetail] = useState('')
   const [dueDate, setDueDate] = useState(date ?? '')
   const [urgency, setUrgency] = useState<Urgency>('normal')
+  /**
+   * Materia elegida a mano cuando el formulario no viene de una clase (el «+» de la
+   * barra o Pendientes). Sin esto, una tarea del colegio quedaba sin materia y no
+   * aparecía en su clase ni en el horario.
+   */
+  const [materia, setMateria] = useState(classCode ?? '')
 
   // Al abrir para otra clase u otro día, el formulario arranca limpio.
   useEffect(() => {
@@ -72,7 +79,8 @@ export function AddItemSheet({
     setDetail('')
     setDueDate(date ?? '')
     setUrgency(initialKind === 'examen' ? 'urgente' : 'normal')
-  }, [open, date, initialKind, defaultScope])
+    setMateria(classCode ?? '')
+  }, [open, date, initialKind, defaultScope, classCode])
 
   function save() {
     const clean = title.trim()
@@ -84,7 +92,7 @@ export function AddItemSheet({
       dueDate: dueDate || undefined,
       urgency,
       kind: scope === 'colegio' ? kind : 'tarea',
-      classCode: scope === 'colegio' ? classCode : undefined,
+      classCode: scope === 'colegio' ? (classCode ?? (materia || undefined)) : undefined,
       area: scope === 'personal' ? area : undefined,
     })
     onClose()
@@ -146,7 +154,11 @@ export function AddItemSheet({
                 <button
                   key={k}
                   type="button"
-                  onClick={() => setKind(k)}
+                  onClick={() => {
+                    setKind(k)
+                    // Un examen casi siempre es lo más urgente: se marca solo, y se puede cambiar.
+                    if (k === 'examen') setUrgency('urgente')
+                  }}
                   aria-pressed={kind === k}
                   className={cx(
                     'flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-xl text-[11px] font-bold transition-colors',
@@ -182,6 +194,21 @@ export function AddItemSheet({
               )
             })}
           </div>
+        </Field>
+      )}
+
+      {scope === 'colegio' && !classCode && (
+        <Field label="¿De qué materia?">
+          <Select value={materia} onChange={(e) => setMateria(e.target.value)}>
+            <option value="">Sin materia</option>
+            {classList(setup)
+              .filter((c) => c.code)
+              .map((c) => (
+                <option key={c.code} value={c.code}>
+                  {c.name}
+                </option>
+              ))}
+          </Select>
         </Field>
       )}
 

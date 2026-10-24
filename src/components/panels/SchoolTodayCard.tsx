@@ -1,20 +1,31 @@
 import { Link } from 'react-router-dom'
 import { ArrowUpRight, CalendarOff, MapPin } from 'lucide-react'
-import { useNowAndNext } from '../../hooks/useSchoolDay'
+import { useNextSchoolDay, useNowAndNext } from '../../hooks/useSchoolDay'
 import { useTasks } from '../../hooks/useSchool'
 import { classesOnly } from '../../lib/school'
-import { todayIso } from '../../lib/dates'
+import { formatFull, relativeDay, todayIso } from '../../lib/dates'
 import { holidayName } from '../../data/holidays'
 import { cx } from '../../lib/cx'
 import { Card, CardHeader } from '../ui/Card'
 
-/** Línea de tiempo de las clases de hoy, con la que está en curso resaltada. */
+/**
+ * Línea de tiempo de las clases de hoy, con la que está en curso resaltada.
+ *
+ * Cuando hoy no hay colegio —o las clases ya terminaron— enseña las del siguiente día
+ * de colegio: el fin de semana lo útil es saber qué toca el lunes para prepararlo.
+ */
 export function SchoolTodayCard({ className }: { className?: string }) {
   const iso = todayIso()
-  const { current, slots, cycle } = useNowAndNext(iso, true)
+  const { current, next: nextClass, slots, cycle } = useNowAndNext(iso, true)
+  const nextDay = useNextSchoolDay(iso)
   const { tasks } = useTasks()
-  const classes = classesOnly(slots)
+  const todayClasses = classesOnly(slots)
   const holiday = holidayName(iso)
+
+  const finished = todayClasses.length > 0 && !current && !nextClass
+  const showNext = (!cycle.schoolDay || todayClasses.length === 0 || finished) && !!nextDay
+  const classes = showNext && nextDay ? nextDay.classes : todayClasses
+  const cycleDay = showNext && nextDay ? nextDay.cycleDay : cycle.cycleDay
 
   /** Pendientes sin terminar de esa materia, para avisar en la propia clase. */
   const openFor = (code: string) =>
@@ -23,12 +34,12 @@ export function SchoolTodayCard({ className }: { className?: string }) {
   return (
     <Card className={cx('flex flex-col', className)}>
       <CardHeader
-        title="Colegio de hoy"
+        title={showNext ? 'Siguiente día de colegio' : 'Colegio de hoy'}
         action={
           <div className="flex items-center gap-2">
-            {cycle.cycleDay && (
+            {cycleDay && (
               <span className="rounded-full bg-primary px-2.5 py-1 text-[11px] font-bold text-primary-on">
-                Día {cycle.cycleDay}
+                Día {cycleDay}
               </span>
             )}
             <Link
@@ -42,11 +53,26 @@ export function SchoolTodayCard({ className }: { className?: string }) {
         }
       />
 
-      {!cycle.schoolDay || classes.length === 0 ? (
+      {showNext && nextDay && (
+        <div className="-mt-1 mb-3 text-sm">
+          <p className="text-content-muted">
+            {finished
+              ? 'Por hoy terminaste.'
+              : holiday
+                ? `Festivo · ${holiday}`
+                : `Descanso · ${cycle.reason ?? 'sin clases'}`}
+          </p>
+          <p className="font-semibold text-content first-letter:uppercase">
+            {relativeDay(nextDay.date, iso)} · {formatFull(nextDay.date)}
+          </p>
+        </div>
+      )}
+
+      {classes.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 rounded-2xl bg-surface-2 py-8 text-center">
           <CalendarOff size={20} className="text-content-subtle" aria-hidden />
           <p className="text-sm text-content-muted">
-            {holiday ? `Festivo · ${holiday}` : 'Hoy no hay colegio.'}
+            {holiday ? `Festivo · ${holiday}` : 'No hay clases a la vista.'}
           </p>
         </div>
       ) : (

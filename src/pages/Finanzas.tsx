@@ -1,11 +1,20 @@
 import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeftRight, Plus, Repeat, Tags, Wallet, X } from 'lucide-react'
-import { todayISO } from '../data/plan'
-import { formatCOP, lastMonths, monthKey, monthLabel } from '../lib/finance'
+import { ArrowLeftRight, Pencil, Plus, Repeat, Tags, Wallet, X } from 'lucide-react'
+import { todayIso } from '../lib/dates'
+import {
+  formatCOP,
+  formatCOPExacto,
+  lastMonths,
+  monthKey,
+  monthLabel,
+  parseMonto,
+  rendimientoEA,
+} from '../lib/finance'
 import {
   ACCOUNT_KIND_META,
   MONEY_SOURCE_META,
   useFinance,
+  type Account,
   type AccountKind,
   type MoneySource,
   type TxKind,
@@ -18,6 +27,8 @@ import { SegmentedControl } from '../components/ui/SegmentedControl'
 import { Button } from '../components/ui/Button'
 import { DateInput, Field, Select, TextInput } from '../components/ui/Field'
 import { cx } from '../lib/cx'
+import { DebtsCard } from '../components/finance/DebtsCard'
+import { SCROLL_AREA_ID } from '../components/ScrollToTop'
 
 const KINDS: AccountKind[] = ['efectivo', 'ahorros', 'inversion', 'externa']
 const SOURCES: MoneySource[] = ['mia', 'papas']
@@ -49,10 +60,8 @@ const DEFAULT_ACCOUNTS: { name: string; kind: AccountKind }[] = [
 ]
 const ACCOUNTS_SEED_FLAG = 'mivida:finance-accounts-seeded:v1'
 
-function toNum(v: string): number {
-  const x = parseFloat(v.replace(/[.,\s]/g, ''))
-  return Number.isNaN(x) ? 0 : x
-}
+/** Montos escritos a mano: «2.675.845,61» guarda sus centavos (ver `parseMonto`). */
+const toNum = parseMonto
 
 type Panel = 'account' | 'movement' | 'transfer' | 'monthly' | 'categories' | null
 
@@ -67,8 +76,10 @@ const PANELS = [
 export function Finanzas() {
   const fin = useFinance()
   const { accounts, transactions, transfers, categories } = fin
-  const iso = todayISO()
+  const iso = todayIso()
   const [panel, setPanel] = useState<Panel>(null)
+  /** Cuenta que se está editando (saldo, nombre o tasa). */
+  const [editing, setEditing] = useState<Account | null>(null)
   /** Con qué plata mirar el desglose: la mía, la de mis papás o todo junto. */
   const [catSource, setCatSource] = useState<MoneySource | 'todo'>('todo')
 
@@ -87,6 +98,18 @@ export function Finanzas() {
   }, [accounts.length, fin])
 
   const thisMonth = monthKey(iso)
+  /** Suma de lo que rinden todas las cuentas con tasa, al día, al mes y al año. */
+  const rendimientoTotal = useMemo(() => {
+    const total = { diario: 0, mensual: 0, anual: 0 }
+    for (const a of accounts) {
+      if (!a.interestPct || a.kind === 'externa') continue
+      const r = rendimientoEA(a.balance, a.interestPct)
+      total.diario += r.diario
+      total.mensual += r.mensual
+      total.anual += r.anual
+    }
+    return total
+  }, [accounts])
   const patrimonio = useMemo(
     () => accounts.filter((a) => a.kind !== 'externa').reduce((s, a) => s + a.balance, 0),
     [accounts],
@@ -178,17 +201,20 @@ export function Finanzas() {
       />
 
       {panel === 'account' && <AccountForm fin={fin} onDone={() => setPanel(null)} />}
+      {editing && (
+        <AccountForm key={editing.id} fin={fin} initial={editing} onDone={() => setEditing(null)} />
+      )}
       {panel === 'movement' && <MovementForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'transfer' && <TransferForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'monthly' && <MonthlyForm fin={fin} onDone={() => setPanel(null)} />}
       {panel === 'categories' && <CategoriesPanel fin={fin} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
-        <div className="rounded-3xl bg-gradient-to-br from-hero-from to-hero-to p-5 text-hero-fg shadow-card lg:col-span-2">
+        <div className="rounded-[22px] bg-hero-to p-5 text-hero-fg lg:col-span-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-hero-fg/70">
             Patrimonio
           </p>
-          <p className="mt-0.5 text-3xl font-extrabold tabular tracking-tight lg:text-4xl">
+          <p className="mt-0.5 text-3xl font-semibold tabular tracking-tight lg:text-4xl">
             {formatCOP(patrimonio)}
           </p>
           <p className="mt-0.5 text-[11px] text-hero-fg/55">
@@ -234,6 +260,7 @@ export function Finanzas() {
             <div className="flex flex-col gap-2">
               {accounts.map((a) => {
                 const meta = ACCOUNT_KIND_META[a.kind]
+                const rinde = a.interestPct ? rendimientoEA(a.balance, a.interestPct) : null
                 return (
                   <div key={a.id} className="flex items-center gap-3">
                     <span
@@ -244,16 +271,37 @@ export function Finanzas() {
                     >
                       <meta.Icon size={17} strokeWidth={2} aria-hidden />
                     </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-content">{a.name}</p>
-                      <p className="truncate text-xs text-content-muted">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditing(a)
+                        // El formulario sale arriba; sin esto, en el celular quedaba fuera de vista.
+                        document.getElementById(SCROLL_AREA_ID)?.scrollTo({ top: 0, behavior: 'smooth' })
+                      }}
+                      aria-label={`Editar ${a.name}`}
+                      className="flex min-w-0 flex-1 flex-col text-left"
+                    >
+                      {/* Nombre y saldo arriba; la tasa y lo que rinde debajo, a todo el ancho:
+                          al lado del saldo no cabían en el celular y se cortaban. */}
+                      <span className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-sm font-semibold text-content">
+                          {a.name}
+                        </span>
+                        <span className="shrink-0 text-sm font-bold tabular text-content">
+                          {formatCOPExacto(a.balance)}
+                        </span>
+                        <Pencil size={13} className="shrink-0 text-content-subtle" aria-hidden />
+                      </span>
+                      <span className="text-xs text-content-muted">
                         {meta.label}
-                        {a.interestPct ? ` · ${a.interestPct}%/mes` : ''}
-                      </p>
-                    </div>
-                    <p className="shrink-0 text-sm font-bold tabular text-content">
-                      {formatCOP(a.balance)}
-                    </p>
+                        {a.interestPct ? ` · ${a.interestPct} % EA` : ''}
+                      </span>
+                      {rinde && rinde.diario > 0 && (
+                        <span className="text-xs font-medium text-ok">
+                          Rinde ≈ {formatCOP(rinde.diario)} al día · {formatCOP(rinde.mensual)} al mes
+                        </span>
+                      )}
+                    </button>
                     <button
                       type="button"
                       onClick={() => fin.removeAccount(a.id)}
@@ -269,8 +317,38 @@ export function Finanzas() {
           ) : (
             <p className="text-sm text-content-muted">Crea tu primera cuenta con «Cuenta».</p>
           )}
+          {rendimientoTotal.anual > 0 && (
+            <div className="mt-3 rounded-2xl bg-ok-soft p-3">
+              <p className="text-xs font-semibold text-ok">Lo que rinden tus ahorros</p>
+              <div className="mt-1 grid grid-cols-3 gap-2 text-center">
+                <div>
+                  <p className="text-sm font-bold tabular text-content">
+                    {formatCOP(rendimientoTotal.diario)}
+                  </p>
+                  <p className="text-[11px] text-content-muted">al día</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold tabular text-content">
+                    {formatCOP(rendimientoTotal.mensual)}
+                  </p>
+                  <p className="text-[11px] text-content-muted">al mes</p>
+                </div>
+                <div>
+                  <p className="text-sm font-bold tabular text-content">
+                    {formatCOP(rendimientoTotal.anual)}
+                  </p>
+                  <p className="text-[11px] text-content-muted">al año</p>
+                </div>
+              </div>
+              <p className="mt-1.5 text-[11px] text-content-muted">
+                Con la tasa EA de cada cuenta y el saldo de hoy, antes de retención.
+              </p>
+            </div>
+          )}
         </Card>
       </div>
+
+      <DebtsCard fin={fin} />
 
       {hasCharts && (
         <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2 lg:gap-5">
@@ -412,24 +490,45 @@ function FormCard({
   )
 }
 
-function AccountForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
-  const [name, setName] = useState('')
-  const [kind, setKind] = useState<AccountKind>('efectivo')
-  const [balance, setBalance] = useState('')
-  const [interest, setInterest] = useState('')
+/** Crear una cuenta o, con `initial`, corregir su nombre, saldo o tasa. */
+function AccountForm({
+  fin,
+  onDone,
+  initial,
+}: {
+  fin: Fin
+  onDone: () => void
+  initial?: Account
+}) {
+  const [name, setName] = useState(initial?.name ?? '')
+  const [kind, setKind] = useState<AccountKind>(initial?.kind ?? 'efectivo')
+  const [balance, setBalance] = useState(
+    initial ? String(initial.balance).replace('.', ',') : '',
+  )
+  const [interest, setInterest] = useState(
+    initial?.interestPct != null ? String(initial.interestPct).replace('.', ',') : '',
+  )
 
   return (
     <FormCard
-      title="Nueva cuenta"
-      submit="Crear cuenta"
+      title={initial ? `Editar ${initial.name}` : 'Nueva cuenta'}
+      hint={
+        initial
+          ? 'Cambiar el saldo aquí no crea un movimiento: úsalo para cuadrar con lo que dice el banco.'
+          : undefined
+      }
+      submit={initial ? 'Guardar cambios' : 'Crear cuenta'}
       onSubmit={() => {
         if (!name.trim()) return
-        fin.addAccount({
+        const tasa = interest.trim() ? Number(interest.replace(',', '.')) : undefined
+        const datos = {
           name: name.trim(),
           kind,
           balance: toNum(balance),
-          interestPct: interest ? parseFloat(interest.replace(',', '.')) : undefined,
-        })
+          interestPct: tasa && Number.isFinite(tasa) && tasa > 0 ? tasa : undefined,
+        }
+        if (initial) fin.updateAccount({ ...initial, ...datos })
+        else fin.addAccount(datos)
         onDone()
       }}
     >
@@ -449,15 +548,15 @@ function AccountForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
           ))}
         </Select>
       </Field>
-      <Field label="Saldo inicial">
+      <Field label={initial ? 'Saldo' : 'Saldo inicial'} hint="Con centavos: 2.675.845,61">
         <TextInput
           value={balance}
           onChange={(e) => setBalance(e.target.value)}
-          inputMode="numeric"
+          inputMode="decimal"
           placeholder="0"
         />
       </Field>
-      <Field label="Interés mensual (%)">
+      <Field label="Interés (% EA)" hint="La tasa efectiva anual que da el banco: 11">
         <TextInput
           value={interest}
           onChange={(e) => setInterest(e.target.value)}
@@ -479,7 +578,7 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [addingCat, setAddingCat] = useState(false)
   const [detail, setDetail] = useState('')
   const [description, setDescription] = useState('')
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(todayIso())
   const cats = fin.categories.filter((c) => c.kind === kind)
 
   function crearCategoria() {
@@ -749,7 +848,7 @@ function TransferForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
       onSubmit={() => {
         const amt = toNum(amount)
         if (amt <= 0 || !from || !to || from === to) return
-        fin.addTransfer({ date: todayISO(), fromAccountId: from, toAccountId: to, amount: amt })
+        fin.addTransfer({ date: todayIso(), fromAccountId: from, toAccountId: to, amount: amt })
         onDone()
       }}
     >
@@ -792,7 +891,7 @@ function MonthlyForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   return (
     <FormCard
       title="Mesada e intereses"
-      hint="Añade la mesada a una cuenta y el interés mensual de cada cuenta de ahorro o CDT. Es reversible: borra los movimientos para deshacer."
+      hint="Añade la mesada a una cuenta y el interés de un mes de cada cuenta de ahorro o CDT, calculado con su tasa EA. Es reversible: borra los movimientos para deshacer."
       submit="Aplicar mesada + intereses"
       onSubmit={() => {
         fin.applyMonthly(toNum(mesada), personal || undefined)

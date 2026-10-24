@@ -11,6 +11,7 @@ import {
 import { COLORS, type ColorStyles } from '../data/palette'
 import { SCHOOL_EVENTS } from '../data/schoolCalendar'
 import { createCollection, newId } from '../lib/cloudStore'
+import { supabase } from '../lib/supabase'
 import { stableId } from '../lib/ids'
 
 export type EventType = 'personal' | 'colegio' | 'salud' | 'viaje' | 'cumpleanos' | 'otro'
@@ -112,16 +113,44 @@ export function schoolSeedEvents(): CalendarEvent[] {
 }
 
 /**
- * Siembra automática, una vez por dispositivo. Los ids son deterministas, así que
- * si el celular y el computador siembran a la vez el resultado es el mismo: una
- * sola copia de cada evento. Si algún día borras eventos del colegio a mano, no
- * vuelven solos — la bandera ya quedó puesta.
+ * Siembra automática del calendario oficial, una vez por dispositivo.
+ *
+ * Antes se sembraba al cargar, a ciegas: en un dispositivo nuevo (en el iPhone, Safari
+ * y la app instalada tienen almacenamiento distinto) se volvían a subir todos los
+ * eventos, y eso resucitaba los que se habían borrado y deshacía los editados. Ahora
+ * se pregunta primero a la nube qué eventos del colegio existen —también los borrados—
+ * y solo se crean los que nunca estuvieron. La bandera se pone solo si la consulta
+ * salió bien; si no hay red, se intenta en la próxima apertura.
  */
 const SEED_FLAG = 'mivida:school-calendar-seeded:2026-2027'
+let sembrando = false
 
-if (typeof localStorage !== 'undefined' && !localStorage.getItem(SEED_FLAG)) {
-  localStorage.setItem(SEED_FLAG, '1')
-  for (const e of schoolSeedEvents()) store.upsert(e)
+async function sembrarColegio() {
+  if (sembrando || typeof localStorage === 'undefined' || localStorage.getItem(SEED_FLAG)) return
+  sembrando = true
+  try {
+    const { data, error } = await supabase
+      .from('calendar_events')
+      .select('id')
+      .eq('source', 'colegio')
+    if (error) return
+    const existentes = new Set((data ?? []).map((r: { id: string }) => r.id))
+    for (const e of schoolSeedEvents()) {
+      if (!existentes.has(e.id) && !store.get().some((x) => x.id === e.id)) store.upsert(e)
+    }
+    localStorage.setItem(SEED_FLAG, '1')
+  } finally {
+    sembrando = false
+  }
+}
+
+if (typeof window !== 'undefined') {
+  void supabase.auth.getSession().then(({ data }) => {
+    if (data.session) void sembrarColegio()
+  })
+  supabase.auth.onAuthStateChange((evento, session) => {
+    if (session && evento === 'SIGNED_IN') void sembrarColegio()
+  })
 }
 
 export function useCalendarEvents() {
