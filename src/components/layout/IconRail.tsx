@@ -11,9 +11,9 @@ function RailLink({ to, label, Icon, end }: NavItem) {
       aria-label={label}
       className={({ isActive }) =>
         cx(
-          'group relative grid h-11 w-11 place-items-center rounded-2xl transition-colors duration-150',
+          'group relative grid h-11 w-11 place-items-center rounded-full transition-colors duration-150',
           isActive
-            ? 'bg-primary text-primary-on'
+            ? 'bg-brand text-brand-on'
             : 'text-content-subtle hover:bg-surface-2 hover:text-content',
         )
       }
@@ -30,7 +30,7 @@ function RailLink({ to, label, Icon, end }: NavItem) {
   )
 }
 
-/** Rail de iconos de escritorio: minimalista, sin fondo de tarjeta, activo en grafito. */
+/** Rail de iconos de escritorio: minimalista, con el activo en un círculo lima como la barra del celular. */
 export function IconRail() {
   return (
     <nav

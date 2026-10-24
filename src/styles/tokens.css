@@ -38,6 +38,16 @@
   --accent-strong: 79 105 86;
   --accent-soft: 226 235 228;
 
+  /*
+   * Marca: verde lima. Es el color de «lo activo» del diseño nuevo — la pestaña
+   * elegida, el día seleccionado, el «Ahora» y los checks hechos. Lleva texto casi
+   * negro encima (`--on-brand`) en los dos temas: el lima es claro en ambos.
+   */
+  --brand: 190 242 100;
+  --brand-strong: 163 216 66;
+  --brand-soft: 240 252 220;
+  --on-brand: 16 18 22;
+
   /* Estados */
   --ok: 22 150 87;
   --ok-soft: 219 246 230;
@@ -120,6 +130,11 @@
   --accent: 142 176 150;
   --accent-strong: 168 197 175;
   --accent-soft: 32 44 36;
+
+  --brand: 190 242 100;
+  --brand-strong: 210 248 140;
+  --brand-soft: 38 50 20;
+  --on-brand: 16 18 22;
 
   --ok: 62 205 130;
   --ok-soft: 18 56 38;

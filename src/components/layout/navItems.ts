@@ -31,14 +31,19 @@ export const NAV_ITEMS: NavItem[] = [
 /** Pie del rail: ajustes. */
 export const NAV_FOOTER: NavItem[] = [{ to: '/ajustes', label: 'Ajustes', Icon: Settings }]
 
-/** Las cinco pestañas de la barra inferior en móvil: lo que más se usa, a un toque. */
+/**
+ * Las cuatro pestañas de la barra inferior en móvil; en medio va el botón «+» para
+ * añadir rápido. «Más» vive en el icono de la cabecera del Inicio.
+ */
 export const MOBILE_ITEMS: NavItem[] = [
   { to: '/', label: 'Inicio', Icon: LayoutGrid, end: true },
   { to: '/colegio', label: 'Colegio', Icon: GraduationCap },
   { to: '/pendientes', label: 'Pendientes', Icon: ListChecks },
   { to: '/calendario', label: 'Calendario', Icon: CalendarDays },
-  { to: '/mas', label: 'Más', Icon: Menu },
 ]
+
+/** Acceso a todas las secciones desde la cabecera del Inicio en el celular. */
+export const MAS_ITEM: NavItem = { to: '/mas', label: 'Más secciones', Icon: Menu }
 
 /**
  * Secciones OCULTAS, no borradas: Juan Diego dejó de usar el entreno y la comida.
