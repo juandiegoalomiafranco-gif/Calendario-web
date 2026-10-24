@@ -1,3 +1,7 @@
+-- Aplicada a mano desde el SQL Editor de Supabase (proyecto «Calendario») el
+-- 24-oct-2026, porque la aprobación desde la herramienta no llegaba. Todo es
+-- idempotente: correrla otra vez no rompe nada.
+
 -- MyLife — deudas: lo que Juan Diego le debe a alguien («debo») y lo que alguien le
 -- debe a él («me_deben»). Cuando se salda queda en el historial con su fecha y, si
 -- la plata entró o salió de una cuenta, con el movimiento que se creó para eso.
