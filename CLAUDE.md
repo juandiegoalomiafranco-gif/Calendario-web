@@ -1,7 +1,8 @@
 # MyLife
 
 App **personal** de Juan Diego para organizar su vida desde el **celular**: colegio,
-tareas, entrenamiento, comida, calendario, pendientes y finanzas en un solo sitio. Se
+tareas, calendario, pendientes y finanzas en un solo sitio (entreno y comida siguen en
+el código pero ocultos; ver `MODULOS_OCULTOS` en `navItems.ts`). Se
 usa instalada como PWA en el iPhone («Añadir a pantalla de inicio») y también desde el
 computador; los dos ven siempre lo mismo.
 
@@ -23,6 +24,7 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 |---|---|
 | `src/pages/` | Una pantalla por ruta (20 rutas, ver `src/App.tsx`) |
 | `src/components/layout/` | El armazón: `AppShell`, `BottomNav` (móvil), `IconRail` (escritorio), `TopBar` |
+| `src/components/inicio/` | El Inicio: tira de días, tarjeta del colegio, horario del día, resúmenes |
 | `src/components/ui/` | Piezas compartidas: `Sheet`, `Button`, `Card`, `Field`, `RichText`… |
 | `src/hooks/` | Un hook por dominio (`useSchool`, `useFinance`, `useTrainingLog`…) |
 | `src/lib/` | Supabase, sincronización, fechas, ciclo del colegio, texto enriquecido |
@@ -32,12 +34,16 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 
 ## Cómo está montada la pantalla
 
-`.app-shell` mide **exactamente** `100dvh` y es una columna: barra superior (escritorio),
-**el contenido con el scroll dentro** (`#app-scroll`) y la barra inferior abajo. La barra
-de abajo **no** es `position: fixed` — es hermana del contenido, y por eso no se mueve
-con el rebote de iOS ni al abrirse el teclado. Consecuencia práctica: **el scroll no
-está en `window` ni en `body`**, así que cualquier cosa que toque scroll tiene que ir
-contra `#app-scroll` (`SCROLL_AREA_ID` en `src/components/ScrollToTop.tsx`).
+`.app-shell` mide **exactamente** `100dvh` y es una columna: barra superior (escritorio)
+y **el contenido con el scroll dentro** (`#app-scroll`). La barra de abajo del celular
+es una píldora negra que **flota sobre el contenido** con `position: absolute` dentro
+del armazón (que es `relative`) — **nunca** `fixed`: como el armazón no se mueve, la
+barra tampoco se mueve con el rebote de iOS ni al abrirse el teclado (y se esconde
+mientras el teclado está arriba). El contenido deja abajo el hueco de la barra. Lleva
+cuatro pestañas y el «+» de añadir en el centro; «Más» está en la cabecera del Inicio.
+Consecuencia práctica: **el scroll no está en `window` ni en `body`**, así que
+cualquier cosa que toque scroll tiene que ir contra `#app-scroll` (`SCROLL_AREA_ID` en
+`src/components/ScrollToTop.tsx`).
 
 El teclado del celular es el otro caso raro: en iOS **no encoge el viewport**, así que
 lo que quede abajo se va detrás del teclado. Lo mide `useKeyboardInset`
@@ -53,7 +59,12 @@ lo que quede abajo se va detrás del teclado. Lo mide `useKeyboardInset`
   zoom solo al enfocar y no lo deshace. Está resuelto en el bloque
   `@media (pointer: coarse)` de `src/styles/index.css`; no lo bajes.
 - Los colores salen de `tokens.css` vía Tailwind (`bg-surface`, `text-content`…).
-  Nunca un color a mano: hay modo claro y oscuro.
+  Nunca un color a mano: hay modo claro y oscuro. El acento de «lo activo» es el
+  verde lima `brand` (`bg-brand text-brand-on`); las tarjetas destacadas son grafito
+  `bg-hero-to text-hero-fg` en los dos temas.
+- La letra va con la escala de `tailwind.config.ts` (`text-title`, `text-section`,
+  `text-body`, `text-caption`, `text-micro`) y pesos medios; `font-extrabold` casi no
+  se usa: con todo en negrita la pantalla se veía saturada.
 - Zonas táctiles de 44 px en el celular, también en `@media (pointer: coarse)`.
 
 ## Qué NO se toca sin que lo pida él

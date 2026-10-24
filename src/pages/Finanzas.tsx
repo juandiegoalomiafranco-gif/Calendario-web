@@ -210,11 +210,11 @@ export function Finanzas() {
       {panel === 'categories' && <CategoriesPanel fin={fin} />}
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3 lg:gap-5">
-        <div className="rounded-3xl bg-gradient-to-br from-hero-from to-hero-to p-5 text-hero-fg shadow-card lg:col-span-2">
+        <div className="rounded-[22px] bg-hero-to p-5 text-hero-fg lg:col-span-2">
           <p className="text-[11px] font-semibold uppercase tracking-wide text-hero-fg/70">
             Patrimonio
           </p>
-          <p className="mt-0.5 text-3xl font-extrabold tabular tracking-tight lg:text-4xl">
+          <p className="mt-0.5 text-3xl font-semibold tabular tracking-tight lg:text-4xl">
             {formatCOP(patrimonio)}
           </p>
           <p className="mt-0.5 text-[11px] text-hero-fg/55">

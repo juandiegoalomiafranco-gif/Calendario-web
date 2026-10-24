@@ -149,7 +149,7 @@ export function Pendientes() {
                   <meta.Icon size={17} strokeWidth={2} aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xl font-extrabold tabular leading-none text-content">
+                  <p className="text-xl font-semibold tabular leading-none text-content">
                     {byKind.get(k) ?? 0}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>
@@ -173,7 +173,7 @@ export function Pendientes() {
                   <meta.Icon size={17} strokeWidth={2} aria-hidden />
                 </span>
                 <div className="min-w-0">
-                  <p className="text-xl font-extrabold tabular leading-none text-content">
+                  <p className="text-xl font-semibold tabular leading-none text-content">
                     {byArea.get(a) ?? 0}
                   </p>
                   <p className="mt-0.5 truncate text-xs text-content-muted">{meta.label}</p>

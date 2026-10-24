@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Bookmark,
   CalendarPlus,
+  Clock,
   ChevronLeft,
   ChevronRight,
   PartyPopper,
@@ -20,6 +21,7 @@ import {
   formatMonthYear,
   isSameMonth,
   monthMatrix,
+  esFechaIso,
   relativeDay,
   startOfMonth,
   todayIso,
@@ -30,6 +32,8 @@ import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader } from '../components/ui/Card'
 import { EventSheet } from '../components/calendar/EventSheet'
+import { DayScheduleSheet } from '../components/inicio/DaySchedule'
+import { useSchoolDay } from '../hooks/useSchoolDay'
 
 /** Cuántos distintivos caben en una celda antes de resumir con «+N». */
 const MAX_MARKS = 3
@@ -41,8 +45,15 @@ const MAX_MARKS = 3
 export function Calendario() {
   const today = todayIso()
   const [params, setParams] = useSearchParams()
-  const selected = params.get('d') ?? today
+  // Una fecha mal escrita en la URL hacía que la rejilla del mes lanzara un error y la
+  // pantalla quedara en blanco: si no es válida, se usa hoy.
+  const pedida = params.get('d')
+  const selected = esFechaIso(pedida) ? pedida : today
+  const [horario, setHorario] = useState(false)
+  const { cycle: cicloDia } = useSchoolDay(selected)
   const [month, setMonth] = useState(() => startOfMonth(selected))
+  // Si se llega con otra fecha (p. ej. desde «Lo próximo» del Inicio), el mes la sigue.
+  useEffect(() => setMonth(startOfMonth(selected)), [selected])
   const [sheet, setSheet] = useState<{ open: boolean; event?: CalendarEvent | null }>({
     open: false,
   })
@@ -185,7 +196,7 @@ export function Calendario() {
                     i >= 7 && 'border-t',
                     outside && 'bg-surface-2/50',
                     !isSelected && 'hover:bg-surface-2',
-                    isSelected && 'ring-2 ring-inset ring-primary',
+                    isSelected && 'bg-brand-soft ring-2 ring-inset ring-brand-strong',
                   )}
                 >
                   <span className="flex items-center gap-1">
@@ -193,7 +204,7 @@ export function Calendario() {
                       className={cx(
                         'grid h-6 min-w-6 place-items-center rounded-full px-1 text-xs font-bold tabular',
                         isToday
-                          ? 'bg-primary text-primary-on'
+                          ? 'bg-brand text-brand-on'
                           : outside
                             ? 'text-content-subtle/60'
                             : 'text-content',
@@ -392,10 +403,21 @@ export function Calendario() {
             </div>
           )}
 
+          {cicloDia.schoolDay && (
+            <Button
+              variant="primary"
+              size="md"
+              className="mt-3 w-full justify-center"
+              onClick={() => setHorario(true)}
+            >
+              <Clock size={16} aria-hidden />
+              Horario de este día · Día {cicloDia.cycleDay}
+            </Button>
+          )}
           <Button
             variant="secondary"
             size="md"
-            className="mt-3 w-full justify-center"
+            className="mt-2 w-full justify-center"
             onClick={() => setSheet({ open: true })}
           >
             <CalendarPlus size={16} aria-hidden />
@@ -403,6 +425,14 @@ export function Calendario() {
           </Button>
         </Card>
       </div>
+
+      <DayScheduleSheet
+        open={horario}
+        onClose={() => setHorario(false)}
+        date={selected}
+        titulo={selected === today ? 'Horario de hoy' : `Horario · ${formatFull(selected)}`}
+        subtitulo={cicloDia.cycleDay ? `Día ${cicloDia.cycleDay}` : undefined}
+      />
 
       <EventSheet
         open={sheet.open}

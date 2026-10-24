@@ -74,11 +74,11 @@ export function Colegio() {
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-5">
         {/* Tarjeta de hoy */}
-        <div className="rounded-3xl bg-primary p-5 text-primary-on shadow-card">
-          <p className="text-[11px] font-bold uppercase tracking-wider opacity-70">Hoy es</p>
+        <div className="rounded-[22px] bg-hero-to p-5 text-hero-fg">
+          <p className="text-micro uppercase text-brand">Hoy es</p>
           {cycle.schoolDay && cycle.cycleDay ? (
             <>
-              <p className="text-4xl font-extrabold leading-tight tracking-tight">
+              <p className="text-display lg:text-4xl">
                 Día {cycle.cycleDay}
               </p>
               <p className="mt-1 text-sm opacity-80">
@@ -89,7 +89,7 @@ export function Colegio() {
             </>
           ) : (
             <>
-              <p className="text-2xl font-extrabold leading-tight tracking-tight">Descanso</p>
+              <p className="text-title">Descanso</p>
               <p className="mt-1 text-sm opacity-80">{cycle.reason ?? 'Sin colegio'}</p>
             </>
           )}
@@ -98,7 +98,7 @@ export function Colegio() {
             <button
               type="button"
               onClick={() => setSelectedDay(next.cycleDay)}
-              className="mt-3 block w-full rounded-2xl bg-primary-on/10 px-3 py-2.5 text-left transition-colors hover:bg-primary-on/20"
+              className="mt-3 block w-full rounded-2xl bg-hero-fg/10 px-3 py-2.5 text-left transition-colors hover:bg-hero-fg/20"
             >
               <span className="block text-[11px] font-bold uppercase tracking-wider opacity-70">
                 {cycle.schoolDay ? 'Después' : 'Siguiente día de colegio'}
@@ -115,13 +115,13 @@ export function Colegio() {
           <button
             type="button"
             onClick={() => setFixing((v) => !v)}
-            className="mt-4 inline-flex items-center rounded-full bg-primary-on/15 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-primary-on/25"
+            className="mt-4 inline-flex items-center rounded-full bg-hero-fg/15 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-hero-fg/25"
           >
             {fixing ? 'Cerrar' : '¿No es el día correcto?'}
           </button>
 
           {fixing && (
-            <div className="mt-3 rounded-2xl bg-primary-on/10 p-3">
+            <div className="mt-3 rounded-2xl bg-hero-fg/10 p-3">
               <p className="mb-2 text-xs opacity-90">Hoy en realidad es el…</p>
               <div className="grid grid-cols-6 gap-1.5">
                 {CYCLE_DAYS.map((d) => (
@@ -133,7 +133,7 @@ export function Colegio() {
                       setSelectedDay(d)
                       setFixing(false)
                     }}
-                    className="min-h-[40px] rounded-xl bg-primary-on/20 text-sm font-bold transition-colors hover:bg-primary-on/35"
+                    className="min-h-[40px] rounded-xl bg-hero-fg/20 text-sm font-bold transition-colors hover:bg-hero-fg/35"
                   >
                     {d}
                   </button>
