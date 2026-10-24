@@ -96,13 +96,34 @@ export async function hasSession(): Promise<boolean> {
   return !!data.session
 }
 
-/** El desbloqueo dura lo que dura la pestaña: al reabrir la app se pide el código. */
+/**
+ * El desbloqueo se recuerda en ESTE dispositivo hasta cerrar sesión.
+ *
+ * Antes vivía en `sessionStorage`, y el iPhone lo vacía cada vez que se cierra la app
+ * instalada: pedía el código en cada apertura aunque la sesión de la nube siguiera
+ * abierta. Ahora manda la sesión de Supabase (que ya persiste en `localStorage`); esta
+ * marca queda de respaldo para entrar sin red.
+ */
 export function isUnlocked(): boolean {
-  return sessionStorage.getItem(UNLOCK_KEY) === '1'
+  try {
+    return localStorage.getItem(UNLOCK_KEY) === '1'
+  } catch {
+    return false
+  }
 }
 export function markUnlocked(): void {
-  sessionStorage.setItem(UNLOCK_KEY, '1')
+  try {
+    localStorage.setItem(UNLOCK_KEY, '1')
+  } catch {
+    // Sin almacenamiento (modo privado) solo se pierde el recuerdo, no la sesión.
+  }
 }
 export function lock(): void {
-  sessionStorage.removeItem(UNLOCK_KEY)
+  try {
+    localStorage.removeItem(UNLOCK_KEY)
+    // Restos de la versión anterior, que guardaba la marca por pestaña.
+    sessionStorage.removeItem(UNLOCK_KEY)
+  } catch {
+    // Igual que arriba: nada que limpiar si no hay almacenamiento.
+  }
 }

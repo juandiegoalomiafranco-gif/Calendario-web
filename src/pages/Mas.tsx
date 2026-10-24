@@ -1,12 +1,8 @@
 import { Link } from 'react-router-dom'
 import {
-  CalendarDays,
   ChevronRight,
-  CircleUser,
-  ListChecks,
   Notebook,
   Settings,
-  TrendingUp,
   Wallet,
   type LucideIcon,
 } from 'lucide-react'
@@ -23,12 +19,8 @@ interface HubLink {
 
 const LINKS: HubLink[] = [
   { to: '/clases', Icon: Notebook, label: 'Clases', caption: 'Próximas clases, tareas y exámenes', tone: 'bg-cat-soft-blue text-cat-blue' },
-  { to: '/pendientes', Icon: ListChecks, label: 'Pendientes', caption: 'Todo lo que tienes por hacer', tone: 'bg-cat-soft-rose text-cat-rose' },
-  { to: '/calendario', Icon: CalendarDays, label: 'Calendario', caption: 'Eventos y fechas importantes', tone: 'bg-cat-soft-violet text-cat-violet' },
   { to: '/finanzas', Icon: Wallet, label: 'Finanzas', caption: 'Cuentas, gastos y ahorro', tone: 'bg-cat-soft-green text-cat-green' },
-  { to: '/cuerpo', Icon: CircleUser, label: 'Progreso corporal', caption: 'Controles, metas y tendencias', tone: 'bg-cat-soft-teal text-cat-teal' },
-  { to: '/progreso', Icon: TrendingUp, label: 'Estadísticas de entreno', caption: 'Constancia, tiempo y frecuencia cardíaca', tone: 'bg-cat-soft-orange text-cat-orange' },
-  { to: '/ajustes', Icon: Settings, label: 'Ajustes', caption: 'Cuenta, avisos y zonas de entreno', tone: 'bg-cat-soft-slate text-cat-slate' },
+  { to: '/ajustes', Icon: Settings, label: 'Ajustes', caption: 'Cuenta, código y avisos', tone: 'bg-cat-soft-slate text-cat-slate' },
 ]
 
 /** Índice de secciones para móvil. En escritorio el rail de iconos lleva a todo. */

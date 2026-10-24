@@ -1,30 +1,26 @@
-import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   CalendarDays,
-  Flame,
+  GraduationCap,
   ListChecks,
   PartyPopper,
   Search,
   Sparkles,
   type LucideIcon,
 } from 'lucide-react'
-import { PLAN, PRINCIPLES, getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
-import { PrincipleCard } from '../components/PrincipleCard'
 import { PageHeader } from '../components/layout/PageHeader'
 import { SchoolTodayCard } from '../components/panels/SchoolTodayCard'
-import { TrainingTodayCard } from '../components/panels/TrainingTodayCard'
-import { DietTodayCard } from '../components/panels/DietTodayCard'
 import { FinanceCard } from '../components/panels/FinanceCard'
 import { ImportantEventsCard } from '../components/panels/ImportantEventsCard'
 import { UrgentTasksCard } from '../components/panels/UrgentTasksCard'
-import { useTasks } from '../hooks/useSchool'
-import { useNowAndNext } from '../hooks/useSchoolDay'
-import { useTrainingLog } from '../hooks/useTrainingLog'
+import { useSchoolSetup, useTasks } from '../hooks/useSchool'
+import { useNextSchoolDay, useNowAndNext } from '../hooks/useSchoolDay'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
-import { formatDayMonth, formatFull, todayIso } from '../lib/dates'
+import { formatDayMonth, formatFull, relativeDay, todayIso, weekdayLong } from '../lib/dates'
 import { cx } from '../lib/cx'
+
+const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
 interface KpiProps {
   Icon: LucideIcon
@@ -58,23 +54,19 @@ function Kpi({ Icon, label, value, caption, tone, to }: KpiProps) {
 
 export function Today() {
   const iso = todayIso()
-  const day = getDayPlan(iso)
   const holiday = holidayName(iso)
   const { tasks } = useTasks()
-  const { log } = useTrainingLog()
+  const { setup } = useSchoolSetup()
   const { events } = useCalendarEvents()
   const { current, next, cycle } = useNowAndNext(iso, true)
-
-  const principle = useMemo(() => {
-    const idx = PLAN.findIndex((d) => d.date === iso)
-    return PRINCIPLES[(idx >= 0 ? idx : 0) % PRINCIPLES.length]
-  }, [iso])
+  const nextDay = useNextSchoolDay(iso)
 
   const openTasks = tasks.filter((t) => !t.done).length
   const dueToday = tasks.filter((t) => !t.done && t.dueDate === iso).length
-  const sessions = day?.sessions ?? []
-  const trainingTotal = sessions.filter((s) => s.type !== 'rest').length
-  const trainingDone = sessions.filter((s) => s.type !== 'rest' && log[s.id]?.completed).length
+  // El examen más cercano que aún no ha pasado: es lo primero que hay que preparar.
+  const nextExam = tasks
+    .filter((t) => !t.done && t.kind === 'examen' && t.dueDate && t.dueDate >= iso)
+    .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))[0]
   const nextEvent = events
     .filter((e) => e.date >= iso)
     .sort((a, b) => a.date.localeCompare(b.date))[0]
@@ -107,17 +99,18 @@ export function Today() {
         <Kpi
           Icon={CalendarDays}
           label="Colegio"
-          value={cycle.cycleDay ? `Día ${cycle.cycleDay}` : 'Sin clases'}
+          value={cycle.cycleDay ? `Día ${cycle.cycleDay}` : 'Descanso'}
           caption={
             current
               ? `Ahora: ${current.cls.name}`
               : next
                 ? `Sigue: ${next.cls.name}`
-                : cycle.cycleDay
-                  ? 'Las clases ya terminaron'
+                : nextDay
+                  ? // Sin más clases hoy, lo útil es saber qué día toca después.
+                    `${mayuscula(relativeDay(nextDay.date, iso) === 'mañana' ? 'mañana' : weekdayLong(nextDay.date))}: Día ${nextDay.cycleDay}`
                   : holiday
                     ? 'Festivo'
-                    : 'Sin clases hoy'
+                    : 'Sin clases a la vista'
           }
           tone="bg-cat-soft-blue text-cat-blue"
           to="/colegio"
@@ -131,12 +124,20 @@ export function Today() {
           to="/pendientes"
         />
         <Kpi
-          Icon={Flame}
-          label="Entreno"
-          value={trainingTotal === 0 ? 'Descanso' : `${trainingDone}/${trainingTotal}`}
-          caption={trainingTotal === 0 ? 'día libre' : 'sesiones hechas'}
+          Icon={GraduationCap}
+          label="Próximo examen"
+          value={
+            nextExam
+              ? (setup.classes[nextExam.classCode ?? '']?.name ?? nextExam.title)
+              : 'Ninguno'
+          }
+          caption={
+            nextExam?.dueDate
+              ? `${relativeDay(nextExam.dueDate, iso)} · ${nextExam.title}`
+              : 'sin exámenes programados'
+          }
           tone="bg-cat-soft-orange text-cat-orange"
-          to="/entreno"
+          to="/pendientes"
         />
         <Kpi
           Icon={Sparkles}
@@ -153,21 +154,8 @@ export function Today() {
         <SchoolTodayCard className="lg:col-span-4 lg:row-span-2" />
         <UrgentTasksCard className="lg:col-span-2" limit={4} title="Pendientes" />
         <ImportantEventsCard className="lg:col-span-2" limit={3} />
-
-        <TrainingTodayCard className="lg:col-span-2" />
-        <DietTodayCard className="lg:col-span-2" />
         <FinanceCard className="lg:col-span-2" />
-
-        <div className="lg:col-span-6">
-          <PrincipleCard text={principle} />
-        </div>
       </div>
-
-      {day?.note && (
-        <p className="rounded-2xl bg-surface-2 p-3.5 text-sm leading-relaxed text-content-muted">
-          {day.note}
-        </p>
-      )}
     </div>
   )
 }

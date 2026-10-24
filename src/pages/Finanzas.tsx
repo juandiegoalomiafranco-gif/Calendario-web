@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeftRight, Plus, Repeat, Tags, Wallet, X } from 'lucide-react'
-import { todayISO } from '../data/plan'
+import { todayIso } from '../lib/dates'
 import { formatCOP, lastMonths, monthKey, monthLabel } from '../lib/finance'
 import {
   ACCOUNT_KIND_META,
@@ -67,7 +67,7 @@ const PANELS = [
 export function Finanzas() {
   const fin = useFinance()
   const { accounts, transactions, transfers, categories } = fin
-  const iso = todayISO()
+  const iso = todayIso()
   const [panel, setPanel] = useState<Panel>(null)
   /** Con qué plata mirar el desglose: la mía, la de mis papás o todo junto. */
   const [catSource, setCatSource] = useState<MoneySource | 'todo'>('todo')
@@ -479,7 +479,7 @@ function MovementForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
   const [addingCat, setAddingCat] = useState(false)
   const [detail, setDetail] = useState('')
   const [description, setDescription] = useState('')
-  const [date, setDate] = useState(todayISO())
+  const [date, setDate] = useState(todayIso())
   const cats = fin.categories.filter((c) => c.kind === kind)
 
   function crearCategoria() {
@@ -749,7 +749,7 @@ function TransferForm({ fin, onDone }: { fin: Fin; onDone: () => void }) {
       onSubmit={() => {
         const amt = toNum(amount)
         if (amt <= 0 || !from || !to || from === to) return
-        fin.addTransfer({ date: todayISO(), fromAccountId: from, toAccountId: to, amount: amt })
+        fin.addTransfer({ date: todayIso(), fromAccountId: from, toAccountId: to, amount: amt })
         onDone()
       }}
     >

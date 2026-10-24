@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { CalendarOff, Clock, MapPin, Plus, Settings2 } from 'lucide-react'
 import { resolveDay } from '../lib/school'
+import { nextDateForCycleDay } from '../lib/cycle'
 import { useSchoolConfig, useSchoolSetup, useTasks } from '../hooks/useSchool'
-import { useSchoolDay } from '../hooks/useSchoolDay'
-import { formatFull, todayIso } from '../lib/dates'
+import { useNextSchoolDay, useSchoolDay } from '../hooks/useSchoolDay'
+import { formatFull, relativeDay, todayIso } from '../lib/dates'
 import { cx } from '../lib/cx'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card } from '../components/ui/Card'
@@ -17,17 +18,33 @@ const CYCLE_DAYS = [1, 2, 3, 4, 5, 6]
 /** Horario del colegio: el día de hoy y la rejilla completa del ciclo de 6 días. */
 export function Colegio() {
   const iso = todayIso()
-  const { setCycleDayOn } = useSchoolConfig()
+  const { config, setCycleDayOn } = useSchoolConfig()
   const { setup } = useSchoolSetup()
   const { cycle } = useSchoolDay(iso)
+  const next = useNextSchoolDay(iso)
   const { tasks } = useTasks()
 
-  const [selectedDay, setSelectedDay] = useState<number>(cycle.cycleDay ?? 1)
+  // Sin clases hoy, la rejilla abre en el día que viene: es el que hay que preparar.
+  const [selectedDay, setSelectedDay] = useState<number>(cycle.cycleDay ?? next?.cycleDay ?? 1)
   const [fixing, setFixing] = useState(false)
   const [addingFor, setAddingFor] = useState<string | null>(null)
 
-  // El horario de muestra usa las horas de HOY (el miércoles son más cortas).
-  const slots = useMemo(() => resolveDay(setup, selectedDay, iso), [setup, selectedDay, iso])
+  /*
+   * La fecha en que de verdad toca el día elegido. Las materias salen del día del
+   * ciclo pero las HORAS de la fecha: antes se usaba siempre la de hoy, y un miércoles
+   * todos los días del ciclo salían con la salida de la 1:05.
+   */
+  const selectedDate = useMemo(
+    () =>
+      selectedDay === cycle.cycleDay
+        ? iso
+        : (nextDateForCycleDay(iso, selectedDay, config) ?? iso),
+    [selectedDay, cycle.cycleDay, iso, config],
+  )
+  const slots = useMemo(
+    () => resolveDay(setup, selectedDay, selectedDate),
+    [setup, selectedDay, selectedDate],
+  )
 
   /** Pendientes abiertos por materia, para avisar en la propia fila del horario. */
   const openByClass = useMemo(() => {
@@ -72,11 +89,27 @@ export function Colegio() {
             </>
           ) : (
             <>
-              <p className="text-2xl font-extrabold leading-tight tracking-tight">
-                {cycle.reason ?? 'Sin colegio'}
-              </p>
-              <p className="mt-1 text-sm opacity-80">El ciclo no avanza hoy.</p>
+              <p className="text-2xl font-extrabold leading-tight tracking-tight">Descanso</p>
+              <p className="mt-1 text-sm opacity-80">{cycle.reason ?? 'Sin colegio'}</p>
             </>
+          )}
+
+          {next && (
+            <button
+              type="button"
+              onClick={() => setSelectedDay(next.cycleDay)}
+              className="mt-3 block w-full rounded-2xl bg-primary-on/10 px-3 py-2.5 text-left transition-colors hover:bg-primary-on/20"
+            >
+              <span className="block text-[11px] font-bold uppercase tracking-wider opacity-70">
+                {cycle.schoolDay ? 'Después' : 'Siguiente día de colegio'}
+              </span>
+              <span className="block text-sm font-bold first-letter:uppercase">
+                {formatFull(next.date)} · Día {next.cycleDay}
+              </span>
+              <span className="block text-xs opacity-75">
+                {next.classes.length} clases · {relativeDay(next.date)}
+              </span>
+            </button>
           )}
 
           <button
@@ -120,9 +153,15 @@ export function Colegio() {
              * la pantalla. Apilados, se ve el nombre completo y los seis días.
              */}
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="text-[15px] font-semibold tracking-tight text-content">
-                Horario del ciclo
-              </h2>
+              <div className="min-w-0">
+                <h2 className="text-[15px] font-semibold tracking-tight text-content">
+                  Horario del ciclo
+                </h2>
+                {/* A qué fecha corresponde lo que se ve: así se sabe de dónde salen las horas. */}
+                <p className="text-xs text-content-muted first-letter:uppercase">
+                  Día {selectedDay} · {relativeDay(selectedDate, iso)}, {formatFull(selectedDate)}
+                </p>
+              </div>
               <SegmentedControl
                 options={CYCLE_DAYS.map((d) => ({ value: String(d), label: String(d) }))}
                 value={String(selectedDay)}

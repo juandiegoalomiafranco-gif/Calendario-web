@@ -5,10 +5,8 @@ import {
   CalendarPlus,
   ChevronLeft,
   ChevronRight,
-  Dumbbell,
   PartyPopper,
 } from 'lucide-react'
-import { getDayPlan } from '../data/plan'
 import { holidayName } from '../data/holidays'
 import { EVENT_TYPE_META, useCalendarEvents, type CalendarEvent } from '../hooks/useCalendarEvents'
 import { useTasks } from '../hooks/useSchool'
@@ -37,9 +35,8 @@ import { EventSheet } from '../components/calendar/EventSheet'
 const MAX_MARKS = 3
 
 /**
- * Calendario de MyLife. Aquí sólo se crean **eventos y actividades** — los entrenos
- * no se registran desde aquí. Las tareas y exámenes que vencen, el entreno del día y
- * los festivos aparecen como información. Las clases viven en su propia sección.
+ * Calendario de MyLife. Aquí sólo se crean **eventos y actividades**. Las tareas y
+ * exámenes que vencen y los festivos aparecen como información. Las clases viven en su propia sección.
  */
 export function Calendario() {
   const today = todayIso()
@@ -97,10 +94,9 @@ export function Calendario() {
     .filter((e) => e.date === selected)
     .sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'))
   const dayTasks = tasks.filter((t) => t.dueDate === selected)
-  const daySessions = (getDayPlan(selected)?.sessions ?? []).filter((s) => s.type !== 'rest')
   const dayHoliday = holidayName(selected)
   const isEmpty =
-    dayEvents.length === 0 && dayTasks.length === 0 && daySessions.length === 0 && !dayHoliday
+    dayEvents.length === 0 && dayTasks.length === 0 && !dayHoliday
 
   return (
     <div className="flex flex-col gap-4 lg:gap-6">
@@ -159,7 +155,6 @@ export function Calendario() {
               const isSelected = date === selected
               const entry = byDate.get(date)
               const holiday = holidayName(date)
-              const hasTraining = (getDayPlan(date)?.sessions ?? []).some((s) => s.type !== 'rest')
 
               const marks = [
                 ...(entry?.events ?? []).map((e) => ({
@@ -216,13 +211,6 @@ export function Calendario() {
                     )}
                     {holiday && (
                       <PartyPopper size={11} className="text-warn" aria-label={`Festivo: ${holiday}`} />
-                    )}
-                    {hasTraining && (
-                      <Dumbbell
-                        size={11}
-                        className="ml-auto text-content-subtle"
-                        aria-label="Hay entreno"
-                      />
                     )}
                   </span>
 
@@ -401,22 +389,6 @@ export function Calendario() {
                 )
               })}
 
-              {daySessions.map((s) => (
-                <div
-                  key={s.id}
-                  className="flex items-center gap-3 rounded-2xl border border-line bg-surface-2/50 p-3"
-                >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-surface-3 text-content-muted">
-                    <Dumbbell size={16} strokeWidth={2} aria-hidden />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-[11px] font-bold uppercase tracking-wide text-content-subtle">
-                      Entreno
-                    </p>
-                    <p className="truncate text-sm font-bold text-content">{s.title}</p>
-                  </div>
-                </div>
-              ))}
             </div>
           )}
 

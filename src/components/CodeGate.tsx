@@ -1,6 +1,6 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { KeyRound } from 'lucide-react'
-import { emailForCode, isUnlocked, markUnlocked, MIN_CODE_LENGTH, signInWithCode } from '../lib/auth'
+import { emailForCode, lock, markUnlocked, MIN_CODE_LENGTH, signInWithCode } from '../lib/auth'
 import { supabase } from '../lib/supabase'
 import { Button } from './ui/Button'
 
@@ -8,12 +8,42 @@ import { Button } from './ui/Button'
  * Pantalla de entrada: el código inicia sesión en la nube y desbloquea la app.
  * Es la misma llave en los dos sitios, así el celular y el computador abren los
  * mismos datos.
+ *
+ * Solo se pide UNA vez por dispositivo: si al abrir ya hay sesión guardada, se entra
+ * directo. Vuelve a pedirse al cerrar sesión desde Ajustes o si la nube la invalida.
  */
 export function CodeGate({ children }: { children: ReactNode }) {
-  const [unlocked, setUnlocked] = useState(isUnlocked())
+  // `null` = comprobando. La sesión se lee de `localStorage` sin red, así que es un
+  // instante; mientras, se pinta el fondo vacío en vez de asomar la pantalla del código.
+  const [unlocked, setUnlocked] = useState<boolean | null>(null)
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    let vivo = true
+    void supabase.auth.getSession().then(({ data }) => {
+      if (!vivo) return
+      if (data.session) {
+        // También cubre a quien entró con la versión anterior, que no dejaba marca.
+        markUnlocked()
+        setUnlocked(true)
+      } else {
+        lock()
+        setUnlocked(false)
+      }
+    })
+    const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
+      if (evento === 'SIGNED_OUT') {
+        lock()
+        setUnlocked(false)
+      }
+    })
+    return () => {
+      vivo = false
+      sub.subscription.unsubscribe()
+    }
+  }, [])
 
   async function submit(e: FormEvent) {
     e.preventDefault()
@@ -43,6 +73,7 @@ export function CodeGate({ children }: { children: ReactNode }) {
     }
   }
 
+  if (unlocked === null) return <div className="min-h-[100svh] bg-bg" />
   if (unlocked) return <>{children}</>
 
   return (
@@ -75,8 +106,8 @@ export function CodeGate({ children }: { children: ReactNode }) {
           {busy ? 'Entrando…' : 'Entrar'}
         </Button>
         <p className="text-center text-[11px] leading-relaxed text-content-subtle">
-          El mismo código en el celular y en el computador abre tus mismos datos.
-          Guárdalo bien: es tu llave.
+          Solo te lo pediremos una vez en este dispositivo. El mismo código en el
+          celular y en el computador abre tus mismos datos.
         </p>
       </form>
     </div>

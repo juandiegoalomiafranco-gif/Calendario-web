@@ -2,7 +2,7 @@ import { useCallback } from 'react'
 import { Banknote, CreditCard, Landmark, TrendingUp, type LucideIcon } from 'lucide-react'
 import { COLORS, type ColorStyles } from '../data/palette'
 import { createCollection, newId } from '../lib/cloudStore'
-import { todayISO } from '../data/plan'
+import { todayIso } from '../lib/dates'
 
 export type AccountKind = 'efectivo' | 'ahorros' | 'inversion' | 'externa'
 export type TxKind = 'gasto' | 'ingreso'
@@ -251,7 +251,7 @@ export function useFinance() {
    * ahorro/CDT según su interest_pct. Reversible: crea transacciones que se pueden borrar.
    */
   const applyMonthly = useCallback((mesada: number, personalAccountId?: string) => {
-    const date = todayISO()
+    const date = todayIso()
     if (personalAccountId && mesada > 0) {
       const tx = {
         id: newId(),

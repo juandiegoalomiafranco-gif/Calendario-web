@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { cycleInfoFor } from '../lib/cycle'
+import { cycleInfoFor, nextSchoolDay } from '../lib/cycle'
 import { classesOnly, nowAndNext, resolveDay } from '../lib/school'
 import { nowMinutes } from '../lib/dates'
 import { useSchoolConfig, useSchoolSetup } from './useSchool'
@@ -43,4 +43,20 @@ export function useNowAndNext(dateIso: string, isToday: boolean) {
     () => ({ ...nowAndNext(slots, isToday ? minutes : 0), cycle, slots }),
     [slots, minutes, isToday, cycle],
   )
+}
+
+/**
+ * El siguiente día de colegio después de `fromIso`, con sus clases y las horas de esa
+ * fecha (si cae en miércoles, las cortas). `null` fuera del año escolar.
+ */
+export function useNextSchoolDay(fromIso: string) {
+  const { config } = useSchoolConfig()
+  const { setup } = useSchoolSetup()
+
+  return useMemo(() => {
+    const next = nextSchoolDay(fromIso, config)
+    if (!next) return null
+    const slots = resolveDay(setup, next.cycleDay, next.date)
+    return { ...next, slots, classes: classesOnly(slots) }
+  }, [fromIso, config, setup])
 }
