@@ -145,8 +145,31 @@ function writeJSON<T>(key: string, value: T) {
   try {
     localStorage.setItem(key, JSON.stringify(value))
   } catch {
-    // sin espacio o modo privado: al menos mantenemos el estado en memoria
+    // Sin espacio o modo privado: el estado sigue en memoria, pero si se cierra la app
+    // se perdería lo que aún no subió. Antes se callaba; ahora se ve en el aviso.
+    markSyncError(key, 'No queda espacio para guardar en este dispositivo.')
   }
+}
+
+/** Filas por petición: es el tope que Supabase devuelve de una sola vez. */
+const PAGINA = 1000
+
+/**
+ * Margen hacia atrás al pedir «lo que cambió desde el cursor». `updated_at` lo pone el
+ * servidor con la hora en que EMPEZÓ la transacción, así que una escritura lenta puede
+ * quedar confirmada con una hora anterior al cursor y un `>` estricto se la saltaba
+ * para siempre. Volver a recibir unas filas repetidas no hace daño.
+ */
+const VENTANA_MS = 30_000
+
+function desdeCursor(cursor: string): string {
+  const t = Date.parse(cursor)
+  return Number.isFinite(t) ? new Date(t - VENTANA_MS).toISOString() : cursor
+}
+
+/** Igualdad por valor, suficiente para objetos planos que vienen de JSON. */
+function mismoValor(a: unknown, b: unknown): boolean {
+  return JSON.stringify(a) === JSON.stringify(b)
 }
 
 // --- Programación de reintentos ---------------------------------------------
@@ -287,6 +310,9 @@ export function createCollection<T extends { id: string }, Row>(
         }
       } else {
         const item = opts.rowToItem(row)
+        // Con la ventana del cursor llegan filas repetidas: si no cambió nada, no se
+        // repinta la pantalla ni se reescribe la caché.
+        if (idx >= 0 && mismoValor(next[idx], item)) continue
         if (idx >= 0) next[idx] = item
         else next.push(item)
         changed = true
@@ -300,15 +326,27 @@ export function createCollection<T extends { id: string }, Row>(
     if (!currentUserId || enEspera(forzar)) return
     markSyncing(1)
     try {
-      let q = supabase.from(opts.table).select('*')
-      // Sin cursor es la primera vez: no hace falta traerse las lápidas.
-      q = cursor ? q.gt('updated_at', cursor) : q.is('deleted_at', null)
-      const { data, error } = await q
-      if (error) {
-        anotarFallo(error.message)
-        return
+      // El cursor de partida se fija aquí: `applyRows` lo va moviendo, y las páginas
+      // tienen que salir todas de la misma consulta.
+      const desde = cursor
+      for (let i = 0; ; i += PAGINA) {
+        let q = supabase.from(opts.table).select('*')
+        // Sin cursor es la primera vez: no hace falta traerse las lápidas.
+        q = desde ? q.gte('updated_at', desdeCursor(desde)) : q.is('deleted_at', null)
+        // Sin orden ni páginas, Supabase cortaba en 1000 filas y el cursor saltaba al
+        // final: lo que no cupo no llegaba nunca a este dispositivo.
+        const { data, error } = await q
+          .order('updated_at', { ascending: true })
+          .order('id', { ascending: true })
+          .range(i, i + PAGINA - 1)
+        if (error) {
+          anotarFallo(error.message)
+          return
+        }
+        const filas = (data ?? []) as (Row & RowMeta)[]
+        applyRows(filas)
+        if (filas.length < PAGINA) break
       }
-      applyRows((data ?? []) as (Row & RowMeta)[])
       anotarExito()
     } catch (e) {
       // Un fallo de red lanza en vez de devolver `error`, y sin este catch la
@@ -410,9 +448,23 @@ export interface Singleton<T> {
 
 export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<T> {
   const dirtyKey = `${opts.key}:dirty`
+  const baseKey = `${opts.key}:base`
 
   let cache: T = readJSON<T>(opts.key, opts.fallback)
   let dirty: boolean = readJSON<boolean>(dirtyKey, false)
+  /**
+   * Lo último que se sabe que había en la nube. Sirve para saber qué campos cambió
+   * ESTE dispositivo: al subir, solo esos pisan a la nube y el resto se toma de lo
+   * que haya allí. Antes se subía la fila entera y el último en escribir borraba lo
+   * que el otro dispositivo había cambiado en otro campo (p. ej. un día sin clase
+   * añadido en el computador desaparecía al corregir el ciclo desde el celular).
+   */
+  let base: T | null = readJSON<T | null>(baseKey, null)
+
+  function setBase(value: T) {
+    base = value
+    writeJSON(baseKey, value)
+  }
   let lastUpdatedAt: string | null = null
   const listeners = new Set<() => void>()
   let flushing = false
@@ -439,7 +491,21 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
   function applyRow(row: Row & { updated_at?: string | null }) {
     if (dirty) return // lo nuestro todavía no ha subido: no lo pisamos
     lastUpdatedAt = row.updated_at ?? lastUpdatedAt
-    persistLocal(opts.rowToValue(row))
+    const value = opts.rowToValue(row)
+    setBase(value)
+    persistLocal(value)
+  }
+
+  /** Campo a campo: lo que este dispositivo no tocó desde `base` se toma de la nube. */
+  function fusionar(local: T, remoto: T): T {
+    if (!base || typeof local !== 'object' || local === null) return local
+    const out = { ...(remoto as object) } as Record<string, unknown>
+    const loc = local as Record<string, unknown>
+    const bas = base as Record<string, unknown>
+    for (const k of Object.keys(loc)) {
+      if (!mismoValor(loc[k], bas[k])) out[k] = loc[k]
+    }
+    return out as T
   }
 
   let fallos = 0
@@ -491,14 +557,26 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
     flushing = true
     markSyncing(1)
     try {
+      const actual = await supabase.from(opts.table).select('*').limit(1).maybeSingle()
+      if (actual.error) {
+        anotarFallo(actual.error.message)
+        return
+      }
+      // Lo que se manda es lo de este momento; si se edita mientras sube, se sube luego.
+      const enviado = cache
+      const valor = actual.data ? fusionar(enviado, opts.rowToValue(actual.data as Row)) : enviado
       const { error } = await supabase
         .from(opts.table)
-        .upsert(opts.valueToRow(cache, currentUserId), { onConflict: 'user_id' })
+        .upsert(opts.valueToRow(valor, currentUserId), { onConflict: 'user_id' })
       if (error) {
         anotarFallo(error.message)
         return
       }
-      setDirty(false)
+      setBase(valor)
+      if (cache === enviado) {
+        if (!mismoValor(valor, cache)) persistLocal(valor)
+        setDirty(false)
+      }
       anotarExito()
     } catch (e) {
       anotarFallo(e instanceof Error ? e.message : 'Fallo de red al subir datos')

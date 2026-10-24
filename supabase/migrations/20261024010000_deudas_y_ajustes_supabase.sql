@@ -47,3 +47,21 @@ begin
     alter publication supabase_realtime add table public.debts;
   end if;
 end $$;
+
+-- Índices que pedía el asesor de rendimiento: las claves foráneas a cuentas.
+create index if not exists transactions_account_idx on public.transactions (account_id);
+create index if not exists transfers_from_account_idx on public.transfers (from_account_id);
+create index if not exists transfers_to_account_idx on public.transfers (to_account_id);
+
+-- Mismas reglas, escritas con (select auth.uid()) para que Postgres lo evalúe una vez
+-- por consulta y no una vez por fila.
+alter policy push_own on public.push_subscriptions
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+alter policy athlete_codes_own on public.athlete_codes
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+alter policy coach_plans_read_own on public.coach_plans
+  using (user_id = (select auth.uid()));
+alter policy coach_plans_manage_own on public.coach_plans
+  using (user_id = (select auth.uid())) with check (user_id = (select auth.uid()));
+alter policy coach_plans_delete_own on public.coach_plans
+  using (user_id = (select auth.uid()));
