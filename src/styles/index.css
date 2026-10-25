@@ -56,10 +56,20 @@ body {
  * de fiarse de `dvh`: si el armazón se pasa aunque sea de 40 px, la barra se sale
  * por abajo y la app entera se puede arrastrar. `dvh` queda de respaldo por si
  * algún navegador no resolviera bien el porcentaje.
+ *
+ * Pero instalada en el iPhone (pantalla de inicio) ese `100%` se queda CORTO: iOS no
+ * cuenta la franja del indicador de inicio y abajo quedaba una banda vacía, con la
+ * barra flotando muy arriba y el contenido cortado antes de tiempo. Por eso además
+ * se ancla a los cuatro bordes con `fixed` + `inset: 0`: así mide la pantalla real
+ * sin depender de ningún porcentaje. No vuelve el problema del arrastre porque el
+ * documento sigue sin desplazarse; lo fijo es la caja entera, no la barra.
  */
 .app-shell {
   height: 100dvh;
   height: 100%;
+  position: fixed;
+  inset: 0;
+  height: auto;
 }
 
 /*

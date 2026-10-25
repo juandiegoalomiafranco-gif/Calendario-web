@@ -34,12 +34,15 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 
 ## Cómo está montada la pantalla
 
-`.app-shell` mide **exactamente** `100dvh` y es una columna: barra superior (escritorio)
-y **el contenido con el scroll dentro** (`#app-scroll`). La barra de abajo del celular
-es una píldora negra que **flota sobre el contenido** con `position: absolute` dentro
-del armazón (que es `relative`) — **nunca** `fixed`: como el armazón no se mueve, la
-barra tampoco se mueve con el rebote de iOS ni al abrirse el teclado (y se esconde
-mientras el teclado está arriba). El contenido deja abajo el hueco de la barra. Lleva
+`.app-shell` ocupa **exactamente** la pantalla: va anclado a los cuatro bordes con
+`position: fixed; inset: 0` (instalada en el iPhone, `100%`/`dvh` se quedaban cortos y
+dejaban una franja vacía abajo). Es una columna: barra superior (escritorio) y **el
+contenido con el scroll dentro** (`#app-scroll`). La barra de abajo del celular es una
+píldora negra que **flota sobre el contenido** con `position: absolute` dentro del
+armazón — **nunca** `fixed` ella misma: como el armazón no se mueve, la barra tampoco
+se mueve con el rebote de iOS ni al abrirse el teclado (y se esconde mientras el
+teclado está arriba). Detrás lleva un degradado del color de fondo para que lo que pasa
+por debajo se desvanezca. El contenido deja abajo el hueco de la barra. Lleva
 cuatro pestañas y el «+» de añadir en el centro; «Más» está en la cabecera del Inicio.
 Consecuencia práctica: **el scroll no está en `window` ni en `body`**, así que
 cualquier cosa que toque scroll tiene que ir contra `#app-scroll` (`SCROLL_AREA_ID` en

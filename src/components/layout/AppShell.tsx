@@ -54,8 +54,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    // `relative`: la barra de abajo flota sobre el contenido con `absolute` (ver BottomNav).
-    <div className="app-shell relative flex flex-col bg-bg">
+    // `.app-shell` es `fixed` a los cuatro bordes (ver index.css), y eso también sirve
+    // de referencia para la barra de abajo, que flota con `absolute` (ver BottomNav).
+    <div className="app-shell flex flex-col bg-bg">
       <IconRail />
 
       <div className="flex min-h-0 flex-1 flex-col lg:pl-[72px]">
