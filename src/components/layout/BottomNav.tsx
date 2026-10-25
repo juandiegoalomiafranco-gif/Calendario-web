@@ -35,6 +35,9 @@ function Pestana({ to, label, Icon, end }: NavItem) {
  * sin moverse con el rebote de iOS ni al abrirse el teclado; lo único que cambia es
  * que el contenido pasa por detrás y se aprovecha el hueco que antes quedaba abajo.
  *
+ * Detrás lleva un degradado del color de fondo: lo que pasa por debajo de la píldora
+ * se desvanece en vez de cortarse en seco. No captura toques (`pointer-events-none`).
+ *
  * Mientras el teclado está abierto se esconde: taparía el campo que se está llenando.
  */
 export function BottomNav() {
@@ -47,7 +50,7 @@ export function BottomNav() {
       <nav
         aria-label="Secciones"
         className={cx(
-          'pointer-events-none absolute inset-x-0 bottom-0 z-30 pb-[max(0.75rem,calc(env(safe-area-inset-bottom)-0.5rem))] lg:hidden',
+          'pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-bg via-bg/80 to-bg/0 pt-8 pb-[max(0.75rem,calc(env(safe-area-inset-bottom)-0.5rem))] lg:hidden',
           teclado > 0 && 'hidden',
         )}
       >
