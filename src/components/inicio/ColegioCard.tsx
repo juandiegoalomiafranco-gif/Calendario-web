@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChevronUp } from 'lucide-react'
 import { useNextSchoolDay, useNowAndNext, useSchoolDay } from '../../hooks/useSchoolDay'
 import { useSchoolConfig } from '../../hooks/useSchool'
@@ -31,11 +32,13 @@ function fechaCorta(iso: string): string {
 export function ColegioCard({ date, noche, onVerHorario, etiquetaBoton, onIrA }: ColegioCardProps) {
   const hoy = todayIso()
   const { cycle, classes } = useSchoolDay(date)
-  const { config } = useSchoolConfig()
+  const { config, setCycleDayOn } = useSchoolConfig()
   const { setup } = useSchoolSetup()
   const enVivo = date === hoy && !noche
   const { current, next } = useNowAndNext(hoy, true)
   const siguienteDia = useNextSchoolDay(date)
+  // Corregir a mano el día del ciclo cuando el colegio va en otro número.
+  const [corrigiendo, setCorrigiendo] = useState(false)
 
   const esManana = noche && date === nextSchoolDay(hoy, config)?.date
   const etiqueta = !cycle.schoolDay
@@ -117,6 +120,13 @@ export function ColegioCard({ date, noche, onVerHorario, etiquetaBoton, onIrA }:
           <p className="text-caption text-hero-fg/70">
             {classes.length} clases{salida ? ` · sales a las ${salida}` : ''}
           </p>
+          <button
+            type="button"
+            onClick={() => setCorrigiendo((v) => !v)}
+            className="mt-2 inline-flex items-center rounded-full bg-hero-fg/15 px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-hero-fg/25"
+          >
+            {corrigiendo ? 'Cerrar' : '¿No es el día correcto?'}
+          </button>
         </div>
         {bloque1 && (
           <>
@@ -139,6 +149,32 @@ export function ColegioCard({ date, noche, onVerHorario, etiquetaBoton, onIrA }:
           </>
         )}
       </div>
+
+      {corrigiendo && (
+        <div className="-mt-1.5 rounded-2xl bg-hero-fg/10 p-3 lg:mt-0">
+          <p className="mb-2 text-xs opacity-90">{date === hoy ? 'Hoy' : 'Ese día'} en realidad es el…</p>
+          <div className="grid grid-cols-6 gap-1.5">
+            {[1, 2, 3, 4, 5, 6].map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => {
+                  setCycleDayOn(date, d)
+                  setCorrigiendo(false)
+                }}
+                aria-label={`Día ${d}`}
+                className={cx(
+                  'min-h-[40px] min-w-[36px] rounded-xl text-sm font-bold transition-colors',
+                  d === cycle.cycleDay ? 'bg-brand text-brand-on' : 'bg-hero-fg/20 hover:bg-hero-fg/35',
+                )}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-[11px] opacity-70">Reinicia el ciclo desde este día.</p>
+        </div>
+      )}
 
       <span className="hidden flex-1 lg:block" />
       {enVivo && classes.length > 0 && (
