@@ -1,5 +1,6 @@
 import type { DayPlan, Session } from './types'
 import { holidayName } from './holidays'
+import { getDayOverride } from '../lib/dayOverride'
 
 const WEEKDAYS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 
@@ -308,6 +309,8 @@ export function getDayPlan(date: string): DayPlan | undefined {
 }
 
 export function todayISO(): string {
+  const override = getDayOverride()
+  if (override) return override
   const d = new Date()
   return d.toISOString().slice(0, 10)
 }

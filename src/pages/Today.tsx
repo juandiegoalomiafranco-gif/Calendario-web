@@ -4,6 +4,8 @@ import { SessionCard } from '../components/SessionCard'
 import { PrincipleCard } from '../components/PrincipleCard'
 import { useTrainingLog } from '../hooks/useTrainingLog'
 import { holidayName } from '../data/holidays'
+import { DayAdjuster } from '../components/DayAdjuster'
+import { useDayOverride } from '../lib/dayOverride'
 
 function daysUntil(dateIso: string): number {
   const today = new Date(`${todayISO()}T00:00:00Z`)
@@ -12,6 +14,7 @@ function daysUntil(dateIso: string): number {
 }
 
 export function Today() {
+  useDayOverride() // vuelve a dibujar la página cuando se ajusta el día a mano
   const iso = todayISO()
   const day = getDayPlan(iso)
   const { getEntry } = useTrainingLog()
@@ -35,6 +38,8 @@ export function Today() {
           </span>
         )}
       </header>
+
+      <DayAdjuster />
 
       {remaining >= 0 && (
         <div className="rounded-3xl bg-card shadow-card p-4 flex items-center justify-between">
