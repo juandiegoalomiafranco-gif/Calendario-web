@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { cx } from '../../lib/cx'
 import { useKeyboardInset } from '../../hooks/useKeyboardInset'
+import { corregirHuecoInferiorIOS } from '../../lib/huecoInferiorIOS'
 import { NowNextCard } from '../panels/NowNextCard'
 import { UrgentTasksCard } from '../panels/UrgentTasksCard'
 import { SCROLL_AREA_ID } from '../ScrollToTop'
@@ -22,6 +23,10 @@ import { TopBar } from './TopBar'
  * de contexto sobraría y sólo quitaría espacio.
  */
 const WITHOUT_CONTEXT = ['/', '/calendario', '/colegio', '/clases', '/pendientes', '/materias']
+
+// Al cargar el módulo, antes del primer pintado: así el armazón ya nace del alto
+// correcto y la barra de abajo no da un salto al corregirse.
+corregirHuecoInferiorIOS()
 
 /** Lo que cuenta como «campo de escribir» para apartarlo del teclado. */
 const CAMPOS = 'input, textarea, select, [contenteditable="true"]'

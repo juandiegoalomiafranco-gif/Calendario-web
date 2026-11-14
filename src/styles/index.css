@@ -69,6 +69,13 @@ body {
   height: 100%;
   position: fixed;
   inset: 0;
+  /*
+   * Y aun así, instalada en algunos iPhone, iOS da un viewport más corto que la
+   * pantalla (descuenta dos veces la barra de estado) y abajo queda una banda vacía.
+   * `--hueco-ios-abajo` es lo que falta: lo mide src/lib/huecoInferiorIOS.ts y vale 0
+   * en cualquier otro caso.
+   */
+  bottom: calc(-1 * var(--hueco-ios-abajo, 0px));
   height: auto;
 }
 

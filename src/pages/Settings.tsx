@@ -5,6 +5,7 @@ import { NotificationSettings } from '../components/NotificationSettings'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
 import { ThemeToggle } from '../components/ui/ThemeToggle'
+import { medirPantalla } from '../lib/huecoInferiorIOS'
 
 /*
  * Las tarjetas de entreno (frecuencia cardiaca, ritmo y el puente con el entrenador)
@@ -39,6 +40,23 @@ export function Settings() {
           <GoogleSettings />
         </div>
       </div>
+
+      <MedidasPantallaIphone />
     </div>
+  )
+}
+
+/**
+ * Una línea discreta con las medidas que usa la corrección de la franja de abajo
+ * (src/lib/huecoInferiorIOS.ts). Solo sale en el iPhone con la app instalada: si la
+ * franja volviera, una captura de esta línea dice qué está midiendo iOS sin adivinar.
+ */
+function MedidasPantallaIphone() {
+  const m = medirPantalla()
+  if (!m.iphoneInstalada) return null
+  return (
+    <p className="tabular text-center text-micro text-content-subtle">
+      Pantalla {m.pantalla} · ventana {m.ventana} · corrección {m.hueco}
+    </p>
   )
 }
