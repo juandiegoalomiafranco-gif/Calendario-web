@@ -27,10 +27,24 @@ export interface Extraccion {
   motivo: string
 }
 
-/** Fallo que se arregla solo (saturación, red): el correo se reintenta en la próxima corrida. */
-export class ErrorTransitorio extends Error {}
-/** La clave no sirve: no tiene sentido seguir con más correos. */
-export class ErrorClave extends Error {}
+/**
+ * Un fallo que no es culpa del correo: se detiene la corrida y el correo NO se registra,
+ * para que se vuelva a revisar cuando se arregle. Si se registrara como error, una clave
+ * sin crédito (o un cambio en la API) dejaría sin revisar todos los correos de ese rato.
+ *
+ * - transitorio: saturación o red; se arregla solo.
+ * - clave: la ANTHROPIC_API_KEY no sirve.
+ * - credito: la cuenta de Anthropic no tiene saldo.
+ * - peticion: Anthropic rechazó la petición tal como está armada.
+ */
+export class ErrorDetener extends Error {
+  constructor(
+    public tipo: 'transitorio' | 'clave' | 'credito' | 'peticion',
+    mensaje: string,
+  ) {
+    super(mensaje)
+  }
+}
 
 const textoONulo = (descripcion: string) => ({
   anyOf: [{ type: 'string', description: descripcion }, { type: 'null' }],
@@ -132,13 +146,16 @@ export async function analizarCorreo(apiKey: string, correo: Correo, hoy: string
       }),
     })
   } catch (e) {
-    throw new ErrorTransitorio(e instanceof Error ? e.message : 'fallo_de_red')
+    throw new ErrorDetener('transitorio', e instanceof Error ? e.message : 'fallo_de_red')
   }
 
   const texto = await r.text()
-  if (r.status === 401 || r.status === 403) throw new ErrorClave(`anthropic_${r.status}`)
-  if (r.status === 429 || r.status >= 500) throw new ErrorTransitorio(`anthropic_${r.status}`)
-  if (!r.ok) throw new Error(`anthropic_${r.status}: ${texto.slice(0, 200)}`)
+  if (r.status === 401 || r.status === 403) throw new ErrorDetener('clave', `anthropic_${r.status}`)
+  if (r.status === 429 || r.status >= 500) throw new ErrorDetener('transitorio', `anthropic_${r.status}`)
+  if (!r.ok) {
+    const tipo = /credit balance/i.test(texto) ? 'credito' : 'peticion'
+    throw new ErrorDetener(tipo, `anthropic_${r.status}: ${texto.slice(0, 200)}`)
+  }
 
   const respuesta = JSON.parse(texto) as {
     stop_reason?: string

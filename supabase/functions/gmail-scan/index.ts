@@ -12,7 +12,7 @@ import { hoyEnBogota } from '../_shared/fechas.ts'
 import { mensajeDe, preflight, responder } from '../_shared/http.ts'
 import { type Conexion, enParalelo, idCalendarioPrincipal, leerConexiones, subirPendientes } from '../_shared/sync.ts'
 import { type Correo, buscarCorreos, leerCorreo } from './correo.ts'
-import { analizarCorreo, ErrorClave, ErrorTransitorio, type Extraccion } from './claude.ts'
+import { analizarCorreo, ErrorDetener, type Extraccion } from './claude.ts'
 
 /**
  * Eventos importantes sacados de Gmail.
@@ -37,7 +37,19 @@ const DETALLE_FALTA_ANTHROPIC =
 interface ResultadoGmail {
   revisados: number
   eventos: number
-  claveInvalida: boolean
+  /** Lo que detuvo la corrida por culpa de Anthropic y no del correo (null si nada). */
+  problema: ErrorDetener | null
+}
+
+/** Cómo se le cuenta a la app un problema con Anthropic. */
+function respuestaProblema(p: ErrorDetener): { error: string; detalle: string } {
+  if (p.tipo === 'clave') {
+    return { error: 'falta_configuracion', detalle: 'Anthropic rechazó la ANTHROPIC_API_KEY guardada (ver docs/GOOGLE.md).' }
+  }
+  if (p.tipo === 'credito') {
+    return { error: 'sin_credito_anthropic', detalle: 'La cuenta de Anthropic no tiene saldo: hay que recargar en console.anthropic.com.' }
+  }
+  return { error: 'error_claude', detalle: p.message }
 }
 
 Deno.serve(async (req: Request) => {
@@ -62,7 +74,11 @@ Deno.serve(async (req: Request) => {
           const r = await revisarUsuario(admin, config, apiKey, conexion)
           total.revisados += r.revisados
           total.eventos += r.eventos
-          if (r.claveInvalida) break
+          // La clave y el saldo son los mismos para todos: no tiene sentido seguir.
+          if (r.problema && r.problema.tipo !== 'transitorio') {
+            console.error('gmail-scan cron detenido:', r.problema.tipo, r.problema.message)
+            break
+          }
         } catch (e) {
           if (!(e instanceof ErrorReconectar)) console.error('gmail-scan cron:', mensajeDe(e))
         }
@@ -82,14 +98,10 @@ Deno.serve(async (req: Request) => {
 
     try {
       const r = await revisarUsuario(admin, config, apiKey, conexion)
-      if (r.claveInvalida) {
-        return responder(req, {
-          ok: false,
-          error: 'falta_configuracion',
-          detalle: 'Anthropic rechazó la ANTHROPIC_API_KEY guardada (ver docs/GOOGLE.md).',
-          revisados: r.revisados,
-          eventos: r.eventos,
-        })
+      // Saturación de Anthropic no es un fallo para el usuario: se reintenta solo.
+      if (r.problema && r.problema.tipo !== 'transitorio') {
+        console.error('gmail-scan usuario detenido:', r.problema.tipo, r.problema.message)
+        return responder(req, { ok: false, ...respuestaProblema(r.problema), revisados: r.revisados, eventos: r.eventos })
       }
       return responder(req, { ok: true, revisados: r.revisados, eventos: r.eventos })
     } catch (e) {
@@ -150,17 +162,21 @@ async function decidir(admin: Admin, userId: string, correo: Correo, ext: Extrac
 
   const titulo = ext.titulo || correo.asunto.slice(0, 120)
 
-  // Si ya está (lo puso a mano, o salió de otro correo del mismo hilo), no se duplica.
+  /*
+   * Si ya está (lo puso a mano, o salió de otro correo del mismo hilo), no se duplica.
+   * Cuentan también los borrados: si lo quitaste, un recordatorio del mismo evento al
+   * día siguiente no debe volver a ponerlo (borrar es deshacer).
+   */
   const { data: mismoDia, error: errDia } = await admin
     .from('calendar_events')
-    .select('id, title')
+    .select('id, title, deleted_at')
     .eq('user_id', userId)
     .eq('date', ext.fecha)
-    .is('deleted_at', null)
   if (errDia) throw new Error(errDia.message)
   const existente = (mismoDia ?? []).find((f) => normalizar(String(f.title ?? '')) === normalizar(titulo))
   if (existente) {
-    await registrar(admin, userId, correo, 'descartado', 'Ya estaba en el calendario.', String(existente.id))
+    const motivo = existente.deleted_at ? 'Ya lo habías quitado del calendario.' : 'Ya estaba en el calendario.'
+    await registrar(admin, userId, correo, 'descartado', motivo, String(existente.id))
     return false
   }
 
@@ -211,12 +227,11 @@ async function revisarUsuario(
   }
 
   const hoy = hoyEnBogota()
-  const resultado: ResultadoGmail = { revisados: 0, eventos: 0, claveInvalida: false }
-  // Con la clave mala o Anthropic saturado no se sigue gastando llamadas en esta corrida.
-  let detener = false
+  const resultado: ResultadoGmail = { revisados: 0, eventos: 0, problema: null }
 
   await enParalelo(nuevos, 3, async (id) => {
-    if (detener) return
+    // Con la clave mala, sin saldo o Anthropic saturado no se siguen gastando llamadas.
+    if (resultado.problema) return
     let correo: Correo
     try {
       correo = await leerCorreo(accessToken, id)
@@ -230,13 +245,8 @@ async function revisarUsuario(
     try {
       extraccion = await analizarCorreo(apiKey, correo, hoy)
     } catch (e) {
-      if (e instanceof ErrorClave) {
-        resultado.claveInvalida = true
-        detener = true
-        return
-      }
-      if (e instanceof ErrorTransitorio) {
-        detener = true
+      if (e instanceof ErrorDetener) {
+        resultado.problema ??= e
         return
       }
       // Fallo propio de este correo (rechazo, respuesta cortada): se registra y no se repite.

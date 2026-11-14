@@ -30,7 +30,8 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 | `src/lib/` | Supabase, sincronización, fechas, ciclo del colegio, texto enriquecido |
 | `src/data/` | Datos fijos: horario, calendario del colegio, plan de entreno, lonchera |
 | `src/styles/` | `tokens.css` (solo colores y sombras) e `index.css` (armazón y reglas táctiles) |
-| `supabase/` | Migraciones y la función de recordatorios |
+| `supabase/` | Migraciones y Edge Functions: recordatorios, Google (`google-auth`, `google-sync`, `gmail-scan`, código común en `_shared/`) |
+| `docs/` | Guías: `GOOGLE.md` (conectar Google y Gmail), `PUENTE-ENTRENADOR.md` |
 
 ## Cómo está montada la pantalla
 
@@ -69,6 +70,23 @@ lo que quede abajo se va detrás del teclado. Lo mide `useKeyboardInset`
   `text-body`, `text-caption`, `text-micro`) y pesos medios; `font-extrabold` casi no
   se usa: con todo en negrita la pantalla se veía saturada.
 - Zonas táctiles de 44 px en el celular, también en `@media (pointer: coarse)`.
+
+## Google Calendar y Gmail
+
+Google es una **cuenta vinculada** aparte del login por código: el OAuth y la
+sincronización los hacen las Edge Functions, nunca el navegador. Configuración,
+funcionamiento y solución de problemas: [`docs/GOOGLE.md`](docs/GOOGLE.md). Lo que hay
+que saber antes de tocar código:
+
+- La app **nunca** manda las columnas `google_*`, `gmail_message_id` ni
+  `google_pendiente` en su upsert de `calendar_events`: las escribe solo el servidor.
+  `google_pendiente` lo pone un trigger cuando escribe el rol `authenticated`.
+- `source` de un evento: `propio`, `colegio` (nunca sube a Google), `google` o `gmail`.
+- Tablas: `google_conexion` (la app lee y cambia `calendarios[].visible` y
+  `gmail_activo`), `gmail_procesados` (solo lectura), `google_tokens` y
+  `google_oauth_estados` (solo service role; el token va cifrado en Vault).
+- Las funciones responden `{ok:false, error}` con estado 200 en los errores lógicos
+  (`falta_configuracion`, `reconectar`, `no_conectado`…) y 401 sin credenciales.
 
 ## Qué NO se toca sin que lo pida él
 

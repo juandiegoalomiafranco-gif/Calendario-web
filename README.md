@@ -106,6 +106,22 @@ avanza solo en días de clase: no cuenta fines de semana, festivos de Colombia
 (`src/data/schoolCalendar.ts`: Recess Week, Semana Santa, Professional Development
 Days y vacaciones).
 
+## Google Calendar y Gmail
+
+Cuenta de Google vinculada aparte del código de entrada (OAuth hecho en el servidor):
+sincroniza el calendario en los dos sentidos y crea eventos a partir de los correos
+importantes de Gmail, que decide Claude. La configuración paso a paso, cómo funciona,
+cómo deshacerlo y la solución de problemas están en **[docs/GOOGLE.md](docs/GOOGLE.md)**.
+
+- `supabase/functions/google-auth/` — conectar y desconectar la cuenta.
+- `supabase/functions/google-sync/` — sincronización; `pg_cron` la llama cada 5 min y la
+  app unos segundos después de cada cambio.
+- `supabase/functions/gmail-scan/` — revisa Gmail cada 30 min con Claude Haiku.
+- `supabase/functions/_shared/` — tokens, fechas en hora de Bogotá, conversión de
+  eventos, subida y bajada.
+- Secretos (Supabase → Edge Functions → Secrets): `GOOGLE_CLIENT_ID`,
+  `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`. Sin ellos las funciones no hacen nada.
+
 ## Base de datos
 
 Las migraciones están en `supabase/migrations/`. Todas las tablas llevan RLS
@@ -115,7 +131,16 @@ Las migraciones están en `supabase/migrations/`. Todas las tablas llevan RLS
 `body_goals`, `strength_logs`, `exercises`, `training_notes`, `nutrition_log`,
 `calendar_events`, `accounts`, `transactions`, `transfers`, `finance_categories`,
 `settings`, `events`, `push_subscriptions`, `athlete_codes`, `coach_plans`,
-`app_secrets`.
+`app_secrets`, `debts`, `google_conexion`, `google_tokens`, `google_oauth_estados`,
+`gmail_procesados`.
+
+Las de Google tienen reglas propias: `google_conexion` (el dueño la lee y cambia
+`calendarios` y `gmail_activo`; crearla y borrarla es cosa del servidor) y
+`gmail_procesados` (el dueño solo lee). `google_tokens` y `google_oauth_estados` no
+tienen políticas: solo la service role llega a ellas, y el refresh token de Google va
+cifrado en Vault. `calendar_events` ganó `fecha_fin`, `hora_fin`, `lugar`, las columnas
+`google_*` y `gmail_message_id`; `google_pendiente` lo pone un trigger cuando la app
+escribe, y la app nunca manda las columnas `google_*`.
 
 ## Actualizar los datos de referencia
 
