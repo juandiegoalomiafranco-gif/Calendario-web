@@ -8,6 +8,7 @@ import { useCalendarEvents } from '../../hooks/useCalendarEvents'
 import { formatFull, nowMinutes, todayIso } from '../../lib/dates'
 import type { ResolvedSlot } from '../../lib/school'
 import { cx } from '../../lib/cx'
+import { ocurreEn, rangoDeHoras } from '../../lib/eventos'
 import { AddItemSheet } from '../school/AddItemSheet'
 import { Sheet } from '../ui/Sheet'
 
@@ -36,7 +37,7 @@ export function DaySchedule({ date, compact = false }: { date: string; compact?:
     return m
   }, [tasks, date])
 
-  const eventosDelDia = events.filter((e) => e.date === date)
+  const eventosDelDia = events.filter((e) => ocurreEn(e, date))
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -44,7 +45,7 @@ export function DaySchedule({ date, compact = false }: { date: string; compact?:
         <div key={e.id} className="flex items-center gap-3 rounded-2xl bg-cat-soft-violet px-3.5 py-2.5 text-cat-violet">
           <Star size={17} aria-hidden />
           <span className="min-w-0 flex-1">
-            <span className="block text-micro uppercase">{e.time ? e.time : 'Todo el día'}</span>
+            <span className="block text-micro uppercase">{rangoDeHoras(e, date) ?? 'Todo el día'}</span>
             <span className="block truncate text-body font-semibold text-content">{e.title}</span>
           </span>
         </div>

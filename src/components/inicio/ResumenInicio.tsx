@@ -9,6 +9,7 @@ import { useFinance } from '../../hooks/useFinance'
 import { daysBetween, formatFull, relativeDay, todayIso, weekdayLong } from '../../lib/dates'
 import { formatCOP, monthKey, rendimientoEA } from '../../lib/finance'
 import { cx } from '../../lib/cx'
+import { rangoDeHoras, ultimoDia } from '../../lib/eventos'
 
 const mayuscula = (t: string) => t.charAt(0).toUpperCase() + t.slice(1)
 
@@ -142,6 +143,11 @@ export function ParaElDia({ date, titulo }: { date: string; titulo: string }) {
   )
 }
 
+/** Un evento de varios días que ya empezó cuenta desde hoy, no desde su primer día. */
+function desdeHoy(e: { date: string }, hoy: string): string {
+  return e.date < hoy ? hoy : e.date
+}
+
 /** «Lo próximo»: el examen más cercano y el próximo evento, con su cuenta atrás. */
 export function LoProximo() {
   const hoy = todayIso()
@@ -153,8 +159,8 @@ export function LoProximo() {
     .filter((t) => !t.done && (t.kind === 'examen' || t.kind === 'quiz') && !!t.dueDate && t.dueDate >= hoy)
     .sort((a, b) => (a.dueDate ?? '').localeCompare(b.dueDate ?? ''))[0]
   const evento = events
-    .filter((e) => e.date >= hoy)
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''))[0]
+    .filter((e) => ultimoDia(e) >= hoy)
+    .sort((a, b) => desdeHoy(a, hoy).localeCompare(desdeHoy(b, hoy)) || (a.time ?? '').localeCompare(b.time ?? ''))[0]
 
   const filas = [
     examen && {
@@ -169,12 +175,12 @@ export function LoProximo() {
     },
     evento && {
       key: 'evento',
-      to: `/calendario?d=${evento.date}`,
+      to: `/calendario?d=${desdeHoy(evento, hoy)}`,
       Icon: CalendarDays,
       tono: 'bg-cat-soft-violet text-cat-violet',
       titulo: evento.title,
-      detalle: `${mayuscula(formatFull(evento.date))}${evento.time ? ` · ${evento.time}` : ''}`,
-      cuenta: relativeDay(evento.date, hoy),
+      detalle: `${mayuscula(formatFull(desdeHoy(evento, hoy)))}${rangoDeHoras(evento, desdeHoy(evento, hoy)) ? ` · ${rangoDeHoras(evento, desdeHoy(evento, hoy))}` : ''}`,
+      cuenta: relativeDay(desdeHoy(evento, hoy), hoy),
       tonoCuenta: 'bg-cat-soft-violet text-cat-violet',
     },
   ].filter(Boolean) as {

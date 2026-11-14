@@ -2,6 +2,8 @@ import { Link } from 'react-router-dom'
 import { ArrowUpRight, Bookmark, CalendarPlus } from 'lucide-react'
 import { EVENT_TYPE_META, useCalendarEvents } from '../../hooks/useCalendarEvents'
 import { formatDayMonth, relativeDay, todayIso } from '../../lib/dates'
+import { rangoDeHoras, ultimoDia } from '../../lib/eventos'
+import { FuenteInsignia } from '../calendar/FuenteInsignia'
 import { cx } from '../../lib/cx'
 import { Card, CardHeader } from '../ui/Card'
 
@@ -18,9 +20,12 @@ export function ImportantEventsCard({ limit = 4, className }: ImportantEventsCar
   const { events } = useCalendarEvents()
   const today = todayIso()
 
+  // Un evento de varios días que ya empezó sigue «próximo» hasta su último día; cuenta
+  // desde hoy, no desde el día en que empezó.
+  const desde = (e: { date: string }) => (e.date < today ? today : e.date)
   const upcoming = events
-    .filter((e) => e.date >= today)
-    .sort((a, b) => a.date.localeCompare(b.date) || (a.time ?? '').localeCompare(b.time ?? ''))
+    .filter((e) => ultimoDia(e) >= today)
+    .sort((a, b) => desde(a).localeCompare(desde(b)) || (a.time ?? '').localeCompare(b.time ?? ''))
 
   const important = upcoming.filter((e) => e.important)
   const shown = (important.length > 0 ? important : upcoming).slice(0, limit)
@@ -54,10 +59,13 @@ export function ImportantEventsCard({ limit = 4, className }: ImportantEventsCar
         <ul className="flex flex-col gap-2">
           {shown.map((e) => {
             const meta = EVENT_TYPE_META[e.type] ?? EVENT_TYPE_META.otro
+            const dia = desde(e)
+            const horas = e.date < today ? undefined : rangoDeHoras(e)
+            const fin = ultimoDia(e)
             return (
               <li key={e.id}>
                 <Link
-                  to={`/calendario?d=${e.date}`}
+                  to={`/calendario?d=${dia}`}
                   className="flex items-center gap-3 rounded-2xl border border-line p-3 transition-colors hover:bg-surface-2"
                 >
                   <span
@@ -81,13 +89,15 @@ export function ImportantEventsCard({ limit = 4, className }: ImportantEventsCar
                           aria-label="Importante"
                         />
                       )}
+                      <FuenteInsignia source={e.source} />
                     </span>
                     <span className="mt-0.5 block truncate text-sm font-bold text-content">
                       {e.title}
                     </span>
                     <span className="mt-0.5 block text-xs text-content-muted">
                       {formatDayMonth(e.date)}
-                      {e.time ? ` · ${e.time}` : ''} · {relativeDay(e.date)}
+                      {fin > e.date ? ` – ${formatDayMonth(fin)}` : ''}
+                      {horas ? ` · ${horas}` : ''} · {relativeDay(dia)}
                     </span>
                   </span>
                 </Link>

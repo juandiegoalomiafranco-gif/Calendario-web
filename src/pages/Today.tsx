@@ -5,6 +5,7 @@ import { useSchoolConfig, useTasks } from '../hooks/useSchool'
 import { useCalendarEvents } from '../hooks/useCalendarEvents'
 import { useSchoolDay } from '../hooks/useSchoolDay'
 import { cycleInfoFor, nextSchoolDay } from '../lib/cycle'
+import { diasEnVentana, ultimoDia } from '../lib/eventos'
 import {
   addDays,
   daysBetween,
@@ -77,7 +78,7 @@ export function Today() {
   const ocupados = useMemo(() => {
     const s = new Set<string>()
     for (const t of tasks) if (!t.done && t.dueDate) s.add(t.dueDate)
-    for (const e of events) s.add(e.date)
+    for (const e of events) for (const d of diasEnVentana(e, e.date, ultimoDia(e))) s.add(d)
     return s
   }, [tasks, events])
 

@@ -1,5 +1,6 @@
 import { Palette } from 'lucide-react'
 import { AccountSettings } from '../components/AccountSettings'
+import { GoogleSettings } from '../components/GoogleSettings'
 import { NotificationSettings } from '../components/NotificationSettings'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Card, CardHeader } from '../components/ui/Card'
@@ -35,6 +36,7 @@ export function Settings() {
 
         <div className="flex flex-col gap-4 lg:gap-5">
           <NotificationSettings />
+          <GoogleSettings />
         </div>
       </div>
     </div>
