@@ -1,4 +1,4 @@
-import { crearAdmin, identificar } from '../_shared/auth.ts'
+import { crearAdmin, estaPermitido, identificar } from '../_shared/auth.ts'
 import { DETALLE_FALTA_GOOGLE, ErrorReconectar, leerConfigGoogle } from '../_shared/google.ts'
 import { mensajeDe, preflight, responder } from '../_shared/http.ts'
 import { leerConexiones, sincronizarUsuario } from '../_shared/sync.ts'
@@ -21,6 +21,10 @@ Deno.serve(async (req: Request) => {
     const admin = crearAdmin()
     const quien = await identificar(req, admin)
     if (!quien) return responder(req, { ok: false, error: 'no_autorizado' }, 401)
+    // Solo el dueño usa Google; el cron ya se salta a los demás (leerConexiones).
+    if (quien.tipo === 'usuario' && !(await estaPermitido(admin, quien.userId))) {
+      return responder(req, { ok: false, error: 'no_permitido' }, 403)
+    }
 
     const config = leerConfigGoogle()
     if (!config) {

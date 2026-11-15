@@ -60,6 +60,30 @@ export async function usuarioDelJwt(req: Request, admin: Admin): Promise<string 
 }
 
 /**
+ * ¿Este usuario puede vincular Google? Solo los de `google_permitidos` (el dueño): el
+ * login de la app es por código y cualquiera puede crearse una cuenta, así que sin esta
+ * lista un tercero podría quedarse con el permiso de Google del dueño (mandándole su
+ * enlace de consentimiento) o gastar su clave de Anthropic conectando su propio Gmail.
+ * Si la consulta falla, se responde que no: mejor cerrado que abierto.
+ */
+export async function estaPermitido(admin: Admin, userId: string): Promise<boolean> {
+  const { data, error } = await admin
+    .from('google_permitidos')
+    .select('user_id')
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (error) console.error('google_permitidos:', error.message)
+  return !error && !!data
+}
+
+/** Los usuarios permitidos, para que los crons se salten a cualquier otro. */
+export async function idsPermitidos(admin: Admin): Promise<Set<string>> {
+  const { data, error } = await admin.from('google_permitidos').select('user_id')
+  if (error) throw new Error(`google_permitidos: ${error.message}`)
+  return new Set((data ?? []).map((f) => String(f.user_id)))
+}
+
+/**
  * Cron o usuario. Si llega una cabecera de cron, solo se acepta como cron: un token de
  * cron equivocado no cae al JWT, para que un fallo de configuración se vea como tal.
  */

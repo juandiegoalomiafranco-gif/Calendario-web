@@ -26,6 +26,7 @@ interface Parte {
 
 interface Mensaje {
   id: string
+  threadId?: string
   internalDate?: string
   snippet?: string
   payload?: Parte
@@ -33,6 +34,7 @@ interface Mensaje {
 
 export interface Correo {
   id: string
+  threadId: string | null
   asunto: string
   remitente: string
   /** Fecha y hora de envío en Bogotá, para que Claude resuelva «mañana» o «el viernes». */
@@ -41,12 +43,22 @@ export interface Correo {
   texto: string
 }
 
-/** Ids de los correos que cumplen la búsqueda (los más nuevos primero). */
-export async function buscarCorreos(accessToken: string, maximo = 50): Promise<string[]> {
+export interface CorreoEncontrado {
+  id: string
+  /** El hilo: un correo y su recordatorio comparten hilo y no deben dar dos eventos. */
+  threadId: string | null
+}
+
+/** Los correos que cumplen la búsqueda (los más nuevos primero), con su hilo. */
+export async function buscarCorreos(accessToken: string, maximo = 50): Promise<CorreoEncontrado[]> {
   const p = new URLSearchParams({ q: CONSULTA_GMAIL, maxResults: String(maximo) })
-  const r = await pedirGoogle<{ messages?: { id: string }[] }>(accessToken, 'GET', `${API_GMAIL}/messages?${p}`)
+  const r = await pedirGoogle<{ messages?: { id: string; threadId?: string }[] }>(
+    accessToken,
+    'GET',
+    `${API_GMAIL}/messages?${p}`,
+  )
   if (!r.ok || !r.datos) throw new Error(errorDeGoogle(r))
-  return (r.datos.messages ?? []).map((m) => m.id)
+  return (r.datos.messages ?? []).map((m) => ({ id: m.id, threadId: m.threadId ?? null }))
 }
 
 function cabecera(parte: Parte | undefined, nombre: string): string {
@@ -87,7 +99,7 @@ function nombreDelRemitente(de: string): string {
 }
 
 export async function leerCorreo(accessToken: string, id: string): Promise<Correo> {
-  const p = new URLSearchParams({ format: 'full', fields: 'id,internalDate,snippet,payload' })
+  const p = new URLSearchParams({ format: 'full', fields: 'id,threadId,internalDate,snippet,payload' })
   const r = await pedirGoogle<Mensaje>(accessToken, 'GET', `${API_GMAIL}/messages/${encodeURIComponent(id)}?${p}`)
   if (!r.ok || !r.datos) throw new Error(errorDeGoogle(r))
   const m = r.datos
@@ -104,6 +116,7 @@ export async function leerCorreo(accessToken: string, id: string): Promise<Corre
 
   return {
     id: m.id,
+    threadId: m.threadId ?? null,
     asunto: cabecera(m.payload, 'Subject').slice(0, 300) || '(sin asunto)',
     remitente: nombreDelRemitente(cabecera(m.payload, 'From')),
     fecha,

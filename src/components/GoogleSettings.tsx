@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { CalendarDays, Link2, Mail, RefreshCw, TriangleAlert } from 'lucide-react'
 import { useGoogle, type GmailProcesado } from '../hooks/useGoogle'
 import { cx } from '../lib/cx'
+import { mensajeDeMotivo } from '../lib/google'
 import { Button } from './ui/Button'
 import { Card, CardHeader } from './ui/Card'
 import { Chip } from './ui/Chip'
@@ -101,10 +102,8 @@ export function GoogleSettings() {
     if (resultado === 'conectado') {
       setMensaje({ tipo: 'ok', texto: 'Google conectado. Estoy trayendo tus eventos.' })
     } else {
-      setMensaje({
-        tipo: 'error',
-        texto: `No se pudo conectar con Google${motivo ? ` (${motivo})` : ''}. Inténtalo de nuevo.`,
-      })
+      // El motivo llega como código (`cancelado`, `no_permitido`…): se traduce.
+      setMensaje({ tipo: 'error', texto: mensajeDeMotivo(motivo) })
     }
     const limpio = new URLSearchParams(params)
     limpio.delete('google')
@@ -151,7 +150,23 @@ export function GoogleSettings() {
         </p>
       )}
 
-      {!conexion ? (
+      {!conexion && g.errorCarga ? (
+        // Sin red al abrir no se sabe si hay conexión: mejor decirlo que dejar «Conectar» apagado.
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-content-muted">
+            No se pudo leer el estado de Google. Revisa la conexión a internet.
+          </p>
+          <div>
+            <Button disabled={ocupado} onClick={() => void ejecutar(async () => {
+              await g.reintentar()
+              return { ok: true }
+            })}>
+              <RefreshCw size={15} className={cx(ocupado && 'animate-spin')} aria-hidden />
+              Reintentar
+            </Button>
+          </div>
+        </div>
+      ) : !conexion ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-content-muted">
             Conecta tu cuenta para ver tus eventos de Google Calendar aquí, subir los que

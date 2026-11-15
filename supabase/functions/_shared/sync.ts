@@ -1,10 +1,11 @@
-import type { Admin } from './auth.ts'
+import { type Admin, idsPermitidos } from './auth.ts'
 import {
   accessTokenDe,
   API_CALENDARIO,
   type ConfigGoogle,
   ErrorReconectar,
   errorDeGoogle,
+  esLimiteDeUso,
   pedirGoogle,
 } from './google.ts'
 import {
@@ -67,13 +68,15 @@ export interface FilaEvento extends FechasLocales {
   google_etag: string | null
   google_link: string | null
   google_pendiente: boolean
+  /** Campos que la app cambió desde la última subida (los anota el trigger de la base). */
+  google_cambios: string[] | null
   gmail_message_id: string | null
 }
 
 export const COLUMNAS_EVENTO =
   'id, user_id, date, title, type, important, time, notes, source, updated_at, deleted_at, ' +
   'fecha_fin, hora_fin, lugar, google_event_id, google_calendar_id, google_etag, google_link, ' +
-  'google_pendiente, gmail_message_id'
+  'google_pendiente, google_cambios, gmail_message_id'
 
 interface EventoGoogle {
   id: string
@@ -99,7 +102,16 @@ export interface ResultadoSync {
 /** Lo del colegio viene sembrado del calendario oficial y no se sube nunca. */
 const FUENTES_QUE_SUBEN = new Set(['propio', 'google', 'gmail'])
 
+/** Las que la app creó: en Google llevan su id fijo y su `mylifeId`. */
+const FUENTES_PROPIAS = new Set(['propio', 'gmail'])
+
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Lo que se escribe cuando una fila ya no tiene nada por subir. */
+const SIN_PENDIENTES = { google_pendiente: false, google_cambios: [] as string[] }
+
+/** Si cambia alguno de estos, hay que mandar el inicio y el fin. */
+const CAMPOS_DE_FECHA = ['date', 'time', 'hora_fin', 'fecha_fin']
 
 // --- Utilidades ------------------------------------------------------------------
 
@@ -141,7 +153,7 @@ function urlEvento(calendarId: string, eventId: string): string {
  * Id de Google fijo para una fila local: Google acepta ids propios en base32hex
  * (0-9 y a-v) y un UUID sin guiones ya lo es. Así un reintento no crea un duplicado.
  */
-function idGoogleDe(idLocal: string): string | null {
+export function idGoogleDe(idLocal: string): string | null {
   const id = idLocal.toLowerCase().replace(/-/g, '')
   return /^[0-9a-v]{5,1024}$/.test(id) ? id : null
 }
@@ -158,7 +170,8 @@ export function idCalendarioPrincipal(calendarios: Calendario[], email: string |
   return calendarios.find((c) => c.principal)?.id ?? email ?? 'primary'
 }
 
-function cuerpoParaGoogle(fila: FilaEvento, paraPatch: boolean): Record<string, unknown> {
+/** El evento completo, para crearlo (o revivirlo) en Google. */
+function cuerpoCompleto(fila: FilaEvento, paraPatch: boolean): Record<string, unknown> {
   const { start, end } = haciaGoogle(fila, paraPatch)
   const cuerpo: Record<string, unknown> = {
     summary: fila.title?.trim() || '(Sin título)',
@@ -179,6 +192,26 @@ function cuerpoParaGoogle(fila: FilaEvento, paraPatch: boolean): Record<string, 
   return cuerpo
 }
 
+/**
+ * Solo lo que la app cambió (según `google_cambios`). Mandar el evento entero reescribía
+ * en Google cosas que nadie tocó: la descripción en HTML quedaba en texto plano y
+ * recortada, un vuelo en hora de Madrid pasaba a hora de Bogotá, una instancia de una
+ * serie se separaba de ella. Devuelve {} si no hay nada que mandar.
+ */
+export function cuerpoParcial(fila: FilaEvento): Record<string, unknown> {
+  const campos = new Set(fila.google_cambios ?? [])
+  const cuerpo: Record<string, unknown> = {}
+  if (campos.has('title')) cuerpo.summary = fila.title?.trim() || '(Sin título)'
+  if (campos.has('notes')) cuerpo.description = fila.notes ?? ''
+  if (campos.has('lugar')) cuerpo.location = fila.lugar ?? ''
+  if (CAMPOS_DE_FECHA.some((c) => campos.has(c))) {
+    const { start, end } = haciaGoogle(fila, true)
+    cuerpo.start = start
+    cuerpo.end = end
+  }
+  return cuerpo
+}
+
 function columnasDesdeGoogle(ev: EventoGoogle, calendarId: string, fechas: FechasLocales) {
   return {
     date: fechas.date,
@@ -192,6 +225,19 @@ function columnasDesdeGoogle(ev: EventoGoogle, calendarId: string, fechas: Fecha
     google_calendar_id: calendarId,
     google_etag: ev.etag ?? null,
     google_link: ev.htmlLink ?? null,
+  }
+}
+
+/**
+ * Lo que se marca al borrar una fila porque en Google ya no está. A las de Google se les
+ * vacía el etag: así, si el evento vuelve (se restauró, o se volvió a mostrar el
+ * calendario), se sabe que no lo borró el usuario y se revive.
+ */
+function borradaPorGoogle(fila: FilaEvento) {
+  return {
+    deleted_at: ahora(),
+    ...SIN_PENDIENTES,
+    ...(fila.source === 'google' ? { google_etag: null } : {}),
   }
 }
 
@@ -217,10 +263,10 @@ async function actualizarSiNoCambio(
 /**
  * Tras subir una fila: guarda lo que devolvió Google y la quita de pendientes. Si la app
  * la volvió a cambiar mientras tanto, guarda igual el enlace con Google pero la deja
- * pendiente, para que ese cambio más nuevo también suba.
+ * pendiente (con sus campos cambiados), para que ese cambio más nuevo también suba.
  */
 async function guardarSubida(admin: Admin, fila: FilaEvento, enlace: Record<string, unknown>) {
-  const hecho = await actualizarSiNoCambio(admin, fila, { ...enlace, google_pendiente: false })
+  const hecho = await actualizarSiNoCambio(admin, fila, { ...enlace, ...SIN_PENDIENTES })
   if (!hecho && Object.keys(enlace).length > 0) {
     const { error } = await admin.from('calendar_events').update(enlace).eq('id', fila.id)
     if (error) throw new Error(error.message)
@@ -256,7 +302,7 @@ export async function listarCalendarios(
       `${API_CALENDARIO}/users/me/calendarList?${p}`,
     )
     if (!r.ok || !r.datos) {
-      if (r.status === 401) throw new Error(errorDeGoogle(r))
+      if (r.status === 401 || esLimiteDeUso(r)) throw new Error(errorDeGoogle(r))
       if (previos.length > 0) return previos
       return [{ id: email ?? 'primary', nombre: 'Principal', principal: true, visible: true }]
     }
@@ -304,33 +350,38 @@ async function insertarEnGoogle(accessToken: string, fila: FilaEvento): Promise<
   const url = `${API_CALENDARIO}/calendars/primary/events`
   const idFijo = idGoogleDe(fila.id)
   if (idFijo) {
-    const r = await pedirGoogle<EventoGoogle>(accessToken, 'POST', url, { ...cuerpoParaGoogle(fila, false), id: idFijo })
+    const r = await pedirGoogle<EventoGoogle>(accessToken, 'POST', url, { ...cuerpoCompleto(fila, false), id: idFijo })
     if (r.ok && r.datos) return r.datos
     if (r.status !== 409) throw new Error(errorDeGoogle(r))
     // Ya existe con ese id: lo creó una corrida que no alcanzó a guardarlo, o es de antes
     // de desconectar. Se actualiza (y se revive si estaba borrado) en vez de duplicarlo.
     const p = await pedirGoogle<EventoGoogle>(accessToken, 'PATCH', `${url}/${idFijo}`, {
-      ...cuerpoParaGoogle(fila, true),
+      ...cuerpoCompleto(fila, true),
       status: 'confirmed',
     })
     if (p.ok && p.datos) return p.datos
     // 404/410: el id quedó reservado por un evento que ya no existe; se crea con id nuevo.
     if (p.status !== 404 && p.status !== 410) throw new Error(errorDeGoogle(p))
   }
-  const r = await pedirGoogle<EventoGoogle>(accessToken, 'POST', url, cuerpoParaGoogle(fila, false))
+  const r = await pedirGoogle<EventoGoogle>(accessToken, 'POST', url, cuerpoCompleto(fila, false))
   if (!r.ok || !r.datos) throw new Error(errorDeGoogle(r))
   return r.datos
 }
 
 type ResultadoPatch =
   | { tipo: 'ok'; evento: EventoGoogle }
+  | { tipo: 'sin_cambios' }
   | { tipo: 'gana_google'; evento: EventoGoogle }
   | { tipo: 'no_existe' }
   | { tipo: 'solo_lectura' }
 
 async function actualizarEnGoogle(accessToken: string, fila: FilaEvento): Promise<ResultadoPatch> {
   const url = urlEvento(fila.google_calendar_id!, fila.google_event_id!)
-  const cuerpo = cuerpoParaGoogle(fila, true)
+  // Volvió de la papelera de la app: hay que revivirlo entero en Google.
+  const restaurada = (fila.google_cambios ?? []).includes('deleted_at')
+  const cuerpo = restaurada ? { ...cuerpoCompleto(fila, true), status: 'confirmed' } : cuerpoParcial(fila)
+  // Solo cambió algo que no existe en Google (o es una marca vieja sin detalle): nada que mandar.
+  if (Object.keys(cuerpo).length === 0) return { tipo: 'sin_cambios' }
 
   // If-Match: si en Google cambió desde la última vez, Google responde 412 en vez de pisarlo.
   let r = await pedirGoogle<EventoGoogle>(
@@ -348,12 +399,23 @@ async function actualizarEnGoogle(accessToken: string, fila: FilaEvento): Promis
     if (!actual.ok || !actual.datos) throw new Error(errorDeGoogle(actual))
     const deGoogle = actual.datos.updated ? new Date(actual.datos.updated).getTime() : 0
     if (deGoogle >= new Date(fila.updated_at).getTime()) return { tipo: 'gana_google', evento: actual.datos }
-    r = await pedirGoogle<EventoGoogle>(accessToken, 'PATCH', url, { ...cuerpo, status: 'confirmed' })
+    // Gana la app. Si allá lo habían borrado, se revive entero; si no, solo lo cambiado.
+    const revivir = actual.datos.status === 'cancelled'
+    r = await pedirGoogle<EventoGoogle>(
+      accessToken,
+      'PATCH',
+      url,
+      revivir ? { ...cuerpoCompleto(fila, true), status: 'confirmed' } : cuerpo,
+    )
   }
 
   if (r.status === 404 || r.status === 410) return { tipo: 'no_existe' }
-  // Calendario de solo lectura (festivos, el de otra persona): no se puede cambiar allá.
-  if (r.status === 403) return { tipo: 'solo_lectura' }
+  if (r.status === 403 || r.status === 429) {
+    // Un límite de uso es pasajero: se lanza y la fila sigue pendiente para reintentar.
+    if (esLimiteDeUso(r)) throw new Error(errorDeGoogle(r))
+    // Calendario de solo lectura (festivos, el de otra persona): no se puede cambiar allá.
+    return { tipo: 'solo_lectura' }
+  }
   if (!r.ok || !r.datos) throw new Error(errorDeGoogle(r))
   return { tipo: 'ok', evento: r.datos }
 }
@@ -361,38 +423,52 @@ async function actualizarEnGoogle(accessToken: string, fila: FilaEvento): Promis
 /** Pone en la fila la versión de Google (o la borra si en Google está cancelado). */
 async function aplicarVersionDeGoogle(admin: Admin, fila: FilaEvento, ev: EventoGoogle, calendarId: string) {
   if (ev.status === 'cancelled') {
-    await actualizarSiNoCambio(admin, fila, { deleted_at: ahora(), google_pendiente: false, google_etag: ev.etag ?? null })
+    await actualizarSiNoCambio(admin, fila, borradaPorGoogle(fila))
     return
   }
   const fechas = desdeGoogle(ev.start, ev.end)
   if (!fechas) {
-    await actualizarSiNoCambio(admin, fila, { google_pendiente: false })
+    await actualizarSiNoCambio(admin, fila, SIN_PENDIENTES)
     return
   }
   await actualizarSiNoCambio(admin, fila, {
     ...columnasDesdeGoogle(ev, calendarId, fechas),
     deleted_at: null,
-    google_pendiente: false,
+    ...SIN_PENDIENTES,
   })
+}
+
+/** Borra un evento en Google. Lanza si es un límite de uso, para reintentarlo luego. */
+async function borrarEnGoogle(accessToken: string, url: string): Promise<boolean> {
+  const r = await pedirGoogle(accessToken, 'DELETE', url)
+  if (r.ok) return true
+  if (esLimiteDeUso(r)) throw new Error(errorDeGoogle(r))
+  // 404/410: ya no estaba. 403 (sin ser límite): calendario de solo lectura; en la app
+  // queda borrado igual.
+  if (r.status === 404 || r.status === 410 || r.status === 403) return false
+  throw new Error(errorDeGoogle(r))
 }
 
 /** Sube una fila pendiente. Devuelve cuántos cambios llegaron a Google (0 o 1). */
 async function subirUna(admin: Admin, accessToken: string, fila: FilaEvento, idPrincipal: string): Promise<number> {
   if (!FUENTES_QUE_SUBEN.has(fila.source)) {
-    await actualizarSiNoCambio(admin, fila, { google_pendiente: false })
+    await actualizarSiNoCambio(admin, fila, SIN_PENDIENTES)
     return 0
   }
 
   if (fila.deleted_at) {
-    if (!fila.google_event_id || !fila.google_calendar_id) {
-      await guardarSubida(admin, fila, {})
-      return 0
+    let url: string | null = null
+    if (fila.google_event_id && fila.google_calendar_id) {
+      url = urlEvento(fila.google_calendar_id, fila.google_event_id)
+    } else if (FUENTES_PROPIAS.has(fila.source) && idGoogleDe(fila.id)) {
+      // Sin enlace (por ejemplo, se borró con Google desconectado): si alguna vez se subió,
+      // en Google tiene el id fijo derivado del local, así que se puede borrar igual. Si
+      // nunca se subió, Google responde 404 y no pasa nada.
+      url = `${API_CALENDARIO}/calendars/primary/events/${idGoogleDe(fila.id)}`
     }
-    const r = await pedirGoogle(accessToken, 'DELETE', urlEvento(fila.google_calendar_id, fila.google_event_id))
-    // 404/410: ya no estaba. 403: calendario de solo lectura; en la app queda borrado igual.
-    if (!r.ok && r.status !== 404 && r.status !== 410 && r.status !== 403) throw new Error(errorDeGoogle(r))
+    const borrado = url ? await borrarEnGoogle(accessToken, url) : false
     await guardarSubida(admin, fila, {})
-    return r.ok ? 1 : 0
+    return borrado ? 1 : 0
   }
 
   if (!fila.google_event_id || !fila.google_calendar_id) {
@@ -411,17 +487,20 @@ async function subirUna(admin: Admin, accessToken: string, fila: FilaEvento, idP
     case 'ok':
       await guardarSubida(admin, fila, { google_etag: res.evento.etag ?? null, google_link: res.evento.htmlLink ?? fila.google_link })
       return 1
+    case 'sin_cambios':
+      await guardarSubida(admin, fila, {})
+      return 0
     case 'gana_google':
       await aplicarVersionDeGoogle(admin, fila, res.evento, fila.google_calendar_id)
       return 0
     case 'solo_lectura':
       // Sin etag, la próxima bajada vuelve a poner la versión de Google (conservando el
       // tipo y el marcador de importante, que solo existen en la app).
-      await actualizarSiNoCambio(admin, fila, { google_etag: null, google_pendiente: false })
+      await actualizarSiNoCambio(admin, fila, { google_etag: null, ...SIN_PENDIENTES })
       return 0
     case 'no_existe': {
       if (fila.source === 'google') {
-        await actualizarSiNoCambio(admin, fila, { deleted_at: ahora(), google_pendiente: false })
+        await actualizarSiNoCambio(admin, fila, borradaPorGoogle(fila))
         return 0
       }
       // Lo borraron en Google, pero en la app se editó después: se vuelve a crear.
@@ -493,6 +572,8 @@ async function listarEventos(
       'GET',
       `${API_CALENDARIO}/calendars/${encodeURIComponent(calendarId)}/events?${p}`,
     )
+    // Un límite de uso no significa que el calendario desapareció: se reintenta luego.
+    if (esLimiteDeUso(r)) throw new Error(errorDeGoogle(r))
     if (r.status === 403 || r.status === 404 || r.status === 410) return null
     if (!r.ok || !r.datos) throw new Error(errorDeGoogle(r))
     eventos.push(...(r.datos.items ?? []))
@@ -501,6 +582,23 @@ async function listarEventos(
   }
   // Una lista a medias haría creer que lo que falta se borró: mejor no seguir.
   throw new Error(`demasiados_eventos en ${calendarId}`)
+}
+
+/**
+ * Qué hacer con una fila borrada en la app cuyo evento sigue en Google.
+ *
+ * - La borró el sistema (calendario oculto, desconexión, o desapareció de Google): solo
+ *   pasa con eventos `google`, que quedan con el etag vacío y sin nada pendiente. Se
+ *   revive, porque el usuario no la quitó.
+ * - La borró el usuario: no se revive nunca (al reconectar, un evento borrado mientras
+ *   Google estaba desconectado volvía a aparecer). Se enlaza y queda pendiente, y la
+ *   próxima subida lo borra en Google.
+ */
+export function decisionBorrada(fila: FilaEvento, ev: EventoGoogle, calendarId: string): 'revivir' | 'igual' | 'borrar_en_google' {
+  if (fila.source === 'google' && fila.google_etag === null && !fila.google_pendiente) return 'revivir'
+  const mismoEnlace = fila.google_event_id === ev.id && fila.google_calendar_id === calendarId
+  if (mismoEnlace && fila.google_etag === ev.etag) return 'igual'
+  return 'borrar_en_google'
 }
 
 async function bajarCalendario(
@@ -535,7 +633,8 @@ async function bajarCalendario(
     if (f.google_event_id) porEventId.set(f.google_event_id, f)
   }
 
-  // Eventos nuestros cuya fila no alcanzó a guardar el id de Google: se buscan por mylifeId.
+  // Eventos nuestros cuya fila no tiene el id de Google (no alcanzó a guardarlo, o se
+  // desconectó y se volvió a conectar): se buscan por mylifeId, borradas incluidas.
   const sueltos = [
     ...new Set(
       eventos
@@ -575,24 +674,43 @@ async function bajarCalendario(
         type: 'personal',
         important: false,
         source: 'google',
-        google_pendiente: false,
         deleted_at: null,
+        ...SIN_PENDIENTES,
         ...datos,
       })
       continue
     }
 
-    // Mismo etag = nada cambió en Google. Vale también para filas borradas en la app: no
-    // vuelven mientras Google no cambie (al ocultar un calendario o desconectar se les
-    // vacía el etag justamente para que sí vuelvan).
-    if (fila.google_etag === ev.etag && fila.google_event_id === ev.id && fila.google_calendar_id === calendarId) {
-      continue
+    if (fila.deleted_at) {
+      const decision = decisionBorrada(fila, ev, calendarId)
+      if (decision === 'igual') continue
+      if (decision === 'borrar_en_google') {
+        // Solo el enlace: la fila sigue borrada y pendiente, y la subida borra el evento.
+        cambios.push({
+          fila,
+          datos: {
+            google_event_id: ev.id,
+            google_calendar_id: calendarId,
+            google_etag: ev.etag ?? null,
+            google_link: ev.htmlLink ?? null,
+            google_pendiente: true,
+            google_cambios: [...new Set([...(fila.google_cambios ?? []), 'deleted_at'])].sort(),
+          },
+        })
+        continue
+      }
+      // 'revivir': sigue abajo como cualquier cambio que viene de Google.
+    } else {
+      // Mismo etag = nada cambió en Google.
+      if (fila.google_etag === ev.etag && fila.google_event_id === ev.id && fila.google_calendar_id === calendarId) {
+        continue
+      }
+      // Cambió en los dos lados: gana el más nuevo. La subida de la app va en la próxima corrida.
+      if (fila.google_pendiente && ev.updated && new Date(fila.updated_at) > new Date(ev.updated)) continue
     }
-    // Cambió en los dos lados: gana el más nuevo. La subida de la app va en la próxima corrida.
-    if (fila.google_pendiente && ev.updated && new Date(fila.updated_at) > new Date(ev.updated)) continue
 
     // Una fila que ya existe conserva el tipo y el marcador de importante elegidos en la app.
-    cambios.push({ fila, datos: { ...datos, deleted_at: null, google_pendiente: false } })
+    cambios.push({ fila, datos: { ...datos, deleted_at: null, ...SIN_PENDIENTES } })
   }
 
   // Lo que estaba en la ventana y Google ya no devuelve se borró allá.
@@ -628,7 +746,7 @@ async function bajarCalendario(
   })
 
   await enParalelo(borrar, 5, async (fila) => {
-    if (await actualizarSiNoCambio(admin, fila, { deleted_at: ahora(), google_pendiente: false })) borrados++
+    if (await actualizarSiNoCambio(admin, fila, borradaPorGoogle(fila))) borrados++
   })
 
   return { bajados, borrados }
@@ -653,7 +771,7 @@ async function ocultarCalendarios(admin: Admin, userId: string, visibles: Set<st
   for (const grupo of trozos(ids, 200)) {
     const { error } = await admin
       .from('calendar_events')
-      .update({ deleted_at: ahora(), google_etag: null, google_pendiente: false })
+      .update({ deleted_at: ahora(), google_etag: null, ...SIN_PENDIENTES })
       .in('id', grupo)
     if (error) throw new Error(error.message)
   }
@@ -712,11 +830,14 @@ export async function sincronizarUsuario(admin: Admin, config: ConfigGoogle, con
   }
 }
 
-/** Las conexiones de un usuario (o de todos, para el cron). */
+/**
+ * Las conexiones de un usuario (o de todos, para el cron), solo de usuarios permitidos:
+ * una conexión de otra cuenta no se sincroniza ni gasta la clave de Anthropic.
+ */
 export async function leerConexiones(admin: Admin, userId?: string): Promise<Conexion[]> {
   let consulta = admin.from('google_conexion').select('user_id, email, scopes, calendarios, gmail_activo')
   if (userId) consulta = consulta.eq('user_id', userId)
-  const { data, error } = await consulta
+  const [{ data, error }, permitidos] = await Promise.all([consulta, idsPermitidos(admin)])
   if (error) throw new Error(error.message)
-  return (data ?? []) as Conexion[]
+  return ((data ?? []) as Conexion[]).filter((c) => permitidos.has(c.user_id))
 }

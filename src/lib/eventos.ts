@@ -12,6 +12,13 @@ export function ocurreEn(e: Pick<CalendarEvent, 'date' | 'endDate'>, dia: string
 }
 
 /**
+ * Tope de días al recorrer un evento. Un `fecha_fin` mal escrito o absurdo (un evento de
+ * Google que «termina» dentro de diez años) haría miles de vueltas en cada pintado y
+ * colgaría la pantalla; ningún evento real necesita más de un año.
+ */
+const MAX_DIAS_RECORRIDO = 366
+
+/**
  * Los días de `desde` a `hasta` que toca el evento. Se recorta a la ventana pedida (la
  * rejilla del mes): un evento de Google puede durar meses y no hace falta recorrerlos todos.
  */
@@ -22,7 +29,9 @@ export function diasEnVentana(
 ): string[] {
   const dias: string[] = []
   const fin = ultimoDia(e) < hasta ? ultimoDia(e) : hasta
-  for (let d = e.date > desde ? e.date : desde; d <= fin; d = addDays(d, 1)) dias.push(d)
+  for (let d = e.date > desde ? e.date : desde; d <= fin && dias.length < MAX_DIAS_RECORRIDO; d = addDays(d, 1)) {
+    dias.push(d)
+  }
   return dias
 }
 

@@ -17,7 +17,7 @@ export interface ResultadoGoogle {
 
 /** Cuenta de Google vinculada: estado y acciones. */
 export function useGoogle() {
-  const { cargado, conexion, procesados } = useGoogleEstado()
+  const { cargado, errorCarga, conexion, procesados } = useGoogleEstado()
 
   const conectar = useCallback(async (): Promise<ResultadoGoogle> => {
     const r = await llamarFuncion('google-auth', {
@@ -28,14 +28,14 @@ export function useGoogle() {
       window.location.assign(r.url)
       return { ok: true }
     }
-    return { ok: false, error: mensajeDeError(r.error) }
+    return { ok: false, error: mensajeDeError(r.error, r.detalle) }
   }, [])
 
   /** La confirmación la pide quien llama (el botón), para poder explicar qué pasa. */
   const desconectar = useCallback(async (): Promise<ResultadoGoogle> => {
     const r = await llamarFuncion('google-auth', { accion: 'desconectar' })
     await recargarGoogle()
-    return r.ok ? { ok: true } : { ok: false, error: mensajeDeError(r.error) }
+    return r.ok ? { ok: true } : { ok: false, error: mensajeDeError(r.error, r.detalle) }
   }, [])
 
   const sincronizarAhora = useCallback(async (): Promise<ResultadoGoogle> => {
@@ -43,7 +43,7 @@ export function useGoogle() {
     await recargarGoogle()
     const fallo = !sync.ok ? sync : !gmail.ok ? gmail : null
     // Gmail apagado o sin permiso responde sin error propio: solo cuenta lo que falla de verdad.
-    return fallo ? { ok: false, error: mensajeDeError(fallo.error) } : { ok: true }
+    return fallo ? { ok: false, error: mensajeDeError(fallo.error, fallo.detalle) } : { ok: true }
   }, [])
 
   /** Cambia en la fila propia y pide una sync: el servidor ya lee de ahí. */
@@ -81,6 +81,9 @@ export function useGoogle() {
 
   return {
     cargado,
+    /** La última lectura del estado falló: Ajustes ofrece reintentar. */
+    errorCarga,
+    reintentar: recargarGoogle,
     conexion,
     conectado: conexion != null,
     procesados,

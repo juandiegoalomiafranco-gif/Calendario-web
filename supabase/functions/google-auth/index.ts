@@ -1,4 +1,4 @@
-import { type Admin, crearAdmin, usuarioDelJwt } from '../_shared/auth.ts'
+import { type Admin, crearAdmin, estaPermitido, usuarioDelJwt } from '../_shared/auth.ts'
 import {
   borrarRefreshToken,
   canjearCodigo,
@@ -49,7 +49,14 @@ Deno.serve(async (req: Request) => {
     if (!userId) return responder(req, { ok: false, error: 'no_autorizado' }, 401)
 
     const cuerpo = await leerCuerpo(req)
-    if (cuerpo.accion === 'iniciar') return await iniciar(req, admin, userId, cuerpo.volver_a)
+    if (cuerpo.accion === 'iniciar') {
+      // Solo el dueño vincula Google (ver estaPermitido). Desconectar sí lo puede hacer
+      // cualquiera: solo borra lo suyo.
+      if (!(await estaPermitido(admin, userId))) {
+        return responder(req, { ok: false, error: 'no_permitido' }, 403)
+      }
+      return await iniciar(req, admin, userId, cuerpo.volver_a)
+    }
     if (cuerpo.accion === 'desconectar') return await desconectar(req, admin, userId)
     return responder(req, { ok: false, error: 'accion_desconocida' }, 400)
   } catch (e) {
@@ -125,6 +132,8 @@ async function volverDeGoogle(req: Request, admin: Admin): Promise<Response> {
 
     destino = volverAValido(estado.volver_a) ?? VOLVER_POR_DEFECTO
     if (new Date(estado.expira).getTime() < Date.now()) return redirigir('error', 'caducado')
+    // Se vuelve a mirar aquí: el permiso pudo retirarse entre iniciar y volver.
+    if (!(await estaPermitido(admin, estado.user_id as string))) return redirigir('error', 'no_permitido')
 
     const errorGoogle = params.get('error')
     if (errorGoogle) return redirigir('error', errorGoogle === 'access_denied' ? 'cancelado' : 'google')
@@ -218,18 +227,21 @@ async function volverDeGoogle(req: Request, admin: Admin): Promise<Response> {
 
 /**
  * Al conectar se suben los eventos propios de hoy en adelante. Las marcas de pendiente
- * que quedaron de antes (la base marca toda edición de la app, haya o no Google) se
- * quitan en lo pasado y lo borrado, para no llenar Google de eventos viejos.
+ * que quedaron de antes en eventos pasados (la base marca cada cambio de la app, haya o
+ * no Google) se quitan, para no llenar Google de eventos viejos. Las de los borrados se
+ * dejan: si ese evento llegó a Google en una conexión anterior, la subida lo borra allá
+ * (por su id fijo); si no, Google responde que no existe y no pasa nada.
  */
 async function marcarParaSubir(admin: Admin, userId: string) {
   const hoy = hoyEnBogota()
   const { error: e1 } = await admin
     .from('calendar_events')
-    .update({ google_pendiente: false })
+    .update({ google_pendiente: false, google_cambios: [] })
     .eq('user_id', userId)
     .eq('google_pendiente', true)
     .is('google_event_id', null)
-    .or(`date.lt.${hoy},deleted_at.not.is.null`)
+    .is('deleted_at', null)
+    .lt('date', hoy)
   if (e1) throw new Error(e1.message)
 
   // También los de Gmail: si se desconectó y se vuelve a conectar, vuelven a Google (con
@@ -259,7 +271,7 @@ async function desconectar(req: Request, admin: Admin, userId: string): Promise<
   // para que, si se vuelve a conectar la misma cuenta, reaparezca en vez de duplicarse.
   const { error: e2 } = await admin
     .from('calendar_events')
-    .update({ deleted_at: ahora, google_etag: null, google_pendiente: false })
+    .update({ deleted_at: ahora, google_etag: null, google_pendiente: false, google_cambios: [] })
     .eq('user_id', userId)
     .eq('source', 'google')
     .is('deleted_at', null)
@@ -267,26 +279,33 @@ async function desconectar(req: Request, admin: Admin, userId: string): Promise<
 
   const { error: e3 } = await admin
     .from('calendar_events')
-    .update({ google_pendiente: false })
+    .update({ google_pendiente: false, google_cambios: [] })
     .eq('user_id', userId)
     .eq('source', 'google')
     .eq('google_pendiente', true)
   if (e3) throw new Error(e3.message)
 
   // Lo demás se queda en la app, pero sin enlace con Google.
+  const sinEnlace = { google_event_id: null, google_calendar_id: null, google_etag: null, google_link: null }
   const { error: e4 } = await admin
     .from('calendar_events')
-    .update({
-      google_event_id: null,
-      google_calendar_id: null,
-      google_etag: null,
-      google_link: null,
-      google_pendiente: false,
-    })
+    .update({ ...sinEnlace, google_pendiente: false, google_cambios: [] })
     .eq('user_id', userId)
     .neq('source', 'google')
+    .is('deleted_at', null)
     .or('google_event_id.not.is.null,google_pendiente.eq.true')
   if (e4) throw new Error(e4.message)
+
+  // Un borrado que no alcanzó a subir sigue pendiente: al reconectar se borra en Google
+  // por su id fijo, en vez de quedar vivo allá y volver a aparecer en la app.
+  const { error: e5 } = await admin
+    .from('calendar_events')
+    .update(sinEnlace)
+    .eq('user_id', userId)
+    .neq('source', 'google')
+    .not('deleted_at', 'is', null)
+    .not('google_event_id', 'is', null)
+  if (e5) throw new Error(e5.message)
 
   return responder(req, { ok: true })
 }

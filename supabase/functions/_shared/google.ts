@@ -47,13 +47,30 @@ export interface RespuestaGoogle<T> {
 
 const esperar = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
+function razonDe(datos: unknown): string | undefined {
+  return (datos as { error?: { errors?: { reason?: string }[] } } | null)?.error?.errors?.[0]?.reason
+}
+
 /** Errores que Google da por saturación y que se arreglan solos esperando un poco. */
 function esReintentable(status: number, datos: unknown): boolean {
   if (status === 429 || status >= 500) return true
   if (status !== 403) return false
-  const razon = (datos as { error?: { errors?: { reason?: string }[] } } | null)?.error?.errors?.[0]
-    ?.reason
+  const razon = razonDe(datos)
   return razon === 'rateLimitExceeded' || razon === 'userRateLimitExceeded'
+}
+
+/**
+ * ¿Es un 403 (o 429) por límite de uso y no por falta de permiso? Google usa el mismo
+ * 403 para «este calendario es de solo lectura» y para «vas muy rápido». Confundirlos
+ * hacía que una edición se diera por imposible y se perdiera; un límite hay que tratarlo
+ * como fallo pasajero, para que la fila siga pendiente y se reintente.
+ */
+export function esLimiteDeUso(r: RespuestaGoogle<unknown>): boolean {
+  if (r.status === 429) return true
+  if (r.status !== 403) return false
+  const razon = razonDe(r.datos)
+  return razon === 'rateLimitExceeded' || razon === 'userRateLimitExceeded' || razon === 'quotaExceeded' ||
+    razon === 'dailyLimitExceeded'
 }
 
 /**

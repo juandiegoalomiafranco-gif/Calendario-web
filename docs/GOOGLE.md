@@ -25,6 +25,9 @@ de Google y acceso al panel de Supabase del proyecto.
 - Se sincroniza **cada 5 minutos** y, además, unos segundos después de cada cambio que
   hagas en la app. El botón **Sincronizar ahora** lo hace al instante.
 - Si cambias el mismo evento en los dos lados, **gana el cambio más reciente**.
+- A Google solo sube lo que cambiaste: marcar un evento como importante o cambiarle el
+  tipo no toca Google (eso solo existe en la app), y cambiar la hora no reescribe la
+  descripción.
 - Los eventos de calendarios de solo lectura (festivos, el de otra persona) se pueden
   marcar como importantes en la app, pero no se pueden cambiar en Google.
 
@@ -32,7 +35,9 @@ de Google y acceso al panel de Supabase del proyecto.
 
 - Cada **30 minutos** se miran los correos de los **últimos 2 días** que Gmail marca
   como **Importantes**. Nunca los de Promociones, Social o Foros, ni los que envías tú.
-- Cada correo lo lee **Claude** (de Anthropic) **una sola vez**. Solo se crea el evento
+- Cada correo lo lee **Claude** (de Anthropic) **una sola vez**, aunque la revisión
+  automática y **Sincronizar ahora** coincidan. De un mismo hilo de correos (el aviso y su
+  recordatorio) sale como mucho **un** evento. Solo se crea el evento
   si de verdad anuncia algo con fecha (cita, examen, vuelo, fecha límite…), si es
   importante (4 o 5 de 5) y si la fecha es de hoy en adelante. Si ya hay un evento con
   el mismo nombre ese día, no se repite.
@@ -51,6 +56,19 @@ de Google y acceso al panel de Supabase del proyecto.
 - **Desconectar del todo:** **Ajustes → Google → Desconectar**. Se le quita el permiso a
   la app en Google. Los eventos que venían de Google desaparecen de la app (en Google
   siguen intactos); los que creaste en la app se quedan en la app y en Google.
+
+**Solo la cuenta del dueño**
+
+- Google solo se puede conectar desde **tu** cuenta de MyLife (la que entra con tu
+  código). Cualquier otra cuenta que se abra en la app ve en **Ajustes → Google** el
+  aviso **«Esta cuenta de MyLife no tiene permiso para conectar Google»**, y el servidor
+  no sincroniza ni revisa correo para ella.
+- Es a propósito: sin esa regla, alguien con otra cuenta podría mandarte su enlace de
+  «Conectar con Google» y quedarse con el permiso de tu calendario y tu correo, o gastar
+  tu clave de Anthropic conectando su propio Gmail.
+- La lista de cuentas permitidas es la tabla `google_permitidos` en Supabase (solo la
+  puede tocar el servidor). Si algún día cambias de código y tu cuenta de MyLife es otra,
+  hay que añadir el nuevo `user_id` ahí desde el panel de Supabase (Table Editor).
 
 **Privacidad**
 
@@ -178,6 +196,8 @@ consola se llama **Pantalla de consentimiento de OAuth** o **Google Auth Platfor
 
 | Qué pasa | Qué hacer |
 |---|---|
+| Ajustes dice **«Esta cuenta de MyLife no tiene permiso para conectar Google»** | Entraste con un código distinto al tuyo. Entra con tu código; si cambiaste de código a propósito, añade tu nuevo `user_id` a la tabla `google_permitidos` (ver «Solo la cuenta del dueño»). |
+| Ajustes dice **«No se pudo leer el estado de Google»** | No había internet al abrir Ajustes. Toca **Reintentar**. |
 | La app dice **«El servidor aún no tiene las claves de Google»** | Faltan los secretos del paso 6, o un nombre quedó mal escrito. Revísalos letra por letra. |
 | Google muestra **`redirect_uri_mismatch`** | La URI del paso 4 no es idéntica. Cópiala otra vez de esta guía: `https`, sin barra al final. |
 | Google dice **«Acceso bloqueado»** o **`access_denied`** | Tu Gmail no está en *Usuarios de prueba* (paso 3.6), o tocaste *Cancelar*. Agrégalo y vuelve a conectar. |
@@ -186,7 +206,7 @@ consola se llama **Pantalla de consentimiento de OAuth** o **Google Auth Platfor
 | No aparecen los eventos de un calendario | Enciéndelo en **Ajustes → Google** (al principio solo se ve el principal). Recuerda que se traen 60 días atrás y un año adelante. |
 | Un evento de la app no llega a Google | Espera 5 minutos o toca **Sincronizar ahora**. Los del colegio no se suben, a propósito. |
 | Gmail no crea ningún evento | Mira **Últimos correos revisados** en Ajustes: cada correo dice por qué se descartó. Solo cuentan los que Gmail marca como Importantes. Revisa que el interruptor de Gmail esté encendido y que diste el permiso de Gmail al conectar. |
-| Error **«Anthropic rechazó la clave»** o **sin saldo** | La clave del paso 5 está mal copiada, se borró o la cuenta se quedó sin crédito. Corrige el secreto o recarga. Los correos pendientes se revisan solos en la siguiente vuelta. |
+| Dice que **falta (o no sirve) la clave de Anthropic**, o que **se quedó sin saldo** | La clave del paso 5 está mal copiada, se borró o la cuenta se quedó sin crédito. Corrige el secreto o recarga. Los correos pendientes se revisan solos en la siguiente vuelta. |
 | Se creó un evento que no era | Bórralo en la app: se quita de Google y no vuelve. |
 | Quiero ver qué pasó por dentro | Supabase → **Edge Functions** → `google-sync`, `gmail-scan` o `google-auth` → **Logs**. |
 
@@ -198,9 +218,15 @@ consola se llama **Pantalla de consentimiento de OAuth** o **Google Auth Platfor
   común en `supabase/functions/_shared/` (tokens, fechas en hora de Bogotá, conversión
   de eventos, subida y bajada). Se despliegan con `verify_jwt` apagado y validan dentro
   el token del cron (`x-cron-token`) o el JWT del usuario.
-- Base de datos: migración `supabase/migrations/20261114184529_google_calendar_y_gmail.sql`
+- Base de datos: migraciones `supabase/migrations/20261114184529_google_calendar_y_gmail.sql`
   (tablas `google_conexion`, `google_tokens`, `google_oauth_estados`,
   `gmail_procesados`; columnas nuevas de `calendar_events`; crons `google-sync-5min` y
-  `gmail-scan-30min`).
-- La base marca `google_pendiente` sola (trigger) cuando la app escribe un evento; la
-  app nunca manda las columnas `google_*`.
+  `gmail-scan-30min`) y `20261115180518_google_solo_dueno_y_cambios.sql` (tabla
+  `google_permitidos`, columna `google_cambios`, reserva de correos y un evento por hilo).
+- La base marca `google_pendiente` sola (trigger) cuando la app cambia algo que se sube
+  (título, fechas, horas, lugar, notas, borrado) y anota cuáles en `google_cambios`; el
+  PATCH a Google lleva solo esos campos. La app nunca manda las columnas `google_*`.
+- Códigos de error de las funciones: `no_autorizado` (401), `no_permitido` (403),
+  `falta_configuracion`, `falta_clave_anthropic`, `sin_credito_anthropic`, `reconectar`,
+  `no_conectado`, `volver_a_no_permitido`, `error_sync`, `error_gmail`, `error_claude`.
+  Los textos para el usuario están en `mensajeDeError` (`src/lib/google.ts`).

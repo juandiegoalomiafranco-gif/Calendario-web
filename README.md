@@ -132,15 +132,17 @@ Las migraciones están en `supabase/migrations/`. Todas las tablas llevan RLS
 `calendar_events`, `accounts`, `transactions`, `transfers`, `finance_categories`,
 `settings`, `events`, `push_subscriptions`, `athlete_codes`, `coach_plans`,
 `app_secrets`, `debts`, `google_conexion`, `google_tokens`, `google_oauth_estados`,
-`gmail_procesados`.
+`google_permitidos`, `gmail_procesados`.
 
 Las de Google tienen reglas propias: `google_conexion` (el dueño la lee y cambia
 `calendarios` y `gmail_activo`; crearla y borrarla es cosa del servidor) y
-`gmail_procesados` (el dueño solo lee). `google_tokens` y `google_oauth_estados` no
-tienen políticas: solo la service role llega a ellas, y el refresh token de Google va
-cifrado en Vault. `calendar_events` ganó `fecha_fin`, `hora_fin`, `lugar`, las columnas
-`google_*` y `gmail_message_id`; `google_pendiente` lo pone un trigger cuando la app
-escribe, y la app nunca manda las columnas `google_*`.
+`gmail_procesados` (el dueño solo lee). `google_tokens`, `google_oauth_estados` y
+`google_permitidos` (las cuentas que pueden conectar Google: solo la del dueño) no tienen
+políticas: solo la service role llega a ellas, y el refresh token de Google va cifrado en
+Vault. `calendar_events` ganó `fecha_fin`, `hora_fin`, `lugar`, las columnas
+`google_*` y `gmail_message_id`; `google_pendiente` (y en `google_cambios` qué campos)
+lo pone un trigger cuando la app cambia algo que se sube, y la app nunca manda las
+columnas `google_*`.
 
 ## Actualizar los datos de referencia
 
