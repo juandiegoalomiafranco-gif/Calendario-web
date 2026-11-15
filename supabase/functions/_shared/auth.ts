@@ -63,7 +63,7 @@ export async function usuarioDelJwt(req: Request, admin: Admin): Promise<string 
  * ¿Este usuario puede vincular Google? Solo los de `google_permitidos` (el dueño): el
  * login de la app es por código y cualquiera puede crearse una cuenta, así que sin esta
  * lista un tercero podría quedarse con el permiso de Google del dueño (mandándole su
- * enlace de consentimiento) o gastar su clave de Anthropic conectando su propio Gmail.
+ * enlace de consentimiento).
  * Si la consulta falla, se responde que no: mejor cerrado que abierto.
  */
 export async function estaPermitido(admin: Admin, userId: string): Promise<boolean> {

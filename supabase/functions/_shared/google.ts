@@ -8,14 +8,12 @@ import type { Admin } from './auth.ts'
 
 export const SCOPE_EVENTOS = 'https://www.googleapis.com/auth/calendar.events'
 export const SCOPE_CALENDARIOS = 'https://www.googleapis.com/auth/calendar.calendarlist.readonly'
-export const SCOPE_GMAIL = 'https://www.googleapis.com/auth/gmail.readonly'
-export const SCOPES = ['openid', 'email', SCOPE_EVENTOS, SCOPE_CALENDARIOS, SCOPE_GMAIL]
+export const SCOPES = ['openid', 'email', SCOPE_EVENTOS, SCOPE_CALENDARIOS]
 
 /** Tiene que ser idéntica a la registrada en el cliente OAuth de Google Cloud. */
 export const REDIRECT_URI = 'https://laabrbjtxugddlxtryou.supabase.co/functions/v1/google-auth'
 
 export const API_CALENDARIO = 'https://www.googleapis.com/calendar/v3'
-export const API_GMAIL = 'https://gmail.googleapis.com/gmail/v1/users/me'
 
 export interface ConfigGoogle {
   clientId: string

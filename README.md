@@ -106,21 +106,21 @@ avanza solo en días de clase: no cuenta fines de semana, festivos de Colombia
 (`src/data/schoolCalendar.ts`: Recess Week, Semana Santa, Professional Development
 Days y vacaciones).
 
-## Google Calendar y Gmail
+## Google Calendar
 
 Cuenta de Google vinculada aparte del código de entrada (OAuth hecho en el servidor):
-sincroniza el calendario en los dos sentidos y crea eventos a partir de los correos
-importantes de Gmail, que decide Claude. La configuración paso a paso, cómo funciona,
-cómo deshacerlo y la solución de problemas están en **[docs/GOOGLE.md](docs/GOOGLE.md)**.
+sincroniza el calendario en los dos sentidos una vez por semana, los lunes por la mañana.
+La configuración paso a paso, cómo funciona, cómo deshacerlo y la solución de problemas
+están en **[docs/GOOGLE.md](docs/GOOGLE.md)**.
 
 - `supabase/functions/google-auth/` — conectar y desconectar la cuenta.
-- `supabase/functions/google-sync/` — sincronización; `pg_cron` la llama cada 5 min y la
-  app unos segundos después de cada cambio.
-- `supabase/functions/gmail-scan/` — revisa Gmail cada 30 min con Claude Haiku.
+- `supabase/functions/google-sync/` — sincronización; `pg_cron` la llama los lunes a las
+  6:00 de Bogotá (`0 11 * * 1` UTC) y la app solo cuando se toca «Sincronizar ahora» o
+  se cambian los calendarios visibles en Ajustes. Editar un evento no la llama.
 - `supabase/functions/_shared/` — tokens, fechas en hora de Bogotá, conversión de
   eventos, subida y bajada.
-- Secretos (Supabase → Edge Functions → Secrets): `GOOGLE_CLIENT_ID`,
-  `GOOGLE_CLIENT_SECRET`, `ANTHROPIC_API_KEY`. Sin ellos las funciones no hacen nada.
+- Secretos (Supabase → Edge Functions → Secrets): `GOOGLE_CLIENT_ID` y
+  `GOOGLE_CLIENT_SECRET`. Sin ellos las funciones no hacen nada.
 
 ## Base de datos
 
@@ -132,15 +132,14 @@ Las migraciones están en `supabase/migrations/`. Todas las tablas llevan RLS
 `calendar_events`, `accounts`, `transactions`, `transfers`, `finance_categories`,
 `settings`, `events`, `push_subscriptions`, `athlete_codes`, `coach_plans`,
 `app_secrets`, `debts`, `google_conexion`, `google_tokens`, `google_oauth_estados`,
-`google_permitidos`, `gmail_procesados`.
+`google_permitidos`.
 
 Las de Google tienen reglas propias: `google_conexion` (el dueño la lee y cambia
-`calendarios` y `gmail_activo`; crearla y borrarla es cosa del servidor) y
-`gmail_procesados` (el dueño solo lee). `google_tokens`, `google_oauth_estados` y
+`calendarios`; crearla y borrarla es cosa del servidor). `google_tokens`, `google_oauth_estados` y
 `google_permitidos` (las cuentas que pueden conectar Google: solo la del dueño) no tienen
 políticas: solo la service role llega a ellas, y el refresh token de Google va cifrado en
 Vault. `calendar_events` ganó `fecha_fin`, `hora_fin`, `lugar`, las columnas
-`google_*` y `gmail_message_id`; `google_pendiente` (y en `google_cambios` qué campos)
+`google_*`; `google_pendiente` (y en `google_cambios` qué campos)
 lo pone un trigger cuando la app cambia algo que se sube, y la app nunca manda las
 columnas `google_*`.
 

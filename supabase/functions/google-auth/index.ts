@@ -154,8 +154,7 @@ async function volverDeGoogle(req: Request, admin: Admin): Promise<Response> {
     }
 
     const scopes = (tokens.scope ?? '').split(' ').filter(Boolean)
-    // Google deja desmarcar permisos. Sin el del calendario no hay nada que sincronizar;
-    // sin el de Gmail sí, y simplemente no se revisa el correo.
+    // Google deja desmarcar permisos. Sin el del calendario no hay nada que sincronizar.
     if (!scopes.includes(SCOPE_EVENTOS)) {
       await revocarToken(tokens.refresh_token ?? tokens.access_token!)
       return redirigir('error', 'sin_permiso_calendario')
@@ -190,7 +189,6 @@ async function volverDeGoogle(req: Request, admin: Admin): Promise<Response> {
       email,
     )
 
-    // gmail_activo no se manda: al crear queda en true y al reconectar se respeta lo elegido.
     const { data: conexion, error: errConexion } = await admin
       .from('google_conexion')
       .upsert(
@@ -204,7 +202,7 @@ async function volverDeGoogle(req: Request, admin: Admin): Promise<Response> {
         },
         { onConflict: 'user_id' },
       )
-      .select('user_id, email, scopes, calendarios, gmail_activo')
+      .select('user_id, email, scopes, calendarios')
       .single()
     if (errConexion || !conexion) throw new Error(errConexion?.message ?? 'sin_conexion')
 
@@ -244,13 +242,13 @@ async function marcarParaSubir(admin: Admin, userId: string) {
     .lt('date', hoy)
   if (e1) throw new Error(e1.message)
 
-  // También los de Gmail: si se desconectó y se vuelve a conectar, vuelven a Google (con
-  // el mismo id, así que no se duplican si allá seguían).
+  // Si se desconectó y se vuelve a conectar, vuelven a Google con el mismo id, así que no
+  // se duplican si allá seguían.
   const { error: e2 } = await admin
     .from('calendar_events')
     .update({ google_pendiente: true })
     .eq('user_id', userId)
-    .in('source', ['propio', 'gmail'])
+    .eq('source', 'propio')
     .gte('date', hoy)
     .is('deleted_at', null)
     .is('google_event_id', null)

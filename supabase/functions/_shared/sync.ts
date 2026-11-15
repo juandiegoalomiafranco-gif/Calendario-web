@@ -27,8 +27,9 @@ import { mensajeDe } from './http.ts'
  * dejó pendiente → baja lo que cambió en Google. Subir antes de bajar hace que un cambio
  * hecho en la app no lo pise la versión vieja que todavía tiene Google.
  *
- * Puede correr dos veces a la vez (el cron cada 5 minutos y la app tras cada cambio), así
- * que todo está pensado para que eso no duplique ni pierda nada:
+ * Puede correr dos veces a la vez (el cron de los lunes, «Sincronizar ahora» o la primera
+ * sincronización al conectar), así que todo está pensado para que eso no duplique ni
+ * pierda nada:
  * - al crear en Google se usa un id fijo derivado del id local: el segundo intento recibe
  *   un 409 en vez de crear un duplicado;
  * - cada escritura en la base va condicionada a `updated_at`: si la app tocó la fila
@@ -49,7 +50,6 @@ export interface Conexion {
   email: string | null
   scopes: string[] | null
   calendarios: Calendario[] | null
-  gmail_activo: boolean
 }
 
 export interface FilaEvento extends FechasLocales {
@@ -70,13 +70,12 @@ export interface FilaEvento extends FechasLocales {
   google_pendiente: boolean
   /** Campos que la app cambió desde la última subida (los anota el trigger de la base). */
   google_cambios: string[] | null
-  gmail_message_id: string | null
 }
 
 export const COLUMNAS_EVENTO =
   'id, user_id, date, title, type, important, time, notes, source, updated_at, deleted_at, ' +
   'fecha_fin, hora_fin, lugar, google_event_id, google_calendar_id, google_etag, google_link, ' +
-  'google_pendiente, google_cambios, gmail_message_id'
+  'google_pendiente, google_cambios'
 
 interface EventoGoogle {
   id: string
@@ -100,10 +99,7 @@ export interface ResultadoSync {
 }
 
 /** Lo del colegio viene sembrado del calendario oficial y no se sube nunca. */
-const FUENTES_QUE_SUBEN = new Set(['propio', 'google', 'gmail'])
-
-/** Las que la app creó: en Google llevan su id fijo y su `mylifeId`. */
-const FUENTES_PROPIAS = new Set(['propio', 'gmail'])
+const FUENTES_QUE_SUBEN = new Set(['propio', 'google'])
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -460,7 +456,7 @@ async function subirUna(admin: Admin, accessToken: string, fila: FilaEvento, idP
     let url: string | null = null
     if (fila.google_event_id && fila.google_calendar_id) {
       url = urlEvento(fila.google_calendar_id, fila.google_event_id)
-    } else if (FUENTES_PROPIAS.has(fila.source) && idGoogleDe(fila.id)) {
+    } else if (fila.source === 'propio' && idGoogleDe(fila.id)) {
       // Sin enlace (por ejemplo, se borró con Google desconectado): si alguna vez se subió,
       // en Google tiene el id fijo derivado del local, así que se puede borrar igual. Si
       // nunca se subió, Google responde 404 y no pasa nada.
@@ -832,10 +828,10 @@ export async function sincronizarUsuario(admin: Admin, config: ConfigGoogle, con
 
 /**
  * Las conexiones de un usuario (o de todos, para el cron), solo de usuarios permitidos:
- * una conexión de otra cuenta no se sincroniza ni gasta la clave de Anthropic.
+ * una conexión de otra cuenta no se sincroniza.
  */
 export async function leerConexiones(admin: Admin, userId?: string): Promise<Conexion[]> {
-  let consulta = admin.from('google_conexion').select('user_id, email, scopes, calendarios, gmail_activo')
+  let consulta = admin.from('google_conexion').select('user_id, email, scopes, calendarios')
   if (userId) consulta = consulta.eq('user_id', userId)
   const [{ data, error }, permitidos] = await Promise.all([consulta, idsPermitidos(admin)])
   if (error) throw new Error(error.message)

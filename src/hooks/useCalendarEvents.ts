@@ -14,7 +14,6 @@ import { cuandoHayaCalma } from '../lib/arranque'
 import { createCollection, newId } from '../lib/cloudStore'
 import { supabase } from '../lib/supabase'
 import { stableId } from '../lib/ids'
-import { pedirSyncGoogle } from '../lib/google'
 
 export type EventType = 'personal' | 'colegio' | 'salud' | 'viaje' | 'cumpleanos' | 'otro'
 
@@ -35,13 +34,11 @@ export interface CalendarEvent {
   location?: string
   /**
    * 'colegio' = sembrado del calendario oficial; 'propio' = puesto por ti;
-   * 'google' = bajó de Google Calendar; 'gmail' = lo detectó Claude en un correo.
+   * 'google' = bajó de Google Calendar.
    */
-  source?: 'colegio' | 'propio' | 'google' | 'gmail'
+  source?: 'colegio' | 'propio' | 'google'
   /** Solo lectura: lo escribe el servidor. Enlace al evento en Google Calendar. */
   googleLink?: string
-  /** Solo lectura: correo de Gmail del que salió el evento. */
-  gmailMessageId?: string
 }
 
 export const EVENT_TYPE_META: Record<
@@ -78,7 +75,6 @@ interface EventRow {
   hora_fin: string | null
   lugar: string | null
   google_link: string | null
-  gmail_message_id: string | null
 }
 
 const store = createCollection<CalendarEvent, EventRow>({
@@ -93,15 +89,13 @@ const store = createCollection<CalendarEvent, EventRow>({
     important: r.important ?? r.type === 'importante',
     time: r.time ?? undefined,
     notes: r.notes ?? undefined,
-    source:
-      r.source === 'colegio' || r.source === 'google' || r.source === 'gmail'
-        ? r.source
-        : 'propio',
+    // Cualquier otro valor cuenta como propio, también el 'gmail' de filas viejas de la
+    // importación de correos que se retiró.
+    source: r.source === 'colegio' || r.source === 'google' ? r.source : 'propio',
     endDate: r.fecha_fin ?? undefined,
     endTime: r.hora_fin ?? undefined,
     location: r.lugar ?? undefined,
     googleLink: r.google_link ?? undefined,
-    gmailMessageId: r.gmail_message_id ?? undefined,
   }),
   itemToRow: (e, userId) => ({
     id: e.id,
@@ -116,8 +110,8 @@ const store = createCollection<CalendarEvent, EventRow>({
     fecha_fin: e.endDate ?? null,
     hora_fin: e.endTime ?? null,
     lugar: e.location ?? null,
-    // Las columnas google_* y gmail_message_id las escribe solo el servidor: si la app
-    // las mandara en el upsert pisaría el vínculo con Google con valores viejos.
+    // Las columnas google_* las escribe solo el servidor: si la app las mandara en el
+    // upsert pisaría el vínculo con Google con valores viejos.
   }),
 })
 
@@ -202,29 +196,27 @@ export function useCalendarEvents() {
     for (const e of store.get()) if (e.source === 'colegio') store.remove(e.id)
   }, [])
 
-  // Los eventos del colegio nunca se mandan a Google: no hay nada que sincronizar.
+  /*
+   * Ningún cambio pide una sincronización con Google: la base los deja marcados como
+   * pendientes y suben el lunes por la mañana, o antes con «Sincronizar ahora» en Ajustes.
+   * El dueño lo prefirió así.
+   */
   const addEvent = useCallback((event: Omit<CalendarEvent, 'id'>) => {
-    const source = event.source ?? 'propio'
-    store.upsert({ ...event, id: newId(), source })
-    if (source !== 'colegio') pedirSyncGoogle()
+    store.upsert({ ...event, id: newId(), source: event.source ?? 'propio' })
   }, [])
 
   const updateEvent = useCallback((event: CalendarEvent) => {
     store.upsert(event)
-    if (event.source !== 'colegio') pedirSyncGoogle()
   }, [])
 
   const toggleImportant = useCallback((id: string) => {
     const e = store.get().find((x) => x.id === id)
     if (!e) return
     store.upsert({ ...e, important: !e.important })
-    if (e.source !== 'colegio') pedirSyncGoogle()
   }, [])
 
   const removeEvent = useCallback((id: string) => {
-    const e = store.get().find((x) => x.id === id)
     store.remove(id)
-    if (e && e.source !== 'colegio') pedirSyncGoogle()
   }, [])
 
   return {

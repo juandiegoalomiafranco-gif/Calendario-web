@@ -173,12 +173,12 @@ export function haciaGoogle(
   return { start, end }
 }
 
-/** Una entidad numérica fuera de rango haría lanzar a fromCodePoint con un correo mal hecho. */
+/** Una entidad numérica fuera de rango haría lanzar a fromCodePoint con un HTML mal hecho. */
 function caracter(codigo: number): string {
   return Number.isInteger(codigo) && codigo > 0 && codigo <= 0x10ffff ? String.fromCodePoint(codigo) : ' '
 }
 
-/** Texto plano a partir del HTML de un correo o de la descripción de un evento. */
+/** Texto plano a partir de la descripción en HTML de un evento de Google. */
 export function htmlATexto(html: string): string {
   return html
     .replace(/<(script|style|head|title)[^>]*>[\s\S]*?<\/\1>/gi, ' ')

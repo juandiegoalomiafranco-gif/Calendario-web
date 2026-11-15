@@ -7,7 +7,7 @@ import {
   useGoogleEstado,
 } from '../lib/google'
 
-export type { GmailProcesado, GoogleCalendario, GoogleConexion } from '../lib/google'
+export type { GoogleCalendario, GoogleConexion } from '../lib/google'
 
 /** Resultado de una acción: `error` ya viene en español y listo para mostrar. */
 export interface ResultadoGoogle {
@@ -17,7 +17,7 @@ export interface ResultadoGoogle {
 
 /** Cuenta de Google vinculada: estado y acciones. */
 export function useGoogle() {
-  const { cargado, errorCarga, conexion, procesados } = useGoogleEstado()
+  const { cargado, errorCarga, conexion } = useGoogleEstado()
 
   const conectar = useCallback(async (): Promise<ResultadoGoogle> => {
     const r = await llamarFuncion('google-auth', {
@@ -38,15 +38,18 @@ export function useGoogle() {
     return r.ok ? { ok: true } : { ok: false, error: mensajeDeError(r.error, r.detalle) }
   }, [])
 
+  /** La sincronización automática es solo los lunes; este botón manda y trae al instante. */
   const sincronizarAhora = useCallback(async (): Promise<ResultadoGoogle> => {
-    const [sync, gmail] = await Promise.all([llamarFuncion('google-sync'), llamarFuncion('gmail-scan')])
+    const r = await llamarFuncion('google-sync')
     await recargarGoogle()
-    const fallo = !sync.ok ? sync : !gmail.ok ? gmail : null
-    // Gmail apagado o sin permiso responde sin error propio: solo cuenta lo que falla de verdad.
-    return fallo ? { ok: false, error: mensajeDeError(fallo.error, fallo.detalle) } : { ok: true }
+    return r.ok ? { ok: true } : { ok: false, error: mensajeDeError(r.error, r.detalle) }
   }, [])
 
-  /** Cambia en la fila propia y pide una sync: el servidor ya lee de ahí. */
+  /**
+   * Cambia en la fila propia y pide una sync: el servidor ya lee de ahí. Es un cambio que
+   * se hace a mano en Ajustes, como «Sincronizar ahora»: sin esta llamada, encender u
+   * ocultar un calendario no se notaría hasta el lunes.
+   */
   const actualizarFila = useCallback(
     async (cambios: Record<string, unknown>): Promise<ResultadoGoogle> => {
       const { data } = await supabase.auth.getSession()
@@ -74,11 +77,6 @@ export function useGoogle() {
     [conexion, actualizarFila],
   )
 
-  const setGmailActivo = useCallback(
-    (activo: boolean) => actualizarFila({ gmail_activo: activo }),
-    [actualizarFila],
-  )
-
   return {
     cargado,
     /** La última lectura del estado falló: Ajustes ofrece reintentar. */
@@ -86,11 +84,9 @@ export function useGoogle() {
     reintentar: recargarGoogle,
     conexion,
     conectado: conexion != null,
-    procesados,
     conectar,
     desconectar,
     sincronizarAhora,
     setCalendarioVisible,
-    setGmailActivo,
   }
 }

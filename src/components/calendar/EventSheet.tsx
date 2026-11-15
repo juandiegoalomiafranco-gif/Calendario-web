@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bookmark, CalendarDays, ExternalLink, Mail, Trash2 } from 'lucide-react'
+import { Bookmark, CalendarDays, ExternalLink, Trash2 } from 'lucide-react'
 import {
   EVENT_TYPE_META,
   EVENT_TYPE_ORDER,
@@ -8,7 +8,6 @@ import {
   type EventType,
 } from '../../hooks/useCalendarEvents'
 import { formatFull } from '../../lib/dates'
-import { enlaceCorreo } from '../../lib/eventos'
 import { useGoogle } from '../../hooks/useGoogle'
 import { cx } from '../../lib/cx'
 import { Button } from '../ui/Button'
@@ -77,12 +76,11 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
   }
 
   const enlaceGoogle = event?.googleLink
-  const enlaceMail = event ? enlaceCorreo(event) : undefined
   // Borrarlo aquí lo borra también en Google Calendar si el evento está (o va a estar) allí.
   const avisoBorrado =
     isEdit &&
     event?.source !== 'colegio' &&
-    (event?.source === 'google' || event?.source === 'gmail' || conectado)
+    (event?.source === 'google' || conectado)
 
   return (
     <Sheet
@@ -179,32 +177,18 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
         />
       </Field>
 
-      {(enlaceGoogle || enlaceMail) && (
+      {enlaceGoogle && (
         <div className="flex flex-wrap gap-2">
-          {enlaceGoogle && (
-            <a
-              href={enlaceGoogle}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-content transition-colors hover:bg-surface-2"
-            >
-              <CalendarDays size={15} aria-hidden />
-              Abrir en Google Calendar
-              <ExternalLink size={13} className="text-content-subtle" aria-hidden />
-            </a>
-          )}
-          {enlaceMail && (
-            <a
-              href={enlaceMail}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-content transition-colors hover:bg-surface-2"
-            >
-              <Mail size={15} aria-hidden />
-              Abrir correo
-              <ExternalLink size={13} className="text-content-subtle" aria-hidden />
-            </a>
-          )}
+          <a
+            href={enlaceGoogle}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-content transition-colors hover:bg-surface-2"
+          >
+            <CalendarDays size={15} aria-hidden />
+            Abrir en Google Calendar
+            <ExternalLink size={13} className="text-content-subtle" aria-hidden />
+          </a>
         </div>
       )}
 
@@ -236,9 +220,8 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
 
       {avisoBorrado && (
         <p className="text-xs leading-relaxed text-content-subtle">
-          {event?.source === 'gmail'
-            ? 'Lo agregó Claude desde un correo. Si lo borras, también se borra de Google Calendar.'
-            : 'Si lo borras, también se borra de Google Calendar.'}
+          Si lo borras, también se borra de Google Calendar el lunes (o antes, si tocas
+          «Sincronizar ahora» en Ajustes).
         </p>
       )}
     </Sheet>

@@ -6,8 +6,10 @@ import { leerConexiones, sincronizarUsuario } from '../_shared/sync.ts'
 /**
  * Sincroniza la app con Google Calendar en los dos sentidos.
  *
- * - Con `x-cron-token` (pg_cron, cada 5 minutos): todos los usuarios conectados.
- * - Con el JWT de un usuario (la app, unos segundos después de cada cambio): solo ese.
+ * - Con `x-cron-token` (pg_cron, una vez por semana: los lunes a las 6:00 de Bogotá):
+ *   todos los usuarios conectados. El dueño lo pidió así; no hace falta más a menudo.
+ * - Con el JWT de un usuario (la app: «Sincronizar ahora» o al cambiar qué calendarios
+ *   se ven en Ajustes): solo ese. Editar un evento ya no la llama: espera al lunes.
  *
  * Responde {ok, subidos, bajados, borrados} o {ok:false, error}. Los errores lógicos
  * van con 200 para que `supabase.functions.invoke` entregue el cuerpo tal cual.

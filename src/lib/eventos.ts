@@ -45,13 +45,3 @@ export function rangoDeHoras(e: CalendarEvent, dia?: string): string | undefined
   const mismoDia = !e.endDate || e.endDate <= e.date
   return e.endTime && mismoDia ? `${e.time}–${e.endTime}` : e.time
 }
-
-/** Enlace al correo del que salió un evento de Gmail (el servidor lo guarda en las notas). */
-export function enlaceCorreo(e: CalendarEvent): string | undefined {
-  if (e.source !== 'gmail') return undefined
-  const enNotas = e.notes?.match(/https:\/\/mail\.google\.com\/\S+/)?.[0]
-  if (enNotas) return enNotas
-  return e.gmailMessageId
-    ? `https://mail.google.com/mail/u/0/#all/${e.gmailMessageId}`
-    : undefined
-}

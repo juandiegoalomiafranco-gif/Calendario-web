@@ -376,7 +376,7 @@ export function Calendario() {
                           <span className="truncate">{e.location}</span>
                         </span>
                       )}
-                      {e.notes && e.source !== 'gmail' && (
+                      {e.notes && (
                         <span className="mt-0.5 block line-clamp-2 text-xs text-content-muted">
                           {e.notes}
                         </span>

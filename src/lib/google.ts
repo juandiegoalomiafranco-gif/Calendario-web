@@ -4,8 +4,8 @@ import { supabase } from './supabase'
 
 /*
  * Estado de la cuenta de Google vinculada. Vive fuera de React porque lo necesitan dos
- * sitios que no se conocen: Ajustes (para mostrarlo) y el calendario (para saber si hay
- * que pedir una sincronización tras cada cambio). El servidor es quien habla con Google;
+ * sitios que no se conocen: Ajustes (para mostrarlo) y la hoja de un evento (para avisar
+ * de que borrarlo también lo borra en Google). El servidor es quien habla con Google;
  * aquí solo se lee la tabla y se invocan las Edge Functions.
  */
 
@@ -21,20 +21,9 @@ export interface GoogleConexion {
   email: string | null
   scopes: string[]
   calendarios: GoogleCalendario[]
-  gmailActivo: boolean
   ultimaSync: string | null
-  ultimoGmail: string | null
   /** 'reconectar' cuando Google rechazó el permiso guardado. */
   ultimoError: string | null
-}
-
-export interface GmailProcesado {
-  messageId: string
-  procesadoEn: string
-  decision: 'evento' | 'descartado' | 'error'
-  motivo: string | null
-  asunto: string | null
-  remitente: string | null
 }
 
 interface Estado {
@@ -45,29 +34,17 @@ interface Estado {
    */
   errorCarga: boolean
   conexion: GoogleConexion | null
-  procesados: GmailProcesado[]
 }
 
 interface FilaConexion {
   email: string | null
   scopes: string[] | null
   calendarios: GoogleCalendario[] | null
-  gmail_activo: boolean | null
   ultima_sync: string | null
-  ultimo_gmail: string | null
   ultimo_error: string | null
 }
 
-interface FilaProcesado {
-  message_id: string
-  procesado_en: string
-  decision: string
-  motivo: string | null
-  asunto: string | null
-  remitente: string | null
-}
-
-let estado: Estado = { cargado: false, errorCarga: false, conexion: null, procesados: [] }
+let estado: Estado = { cargado: false, errorCarga: false, conexion: null }
 const oyentes = new Set<() => void>()
 let userId: string | null = null
 let canal: ReturnType<typeof supabase.channel> | null = null
@@ -89,37 +66,21 @@ export function useGoogleEstado(): Estado {
   )
 }
 
-/** ¿Hay una cuenta de Google conectada? Lo consulta el calendario fuera de React. */
-export function googleConectado(): boolean {
-  return estado.conexion != null
-}
-
 function aConexion(f: FilaConexion): GoogleConexion {
   return {
     email: f.email,
     scopes: f.scopes ?? [],
     calendarios: f.calendarios ?? [],
-    gmailActivo: f.gmail_activo ?? true,
     ultimaSync: f.ultima_sync,
-    ultimoGmail: f.ultimo_gmail,
     ultimoError: f.ultimo_error,
   }
 }
 
-/** Vuelve a leer la conexión y los últimos correos revisados. Nunca lanza. */
+/** Vuelve a leer la conexión. Nunca lanza. */
 export async function recargarGoogle(): Promise<void> {
   if (!userId) return
   try {
-    const [c, p] = await Promise.all([
-      supabase.from('google_conexion').select('*').maybeSingle(),
-      supabase
-        .from('gmail_procesados')
-        .select('message_id, procesado_en, decision, motivo, asunto, remitente')
-        // «procesando» es la reserva mientras Claude lo lee; aún no hay nada que enseñar.
-        .neq('decision', 'procesando')
-        .order('procesado_en', { ascending: false })
-        .limit(10),
-    ])
+    const c = await supabase.from('google_conexion').select('*').maybeSingle()
     // Si la consulta falla (sin red) se conserva lo que había: no es lo mismo que «desconectado».
     if (c.error) {
       poner({ cargado: true, errorCarga: true })
@@ -129,16 +90,6 @@ export async function recargarGoogle(): Promise<void> {
       cargado: true,
       errorCarga: false,
       conexion: c.data ? aConexion(c.data as FilaConexion) : null,
-      procesados: ((p.data ?? []) as FilaProcesado[]).map((r) => ({
-        messageId: r.message_id,
-        procesadoEn: r.procesado_en,
-        decision: (['evento', 'descartado', 'error'].includes(r.decision)
-          ? r.decision
-          : 'error') as GmailProcesado['decision'],
-        motivo: r.motivo,
-        asunto: r.asunto,
-        remitente: r.remitente,
-      })),
     })
   } catch (e) {
     console.warn('[google] no se pudo leer la conexión', e)
@@ -154,7 +105,7 @@ function alCambiarUsuario(id: string | null) {
     canal = null
   }
   if (!id) {
-    poner({ cargado: false, errorCarga: false, conexion: null, procesados: [] })
+    poner({ cargado: false, errorCarga: false, conexion: null })
     return
   }
   void recargarGoogle()
@@ -196,7 +147,7 @@ export interface RespuestaFuncion {
  * `{ok:false, error:'falta_configuracion'}` que manda el servidor.
  */
 export async function llamarFuncion(
-  nombre: 'google-auth' | 'google-sync' | 'gmail-scan',
+  nombre: 'google-auth' | 'google-sync',
   cuerpo?: Record<string, unknown>,
 ): Promise<RespuestaFuncion> {
   try {
@@ -225,16 +176,10 @@ const MENSAJES_ERROR: Record<string, string> = {
   no_permitido: 'Esta cuenta de MyLife no tiene permiso para conectar Google: solo la del dueño.',
   falta_configuracion:
     'El servidor aún no tiene las claves de Google. Hay que ponerlas en Supabase (mira docs/GOOGLE.md).',
-  falta_clave_anthropic:
-    'Falta (o no sirve) la clave de Anthropic para revisar Gmail. El calendario sigue funcionando (mira docs/GOOGLE.md).',
-  sin_credito_anthropic:
-    'La cuenta de Anthropic se quedó sin saldo, así que no se revisó Gmail. El calendario sigue funcionando.',
   reconectar: 'Google pide volver a dar permiso. Toca «Reconectar».',
   no_conectado: 'Google no está conectado.',
   volver_a_no_permitido: 'Esta dirección de la app no puede conectar Google. Ábrela desde la dirección normal.',
-  error_sync: 'No se pudo sincronizar con Google. Se reintenta solo en unos minutos.',
-  error_gmail: 'No se pudo revisar Gmail. Se reintenta solo en un rato.',
-  error_claude: 'Claude no pudo revisar los correos. Se reintenta solo en un rato.',
+  error_sync: 'No se pudo sincronizar con Google. Inténtalo otra vez en un rato; si no, se reintenta solo el lunes.',
 }
 
 /**
@@ -265,24 +210,4 @@ const MOTIVOS_VUELTA: Record<string, string> = {
 export function mensajeDeMotivo(motivo: string | null): string {
   const texto = (motivo && MOTIVOS_VUELTA[motivo]) || 'Inténtalo de nuevo.'
   return `No se pudo conectar con Google. ${texto}`
-}
-
-// --- Sincronización tras editar ---------------------------------------------
-
-let temporizador: ReturnType<typeof setTimeout> | null = null
-
-/**
- * Pide una sincronización con Google ~4 s después del último cambio: si se editan
- * varios eventos seguidos se junta todo en una sola llamada. No bloquea nada y los
- * errores solo se registran; el cron del servidor lo reintenta cada 5 minutos.
- */
-export function pedirSyncGoogle() {
-  if (!googleConectado()) return
-  if (temporizador) clearTimeout(temporizador)
-  temporizador = setTimeout(() => {
-    temporizador = null
-    void llamarFuncion('google-sync').then((r) => {
-      if (!r.ok) console.warn('[google] sync tras editar falló:', r.error)
-    })
-  }, 4_000)
 }

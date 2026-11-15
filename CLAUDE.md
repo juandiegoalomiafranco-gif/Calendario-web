@@ -30,8 +30,8 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 | `src/lib/` | Supabase, sincronización, fechas, ciclo del colegio, texto enriquecido |
 | `src/data/` | Datos fijos: horario, calendario del colegio, plan de entreno, lonchera |
 | `src/styles/` | `tokens.css` (solo colores y sombras) e `index.css` (armazón y reglas táctiles) |
-| `supabase/` | Migraciones y Edge Functions: recordatorios, Google (`google-auth`, `google-sync`, `gmail-scan`, código común en `_shared/`) |
-| `docs/` | Guías: `GOOGLE.md` (conectar Google y Gmail), `PUENTE-ENTRENADOR.md` |
+| `supabase/` | Migraciones y Edge Functions: recordatorios, Google (`google-auth`, `google-sync`, código común en `_shared/`) |
+| `docs/` | Guías: `GOOGLE.md` (conectar Google Calendar), `PUENTE-ENTRENADOR.md` |
 
 ## Cómo está montada la pantalla
 
@@ -96,24 +96,28 @@ La app tiene que abrir en menos de un segundo, también con mala señal:
   se usa: con todo en negrita la pantalla se veía saturada.
 - Zonas táctiles de 44 px en el celular, también en `@media (pointer: coarse)`.
 
-## Google Calendar y Gmail
+## Google Calendar
 
 Google es una **cuenta vinculada** aparte del login por código: el OAuth y la
 sincronización los hacen las Edge Functions, nunca el navegador. Configuración,
 funcionamiento y solución de problemas: [`docs/GOOGLE.md`](docs/GOOGLE.md). Lo que hay
 que saber antes de tocar código:
 
-- La app **nunca** manda las columnas `google_*`, `gmail_message_id` ni
-  `google_pendiente` en su upsert de `calendar_events`: las escribe solo el servidor.
+- La app **nunca** manda las columnas `google_*` (tampoco `google_pendiente`) en su
+  upsert de `calendar_events`: las escribe solo el servidor.
   `google_pendiente` (y en `google_cambios` qué campos) lo pone un trigger cuando el rol
   `authenticated` cambia algo que se sube; la estrella y el tipo no cuentan.
 - Solo el dueño conecta Google: el servidor mira `google_permitidos` y a cualquier otra
   cuenta le responde `no_permitido`.
-- `source` de un evento: `propio`, `colegio` (nunca sube a Google), `google` o `gmail`.
-- Tablas: `google_conexion` (la app lee y cambia `calendarios[].visible` y
-  `gmail_activo`), `gmail_procesados` (solo lectura), `google_tokens`,
-  `google_oauth_estados` y `google_permitidos` (solo service role; el token va cifrado en
-  Vault).
+- `source` de un evento: `propio`, `colegio` (nunca sube a Google) o `google`. Un
+  `gmail` de filas viejas (la importación de correos se retiró) se lee como `propio`.
+- Tablas: `google_conexion` (la app lee y cambia `calendarios[].visible`),
+  `google_tokens`, `google_oauth_estados` y `google_permitidos` (solo service role; el
+  token va cifrado en Vault).
+- La sincronización automática es **solo los lunes** (cron `google-sync-lunes`, 6:00 en
+  Bogotá): lo pidió el dueño. Editar un evento **no** llama a `google-sync`; solo lo hacen
+  «Sincronizar ahora», el cambio de calendarios visibles en Ajustes y la primera
+  sincronización al conectar. No vuelvas a meter una sincronización tras cada cambio.
 - Las funciones responden `{ok:false, error, detalle?}`: 401 sin credenciales, 403
   `no_permitido`, 200 en los demás errores lógicos. Cada código nuevo necesita su texto
   en `mensajeDeError` (`src/lib/google.ts`).

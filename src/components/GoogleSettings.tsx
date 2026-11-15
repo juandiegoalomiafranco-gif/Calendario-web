@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { CalendarDays, Link2, Mail, RefreshCw, TriangleAlert } from 'lucide-react'
-import { useGoogle, type GmailProcesado } from '../hooks/useGoogle'
+import { CalendarDays, Link2, RefreshCw, TriangleAlert } from 'lucide-react'
+import { useGoogle } from '../hooks/useGoogle'
 import { cx } from '../lib/cx'
 import { mensajeDeMotivo } from '../lib/google'
 import { Button } from './ui/Button'
 import { Card, CardHeader } from './ui/Card'
-import { Chip } from './ui/Chip'
 
 /** «hace 5 min», «hace 2 h»… Para saber de un vistazo si la sincronización está viva. */
 function haceCuanto(iso: string | null): string {
@@ -59,34 +58,7 @@ function Interruptor({
   )
 }
 
-function FilaCorreo({ p }: { p: GmailProcesado }) {
-  const esEvento = p.decision === 'evento'
-  return (
-    <li className="flex items-start gap-2.5 rounded-2xl border border-line p-3">
-      <Mail size={15} className="mt-0.5 shrink-0 text-content-subtle" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-content">
-          {p.asunto || '(sin asunto)'}
-        </p>
-        {p.motivo && <p className="mt-0.5 line-clamp-2 text-xs text-content-muted">{p.motivo}</p>}
-      </div>
-      <Chip
-        size="sm"
-        className={
-          esEvento
-            ? 'bg-ok-soft text-ok'
-            : p.decision === 'error'
-              ? 'bg-danger-soft text-danger'
-              : undefined
-        }
-      >
-        {esEvento ? 'Evento' : p.decision === 'error' ? 'Error' : 'Descartado'}
-      </Chip>
-    </li>
-  )
-}
-
-/** Cuenta de Google vinculada: calendario en los dos sentidos y eventos desde Gmail. */
+/** Cuenta de Google vinculada: calendario en los dos sentidos, sincronizado los lunes. */
 export function GoogleSettings() {
   const g = useGoogle()
   const [params, setParams] = useSearchParams()
@@ -129,7 +101,6 @@ export function GoogleSettings() {
 
   const { conexion } = g
   const reconectar = conexion?.ultimoError === 'reconectar'
-  const sinPermisoGmail = conexion != null && !conexion.scopes.some((s) => s.includes('gmail'))
 
   return (
     <Card>
@@ -169,8 +140,8 @@ export function GoogleSettings() {
       ) : !conexion ? (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-content-muted">
-            Conecta tu cuenta para ver tus eventos de Google Calendar aquí, subir los que
-            crees en la app y detectar citas en tus correos importantes de Gmail.
+            Conecta tu cuenta para ver tus eventos de Google Calendar aquí y subir los que
+            crees en la app. Se sincroniza sola cada lunes por la mañana.
           </p>
           <div>
             <Button
@@ -191,6 +162,10 @@ export function GoogleSettings() {
             </p>
             <p className="mt-0.5 text-xs text-content-muted">
               Última sincronización {haceCuanto(conexion.ultimaSync)}
+            </p>
+            <p className="mt-1.5 text-xs leading-relaxed text-content-muted">
+              Se sincroniza sola cada lunes por la mañana. «Sincronizar ahora» manda y trae
+              los cambios al instante.
             </p>
           </div>
 
@@ -237,42 +212,6 @@ export function GoogleSettings() {
                       onChange={(v) => void ejecutar(() => g.setCalendarioVisible(c.id, v))}
                     />
                   </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div>
-            <div className="flex items-center gap-3">
-              <span className="min-w-0 flex-1">
-                <span className="block text-sm font-semibold text-content">
-                  Eventos importantes de Gmail
-                </span>
-                <span className="block text-xs leading-snug text-content-muted">
-                  Solo correos que Gmail marca como importantes; Claude decide si hay un evento
-                  y lo agrega solo.
-                </span>
-              </span>
-              <Interruptor
-                activo={conexion.gmailActivo && !sinPermisoGmail}
-                etiqueta="Eventos importantes de Gmail"
-                disabled={ocupado || sinPermisoGmail}
-                onChange={(v) => void ejecutar(() => g.setGmailActivo(v))}
-              />
-            </div>
-            {sinPermisoGmail && (
-              <p className="mt-1 text-xs text-content-subtle">
-                No diste permiso para leer Gmail. Reconecta y déjalo marcado para usarlo.
-              </p>
-            )}
-          </div>
-
-          {g.procesados.length > 0 && (
-            <div>
-              <p className="mb-2 text-xs font-semibold text-content-muted">Últimos correos revisados</p>
-              <ul className="flex flex-col gap-2">
-                {g.procesados.map((p) => (
-                  <FilaCorreo key={p.messageId} p={p} />
                 ))}
               </ul>
             </div>
