@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { COLORS, type ColorStyles } from '../data/palette'
 import { SCHOOL_EVENTS } from '../data/schoolCalendar'
+import { cuandoHayaCalma } from '../lib/arranque'
 import { createCollection, newId } from '../lib/cloudStore'
 import { supabase } from '../lib/supabase'
 import { stableId } from '../lib/ids'
@@ -176,11 +177,15 @@ async function sembrarColegio() {
 }
 
 if (typeof window !== 'undefined') {
-  void supabase.auth.getSession().then(({ data }) => {
-    if (data.session) void sembrarColegio()
-  })
-  supabase.auth.onAuthStateChange((evento, session) => {
-    if (session && evento === 'SIGNED_IN') void sembrarColegio()
+  // La siembra consulta la nube y puede subir decenas de eventos: espera a que la
+  // primera pantalla esté pintada y el celular, desocupado.
+  cuandoHayaCalma(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void sembrarColegio()
+    })
+    supabase.auth.onAuthStateChange((evento, session) => {
+      if (session && evento === 'SIGNED_IN') void sembrarColegio()
+    })
   })
 }
 

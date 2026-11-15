@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { trasPrimerPintado } from './arranque'
 import { supabase } from './supabase'
 
 /*
@@ -159,8 +160,11 @@ function alCambiarUsuario(id: string | null) {
 }
 
 if (typeof window !== 'undefined') {
-  void supabase.auth.getSession().then(({ data }) => alCambiarUsuario(data.session?.user.id ?? null))
-  supabase.auth.onAuthStateChange((_e, s) => alCambiarUsuario(s?.user.id ?? null))
+  // Ni la conexión con Google ni su canal hacen falta para pintar la primera pantalla.
+  trasPrimerPintado(() => {
+    void supabase.auth.getSession().then(({ data }) => alCambiarUsuario(data.session?.user.id ?? null))
+    supabase.auth.onAuthStateChange((_e, s) => alCambiarUsuario(s?.user.id ?? null))
+  })
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') void recargarGoogle()
   })
