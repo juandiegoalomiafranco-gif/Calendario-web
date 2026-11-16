@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { COLORS, type ColorStyles } from '../data/palette'
 import { SCHOOL_EVENTS } from '../data/schoolCalendar'
+import { cuandoHayaCalma } from '../lib/arranque'
 import { createCollection, newId } from '../lib/cloudStore'
 import { supabase } from '../lib/supabase'
 import { stableId } from '../lib/ids'
@@ -26,8 +27,18 @@ export interface CalendarEvent {
   /** Hora opcional, "18:30". */
   time?: string
   notes?: string
-  /** 'colegio' = sembrado del calendario oficial; 'propio' = puesto por ti. */
-  source?: 'colegio' | 'propio'
+  /** Último día (inclusivo) si el evento dura varios días. */
+  endDate?: string
+  /** Hora de fin, "19:30". */
+  endTime?: string
+  location?: string
+  /**
+   * 'colegio' = sembrado del calendario oficial; 'propio' = puesto por ti;
+   * 'google' = bajó de Google Calendar.
+   */
+  source?: 'colegio' | 'propio' | 'google'
+  /** Solo lectura: lo escribe el servidor. Enlace al evento en Google Calendar. */
+  googleLink?: string
 }
 
 export const EVENT_TYPE_META: Record<
@@ -60,6 +71,10 @@ interface EventRow {
   time: string | null
   notes: string | null
   source: string | null
+  fecha_fin: string | null
+  hora_fin: string | null
+  lugar: string | null
+  google_link: string | null
 }
 
 const store = createCollection<CalendarEvent, EventRow>({
@@ -74,7 +89,13 @@ const store = createCollection<CalendarEvent, EventRow>({
     important: r.important ?? r.type === 'importante',
     time: r.time ?? undefined,
     notes: r.notes ?? undefined,
-    source: r.source === 'colegio' ? 'colegio' : 'propio',
+    // Cualquier otro valor cuenta como propio, también el 'gmail' de filas viejas de la
+    // importación de correos que se retiró.
+    source: r.source === 'colegio' || r.source === 'google' ? r.source : 'propio',
+    endDate: r.fecha_fin ?? undefined,
+    endTime: r.hora_fin ?? undefined,
+    location: r.lugar ?? undefined,
+    googleLink: r.google_link ?? undefined,
   }),
   itemToRow: (e, userId) => ({
     id: e.id,
@@ -86,6 +107,11 @@ const store = createCollection<CalendarEvent, EventRow>({
     time: e.time ?? null,
     notes: e.notes ?? null,
     source: e.source ?? 'propio',
+    fecha_fin: e.endDate ?? null,
+    hora_fin: e.endTime ?? null,
+    lugar: e.location ?? null,
+    // Las columnas google_* las escribe solo el servidor: si la app las mandara en el
+    // upsert pisaría el vínculo con Google con valores viejos.
   }),
 })
 
@@ -145,11 +171,15 @@ async function sembrarColegio() {
 }
 
 if (typeof window !== 'undefined') {
-  void supabase.auth.getSession().then(({ data }) => {
-    if (data.session) void sembrarColegio()
-  })
-  supabase.auth.onAuthStateChange((evento, session) => {
-    if (session && evento === 'SIGNED_IN') void sembrarColegio()
+  // La siembra consulta la nube y puede subir decenas de eventos: espera a que la
+  // primera pantalla esté pintada y el celular, desocupado.
+  cuandoHayaCalma(() => {
+    void supabase.auth.getSession().then(({ data }) => {
+      if (data.session) void sembrarColegio()
+    })
+    supabase.auth.onAuthStateChange((evento, session) => {
+      if (session && evento === 'SIGNED_IN') void sembrarColegio()
+    })
   })
 }
 
@@ -166,6 +196,11 @@ export function useCalendarEvents() {
     for (const e of store.get()) if (e.source === 'colegio') store.remove(e.id)
   }, [])
 
+  /*
+   * Ningún cambio pide una sincronización con Google: la base los deja marcados como
+   * pendientes y suben el lunes por la mañana, o antes con «Sincronizar ahora» en Ajustes.
+   * El dueño lo prefirió así.
+   */
   const addEvent = useCallback((event: Omit<CalendarEvent, 'id'>) => {
     store.upsert({ ...event, id: newId(), source: event.source ?? 'propio' })
   }, [])
@@ -176,7 +211,8 @@ export function useCalendarEvents() {
 
   const toggleImportant = useCallback((id: string) => {
     const e = store.get().find((x) => x.id === id)
-    if (e) store.upsert({ ...e, important: !e.important })
+    if (!e) return
+    store.upsert({ ...e, important: !e.important })
   }, [])
 
   const removeEvent = useCallback((id: string) => {

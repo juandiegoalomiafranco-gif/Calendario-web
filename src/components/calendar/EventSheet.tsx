@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Bookmark, Trash2 } from 'lucide-react'
+import { Bookmark, CalendarDays, ExternalLink, Trash2 } from 'lucide-react'
 import {
   EVENT_TYPE_META,
   EVENT_TYPE_ORDER,
@@ -8,6 +8,7 @@ import {
   type EventType,
 } from '../../hooks/useCalendarEvents'
 import { formatFull } from '../../lib/dates'
+import { useGoogle } from '../../hooks/useGoogle'
 import { cx } from '../../lib/cx'
 import { Button } from '../ui/Button'
 import { DateInput, Field, TextArea, TextInput } from '../ui/Field'
@@ -28,12 +29,15 @@ interface EventSheetProps {
  */
 export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
   const { addEvent, updateEvent, removeEvent } = useCalendarEvents()
+  const { conectado } = useGoogle()
   const isEdit = event != null
 
   const [title, setTitle] = useState('')
   const [type, setType] = useState<EventType>('personal')
   const [when, setWhen] = useState(date)
   const [time, setTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [location, setLocation] = useState('')
   const [notes, setNotes] = useState('')
   const [important, setImportant] = useState(false)
 
@@ -43,6 +47,8 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
     setType(event?.type ?? 'personal')
     setWhen(event?.date ?? date)
     setTime(event?.time ?? '')
+    setEndTime(event?.endTime ?? '')
+    setLocation(event?.location ?? '')
     setNotes(event?.notes ?? '')
     setImportant(event?.important ?? false)
   }, [open, event, date])
@@ -56,12 +62,25 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
       type,
       important,
       time: time || undefined,
+      // Sin hora de inicio una hora de fin no significa nada.
+      endTime: time && endTime ? endTime : undefined,
+      location: location.trim() || undefined,
       notes: notes.trim() || undefined,
+      // Si se movió el inicio más allá del último día, el evento vuelve a ser de un día.
+      endDate: event?.endDate && event.endDate > when ? event.endDate : undefined,
     }
-    if (isEdit && event) updateEvent({ ...payload, id: event.id })
+    // Se parte del evento original para no perder de dónde viene (source) ni sus enlaces.
+    if (isEdit && event) updateEvent({ ...event, ...payload })
     else addEvent(payload)
     onClose()
   }
+
+  const enlaceGoogle = event?.googleLink
+  // Borrarlo aquí lo borra también en Google Calendar si el evento está (o va a estar) allí.
+  const avisoBorrado =
+    isEdit &&
+    event?.source !== 'colegio' &&
+    (event?.source === 'google' || conectado)
 
   return (
     <Sheet
@@ -131,6 +150,24 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
         </Field>
       </div>
 
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Termina (opcional)">
+          <TextInput
+            type="time"
+            value={endTime}
+            onChange={(e) => setEndTime(e.target.value)}
+            disabled={!time}
+          />
+        </Field>
+        <Field label="Lugar (opcional)">
+          <TextInput
+            value={location}
+            onChange={(e) => setLocation(e.target.value)}
+            placeholder="Consultorio, casa de…"
+          />
+        </Field>
+      </div>
+
       <Field label="Notas (opcional)">
         <TextArea
           rows={2}
@@ -139,6 +176,21 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
           placeholder="Dirección, qué llevar…"
         />
       </Field>
+
+      {enlaceGoogle && (
+        <div className="flex flex-wrap gap-2">
+          <a
+            href={enlaceGoogle}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-line bg-surface px-4 text-sm font-semibold text-content transition-colors hover:bg-surface-2"
+          >
+            <CalendarDays size={15} aria-hidden />
+            Abrir en Google Calendar
+            <ExternalLink size={13} className="text-content-subtle" aria-hidden />
+          </a>
+        </div>
+      )}
 
       {/* El marcador que pediste: deja el evento señalado en el calendario */}
       <button
@@ -165,6 +217,13 @@ export function EventSheet({ open, onClose, date, event }: EventSheetProps) {
           </span>
         </span>
       </button>
+
+      {avisoBorrado && (
+        <p className="text-xs leading-relaxed text-content-subtle">
+          Si lo borras, también se borra de Google Calendar el lunes (o antes, si tocas
+          «Sincronizar ahora» en Ajustes).
+        </p>
+      )}
     </Sheet>
   )
 }

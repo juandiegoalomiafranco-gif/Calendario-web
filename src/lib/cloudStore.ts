@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react'
-import { supabase } from './supabase'
+import { trasPrimerPintado } from './arranque'
+import { leerSesionGuardada, supabase } from './supabase'
 import {
+  getSyncStatus,
   markSyncError,
   markSynced,
   markSyncing,
@@ -41,6 +43,22 @@ let channel: ReturnType<typeof supabase.channel> | null = null
 function registerLoader(loader: Loader) {
   loaders.add(loader)
   if (currentUserId) loader(currentUserId)
+}
+
+let reinicioRealtime: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * Una tabla que se registra con el canal ya abierto no recibiría nada: el canal solo
+ * escucha las tablas que existían al abrirlo. Pasa con los módulos que se cargan
+ * después del arranque (las pantallas van en trozos aparte), así que se reabre el
+ * canal, una sola vez aunque lleguen varias tablas seguidas.
+ */
+function alRegistrarTabla() {
+  if (!channel || reinicioRealtime) return
+  reinicioRealtime = setTimeout(() => {
+    reinicioRealtime = null
+    if (currentUserId) startRealtime(currentUserId)
+  }, 1_000)
 }
 
 let reconexion: ReturnType<typeof setTimeout> | null = null
@@ -104,16 +122,27 @@ function stopRealtime() {
 }
 
 function onUser(userId: string | null) {
+  // Va antes de la comparación: al arrancar se marca «con sesión» a cuenta de lo
+  // guardado, y si la nube la rechaza hay que deshacerlo aunque el id no cambie.
+  if (getSyncStatus().signedIn !== !!userId) patchSyncStatus({ signedIn: !!userId })
   if (userId === currentUserId) return
   currentUserId = userId
-  patchSyncStatus({ signedIn: !!userId })
   loaders.forEach((l) => l(userId))
   if (userId) startRealtime(userId)
   else stopRealtime()
 }
 
-void supabase.auth.getSession().then(({ data }) => onUser(data.session?.user.id ?? null))
-supabase.auth.onAuthStateChange((_event, session) => onUser(session?.user.id ?? null))
+// La pantalla se pinta desde la caché local con la sesión guardada; el indicador de
+// sincronización no tiene por qué decir «Solo en este dispositivo» mientras tanto.
+if (leerSesionGuardada()) patchSyncStatus({ signedIn: true })
+
+// La bajada de las ~17 tablas y el canal de Realtime esperan al primer pintado: no hacen
+// falta para pintar y competían con él. La renovación del token, en cambio, ya va por
+// su cuenta desde que se crea el cliente, así que no se retrasa nada de red.
+trasPrimerPintado(() => {
+  void supabase.auth.getSession().then(({ data }) => onUser(data.session?.user.id ?? null))
+  supabase.auth.onAuthStateChange((_event, session) => onUser(session?.user.id ?? null))
+})
 
 /**
  * Id único para items nuevos. Las columnas son `uuid` en Postgres, así que el id
@@ -398,6 +427,7 @@ export function createCollection<T extends { id: string }, Row>(
   pullers.add((forzar) => void pull(forzar))
 
   realtimeHandlers.set(opts.table, (row) => applyRows([row as Row & RowMeta]))
+  alRegistrarTabla()
 
   registerLoader((userId) => {
     if (!userId) return
@@ -591,6 +621,7 @@ export function createSingleton<T, Row>(opts: SingletonOpts<T, Row>): Singleton<
   realtimeHandlers.set(opts.table, (row) =>
     applyRow(row as Row & { updated_at?: string | null }),
   )
+  alRegistrarTabla()
 
   registerLoader((userId) => {
     if (!userId) return

@@ -6,6 +6,7 @@ import {
   Clock,
   ChevronLeft,
   ChevronRight,
+  MapPin,
   PartyPopper,
 } from 'lucide-react'
 import { holidayName } from '../data/holidays'
@@ -16,6 +17,7 @@ import { TASK_KIND_META, URGENCY_META } from '../data/schoolTypes'
 import { colorOf } from '../data/palette'
 import {
   addMonths,
+  formatShort,
   dayNumber,
   formatFull,
   formatMonthYear,
@@ -28,6 +30,8 @@ import {
   WEEKDAY_SHORT,
 } from '../lib/dates'
 import { cx } from '../lib/cx'
+import { diasEnVentana, ocurreEn, rangoDeHoras, ultimoDia } from '../lib/eventos'
+import { FuenteInsignia } from '../components/calendar/FuenteInsignia'
 import { PageHeader } from '../components/layout/PageHeader'
 import { Button } from '../components/ui/Button'
 import { Card, CardHeader } from '../components/ui/Card'
@@ -78,17 +82,22 @@ export function Calendario() {
       }
       return entry
     }
+    // Un evento de varios días sale en cada día de la rejilla que toca, no solo el primero.
+    const primero = weeks[0][0]
+    const ultimo = weeks[weeks.length - 1][6]
     for (const e of events) {
-      const entry = ensure(e.date)
-      entry.events.push(e)
-      if (e.important) entry.important = true
+      for (const d of diasEnVentana(e, primero, ultimo)) {
+        const entry = ensure(d)
+        entry.events.push(e)
+        if (e.important) entry.important = true
+      }
     }
     for (const t of tasks) {
       if (!t.dueDate || t.done) continue
       ensure(t.dueDate).tasks.push(t)
     }
     return map
-  }, [events, tasks])
+  }, [events, tasks, weeks])
 
   function selectDay(date: string) {
     setParams(date === today ? {} : { d: date }, { replace: true })
@@ -102,8 +111,13 @@ export function Calendario() {
 
   // --- Agenda del día seleccionado ------------------------------------------
   const dayEvents = events
-    .filter((e) => e.date === selected)
-    .sort((a, b) => (a.time ?? '99').localeCompare(b.time ?? '99'))
+    .filter((e) => ocurreEn(e, selected))
+    // Los que vienen de días anteriores no tienen hora hoy: van arriba, como «todo el día».
+    .sort((a, b) =>
+      (a.date < selected ? '' : (a.time ?? '99')).localeCompare(
+        b.date < selected ? '' : (b.time ?? '99'),
+      ),
+    )
   const dayTasks = tasks.filter((t) => t.dueDate === selected)
   const dayHoliday = holidayName(selected)
   const isEmpty =
@@ -307,6 +321,8 @@ export function Calendario() {
             <div className="flex flex-col gap-2">
               {dayEvents.map((e) => {
                 const meta = EVENT_TYPE_META[e.type] ?? EVENT_TYPE_META.otro
+                const horas = rangoDeHoras(e, selected)
+                const fin = ultimoDia(e)
                 return (
                   <button
                     key={e.id}
@@ -339,15 +355,27 @@ export function Calendario() {
                             aria-label="Importante"
                           />
                         )}
-                        {e.time && (
+                        <FuenteInsignia source={e.source} />
+                        {horas && (
                           <span className="ml-auto text-[11px] font-bold tabular text-content-muted">
-                            {e.time}
+                            {horas}
                           </span>
                         )}
                       </span>
                       <span className="mt-0.5 block truncate text-sm font-bold text-content">
                         {e.title}
                       </span>
+                      {fin > e.date && (
+                        <span className="mt-0.5 block text-xs text-content-muted">
+                          {formatShort(e.date)} – {formatShort(fin)}
+                        </span>
+                      )}
+                      {e.location && (
+                        <span className="mt-0.5 flex items-center gap-1 text-xs text-content-muted">
+                          <MapPin size={11} className="shrink-0" aria-hidden />
+                          <span className="truncate">{e.location}</span>
+                        </span>
+                      )}
                       {e.notes && (
                         <span className="mt-0.5 block line-clamp-2 text-xs text-content-muted">
                           {e.notes}

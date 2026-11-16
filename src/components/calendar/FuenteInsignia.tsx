@@ -1,0 +1,15 @@
+import { CalendarDays } from 'lucide-react'
+import type { CalendarEvent } from '../../hooks/useCalendarEvents'
+
+/**
+ * Marca pequeña de dónde viene un evento. Los propios y los del colegio no llevan nada:
+ * así lo que llega de Google se distingue sin llenar de iconos lo de siempre.
+ */
+export function FuenteInsignia({ source }: { source: CalendarEvent['source'] }) {
+  if (source === 'google') {
+    return (
+      <CalendarDays size={11} className="shrink-0 text-content-subtle" aria-label="De Google Calendar" />
+    )
+  }
+  return null
+}

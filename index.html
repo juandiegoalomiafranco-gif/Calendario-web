@@ -17,6 +17,12 @@
       name="description"
       content="MyLife — la app del celular de Juan Diego para organizar toda su vida: colegio, tareas, entrenamiento, dieta, finanzas, calendario y pendientes en un solo sitio."
     />
+    <!--
+      La primera llamada a Supabase (renovar la sesión) sale en cuanto corre el JS; abrir
+      ya la conexión (DNS + TCP + TLS, tres idas y vueltas en el celular) mientras baja el
+      JS le quita ese tiempo. La URL es pública y sale de .env al compilar.
+    -->
+    <link rel="preconnect" href="%VITE_SUPABASE_URL%" crossorigin />
     <link rel="manifest" href="/manifest.json" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -40,8 +46,167 @@
         }
       })()
     </script>
+    <style>
+      /*
+       * Pantalla de bienvenida. Va escrita aquí, en el propio documento, para que salga
+       * en el primer cuadro, antes de que llegue el JS. Los colores son los de tokens.css:
+       * su hoja bloquea el pintado, así que ya está cuando esto se ve, y el tema claro u
+       * oscuro ya lo puso el script de arriba.
+       *
+       * No añade espera: la quita la app en cuanto ha pintado la primera pantalla (ver
+       * src/lib/arranque.ts). Es fija y encima de todo, así que no toca el armazón.
+       */
+      #splash {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+          env(safe-area-inset-left);
+        background-color: rgb(var(--bg));
+        transition: opacity 0.25s ease;
+      }
+      #splash.fuera {
+        opacity: 0;
+        pointer-events: none;
+      }
+      .splash-marca {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        animation: s-entrar 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .splash-marca svg {
+        width: 84px;
+        height: 84px;
+        border-radius: 19px;
+        box-shadow: var(--shadow-lg);
+      }
+      .s-fondo {
+        fill: rgb(var(--hero-to));
+      }
+      /* Las cuatro piezas del icono entran una tras otra, como al armar la semana. */
+      .s-t {
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: s-pieza 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+      .s-t1 {
+        fill: rgb(var(--hero-fg));
+        animation-delay: 0.1s;
+      }
+      .s-t2 {
+        fill: rgb(var(--accent));
+        animation-delay: 0.17s;
+      }
+      .s-t3 {
+        fill: rgb(var(--accent));
+        animation-delay: 0.24s;
+      }
+      .s-t4 {
+        fill: rgb(var(--hero-fg) / 0.45);
+        animation-delay: 0.31s;
+      }
+      .splash-nombre {
+        margin-top: 18px;
+        font: 600 20px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+        letter-spacing: -0.02em;
+        color: rgb(var(--text));
+        animation: s-subir 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.22s both;
+      }
+      /* El acento lima: un trazo que barre debajo del nombre mientras carga. */
+      .splash-linea {
+        position: relative;
+        width: 44px;
+        height: 3px;
+        margin-top: 12px;
+        overflow: hidden;
+        border-radius: 3px;
+        background-color: rgb(var(--line));
+        animation: s-subir 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.3s both;
+      }
+      .splash-linea::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        width: 45%;
+        border-radius: 3px;
+        background-color: rgb(var(--brand));
+        animation: s-barrido 1.1s cubic-bezier(0.65, 0, 0.35, 1) 0.42s infinite both;
+      }
+      @keyframes s-entrar {
+        from {
+          opacity: 0;
+          transform: scale(0.9);
+        }
+      }
+      @keyframes s-pieza {
+        from {
+          opacity: 0;
+          transform: scale(0.4);
+        }
+      }
+      @keyframes s-subir {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+      }
+      @keyframes s-barrido {
+        from {
+          transform: translateX(-100%);
+        }
+        to {
+          transform: translateX(225%);
+        }
+      }
+      /* Sin movimiento: la marca quieta y solo el fundido de salida. */
+      @media (prefers-reduced-motion: reduce) {
+        #splash *,
+        #splash *::after {
+          animation: none !important;
+        }
+        .splash-linea {
+          visibility: hidden;
+        }
+      }
+    </style>
   </head>
   <body>
+    <div id="splash" aria-hidden="true">
+      <div class="splash-marca">
+        <svg viewBox="0 0 128 128" role="presentation">
+          <rect class="s-fondo" width="128" height="128" rx="28" />
+          <rect class="s-t s-t1" x="30" y="30" width="30" height="30" rx="9" />
+          <rect class="s-t s-t2" x="68" y="30" width="30" height="30" rx="9" />
+          <rect class="s-t s-t3" x="30" y="68" width="30" height="30" rx="9" />
+          <rect class="s-t s-t4" x="68" y="68" width="30" height="30" rx="9" />
+        </svg>
+        <span class="splash-nombre">MyLife</span>
+        <span class="splash-linea"></span>
+      </div>
+    </div>
+    <script>
+      // La quita la app tras su primer pintado (src/lib/arranque.ts). Si la app llega
+      // antes de que la marca termine de entrar, se deja ver un instante —350 ms en
+      // total como mucho— porque un destello de un cuadro se lee como un fallo.
+      ;(function () {
+        var splash = document.getElementById('splash')
+        var desde = performance.now()
+        window.__ocultarSplash = function () {
+          window.__ocultarSplash = function () {}
+          var espera = Math.max(0, 350 - (performance.now() - desde))
+          setTimeout(function () {
+            splash.classList.add('fuera')
+            setTimeout(function () {
+              splash.remove()
+            }, 300)
+          }, espera)
+        }
+      })()
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

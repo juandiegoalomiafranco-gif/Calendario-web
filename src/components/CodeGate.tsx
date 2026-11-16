@@ -1,7 +1,8 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import { KeyRound } from 'lucide-react'
+import { avisarPrimerPintado } from '../lib/arranque'
 import { emailForCode, lock, markUnlocked, MIN_CODE_LENGTH, signInWithCode } from '../lib/auth'
-import { supabase } from '../lib/supabase'
+import { leerSesionGuardada, supabase } from '../lib/supabase'
 import { Button } from './ui/Button'
 
 /**
@@ -13,9 +14,22 @@ import { Button } from './ui/Button'
  * directo. Vuelve a pedirse al cerrar sesión desde Ajustes o si la nube la invalida.
  */
 export function CodeGate({ children }: { children: ReactNode }) {
-  // `null` = comprobando. La sesión se lee de `localStorage` sin red, así que es un
-  // instante; mientras, se pinta el fondo vacío en vez de asomar la pantalla del código.
-  const [unlocked, setUnlocked] = useState<boolean | null>(null)
+  /*
+   * Con una sesión guardada se entra en el acto, sin esperar a la nube.
+   *
+   * Antes se esperaba a `getSession()`, que con el token caducado —lo normal al reabrir
+   * la app pasada una hora— primero lo renueva por red: en el celular eran uno o dos
+   * segundos de pantalla vacía, y con mala señal la pantalla vacía no se iba nunca. Lo
+   * que se pinta sale del propio dispositivo; si la nube resulta haber invalidado la
+   * sesión, llega `SIGNED_OUT` y se vuelve a pedir el código.
+   *
+   * Sin sesión guardada queda `null` (comprobando) hasta que responda `getSession()`,
+   * que en ese caso no toca la red: es un instante de fondo vacío en vez de asomar la
+   * pantalla del código y quitarla.
+   */
+  const [unlocked, setUnlocked] = useState<boolean | null>(() =>
+    leerSesionGuardada() ? true : null,
+  )
   const [code, setCode] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -28,10 +42,13 @@ export function CodeGate({ children }: { children: ReactNode }) {
         // También cubre a quien entró con la versión anterior, que no dejaba marca.
         markUnlocked()
         setUnlocked(true)
-      } else {
+      } else if (!leerSesionGuardada()) {
         lock()
         setUnlocked(false)
       }
+      // Sin sesión en la respuesta pero todavía guardada = no se pudo renovar por falta
+      // de red (si la nube la hubiera rechazado, supabase-js ya la habría borrado). Se
+      // sigue dentro con lo del dispositivo: la librería reintenta sola al volver la red.
     })
     const { data: sub } = supabase.auth.onAuthStateChange((evento) => {
       if (evento === 'SIGNED_OUT') {
@@ -72,6 +89,12 @@ export function CodeGate({ children }: { children: ReactNode }) {
       setError(res.error ?? 'No se pudo entrar.')
     }
   }
+
+  // La primera pantalla de verdad (el código o la app) ya está montada: se puede quitar
+  // la bienvenida y empezar a hablar con la nube.
+  useEffect(() => {
+    if (unlocked !== null) avisarPrimerPintado()
+  }, [unlocked])
 
   if (unlocked === null) return <div className="min-h-[100svh] bg-bg" />
   if (unlocked) return <>{children}</>

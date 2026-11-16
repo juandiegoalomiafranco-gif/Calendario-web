@@ -30,7 +30,8 @@ Desarrollo: `npm install && npm run dev`. Antes de dar algo por bueno:
 | `src/lib/` | Supabase, sincronización, fechas, ciclo del colegio, texto enriquecido |
 | `src/data/` | Datos fijos: horario, calendario del colegio, plan de entreno, lonchera |
 | `src/styles/` | `tokens.css` (solo colores y sombras) e `index.css` (armazón y reglas táctiles) |
-| `supabase/` | Migraciones y la función de recordatorios |
+| `supabase/` | Migraciones y Edge Functions: recordatorios, Google (`google-auth`, `google-sync`, código común en `_shared/`) |
+| `docs/` | Guías: `GOOGLE.md` (conectar Google Calendar), `PUENTE-ENTRENADOR.md` |
 
 ## Cómo está montada la pantalla
 
@@ -52,6 +53,31 @@ El teclado del celular es el otro caso raro: en iOS **no encoge el viewport**, a
 lo que quede abajo se va detrás del teclado. Lo mide `useKeyboardInset`
 (`src/hooks/useKeyboardInset.ts`) y lo usan `AppShell` y `Sheet` para apartarse.
 
+Y aun anclado a los bordes, instalada en algunos iPhone iOS descuenta dos veces la
+barra de estado y el viewport se queda ~50 pt corto: queda una franja vacía bajo la
+píldora. `src/lib/huecoInferiorIOS.ts` lo mide (solo iPhone instalado, en vertical) y
+estira `.app-shell` con `--hueco-ios-abajo`; en cualquier otro caso vale 0. Al final
+de Ajustes sale una línea con esas medidas para diagnosticarlo si volviera.
+
+## Arranque
+
+La app tiene que abrir en menos de un segundo, también con mala señal:
+
+- **Con sesión guardada se entra ya** (`CodeGate` + `CLAVE_SESION` en
+  `src/lib/supabase.ts`): se pinta desde la caché local y la renovación del token va
+  por detrás. Si la nube rechaza la sesión, vuelve la pantalla del código. Nunca
+  esperar a la red antes del primer pintado.
+- **Pantallas perezosas**: se registran en `src/pantallas.ts`, no se importan directo
+  en `App.tsx`. Solo Inicio va en el paquete principal; el resto se precarga tras el
+  primer pintado.
+- **Trabajo de arranque**: lo que no hace falta para pintar (bajada de tablas,
+  Realtime, Google, siembras, service worker) va por `trasPrimerPintado` o
+  `cuandoHayaCalma` de `src/lib/arranque.ts`.
+- **Animación de inicio**: CSS en línea en `index.html` (pinta antes que el JS);
+  `arranque.ts` la retira en cuanto React pinta. No debe añadir espera.
+- `vite.config.ts` separa React y Supabase en archivos propios para que su caché
+  sobreviva a los despliegues.
+
 ## Reglas de la casa
 
 - **Todo en español**: la interfaz, los comentarios, los mensajes de commit y los
@@ -69,6 +95,32 @@ lo que quede abajo se va detrás del teclado. Lo mide `useKeyboardInset`
   `text-body`, `text-caption`, `text-micro`) y pesos medios; `font-extrabold` casi no
   se usa: con todo en negrita la pantalla se veía saturada.
 - Zonas táctiles de 44 px en el celular, también en `@media (pointer: coarse)`.
+
+## Google Calendar
+
+Google es una **cuenta vinculada** aparte del login por código: el OAuth y la
+sincronización los hacen las Edge Functions, nunca el navegador. Configuración,
+funcionamiento y solución de problemas: [`docs/GOOGLE.md`](docs/GOOGLE.md). Lo que hay
+que saber antes de tocar código:
+
+- La app **nunca** manda las columnas `google_*` (tampoco `google_pendiente`) en su
+  upsert de `calendar_events`: las escribe solo el servidor.
+  `google_pendiente` (y en `google_cambios` qué campos) lo pone un trigger cuando el rol
+  `authenticated` cambia algo que se sube; la estrella y el tipo no cuentan.
+- Solo el dueño conecta Google: el servidor mira `google_permitidos` y a cualquier otra
+  cuenta le responde `no_permitido`.
+- `source` de un evento: `propio`, `colegio` (nunca sube a Google) o `google`. Un
+  `gmail` de filas viejas (la importación de correos se retiró) se lee como `propio`.
+- Tablas: `google_conexion` (la app lee y cambia `calendarios[].visible`),
+  `google_tokens`, `google_oauth_estados` y `google_permitidos` (solo service role; el
+  token va cifrado en Vault).
+- La sincronización automática es **solo los lunes** (cron `google-sync-lunes`, 6:00 en
+  Bogotá): lo pidió el dueño. Editar un evento **no** llama a `google-sync`; solo lo hacen
+  «Sincronizar ahora», el cambio de calendarios visibles en Ajustes y la primera
+  sincronización al conectar. No vuelvas a meter una sincronización tras cada cambio.
+- Las funciones responden `{ok:false, error, detalle?}`: 401 sin credenciales, 403
+  `no_permitido`, 200 en los demás errores lógicos. Cada código nuevo necesita su texto
+  en `mensajeDeError` (`src/lib/google.ts`).
 
 ## Qué NO se toca sin que lo pida él
 
